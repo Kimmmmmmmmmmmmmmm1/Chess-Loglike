@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddba3317ad88842559babe2d15b90561, type: 3}
+  m_Name: Other_FinalBoss
+  m_EditorClassIdentifier: 
+  id: other_final_boss
+  achievementName: 최종 보스 격파
+  description: 최종 보스를 처치하세요.
+  category: 2
+  targetCount: 1
+  difficulty: 3

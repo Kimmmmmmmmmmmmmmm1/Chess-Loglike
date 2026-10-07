@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8d4ca3ac1dd44d64afe89d6f19e49f8, type: 3}
+  m_Name: Audio Database
+  m_EditorClassIdentifier: Assembly-CSharp::AudioDatabase
+  bgmClips:
+  - type: 0
+    clip: {fileID: 8300000, guid: df75d9064846848a4afb7237a0f05f07, type: 3}
+  - type: 2
+    clip: {fileID: 8300000, guid: d1573d147c6874fbbb3e3b54c8dd11d3, type: 3}
+  - type: 5
+    clip: {fileID: 8300000, guid: 3473a20d0edc7494a8888865e3d56b99, type: 3}
+  - type: 6
+    clip: {fileID: 8300000, guid: 6e92294ce83e7402483c1932bdcf9525, type: 3}
+  sfxClips:
+  - type: 4
+    clip: {fileID: 8300000, guid: cf5eb6e302a82470b85f45aa6aaf9eaa, type: 3}
+  - type: 5
+    clip: {fileID: 8300000, guid: cf5eb6e302a82470b85f45aa6aaf9eaa, type: 3}
+  - type: 6
+    clip: {fileID: 8300000, guid: 72e5d002f8b5542d48118e9443c27193, type: 3}
+  - type: 6
+    clip: {fileID: 8300000, guid: 24e5bb040d5214040b2bcf9d8bc21fb7, type: 3}
+  - type: 7
+    clip: {fileID: 8300000, guid: 9d9acfcdcf58a455b962ec720af1b73b, type: 3}
+  uiClips: []

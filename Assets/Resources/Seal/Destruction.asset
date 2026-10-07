@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
+  m_Name: Destruction
+  m_EditorClassIdentifier: Assembly-CSharp::SealData
+  sealName: "\uC790\uD3ED\uC758 \uC778\uC7A5"
+  rarity: 0
+  description: "\uC774 \uAE30\uBB3C\uC774 \uC0AC\uB9DD\uD588\uC744 \uB54C, \uD3ED\uBC1C\uD569\uB2C8\uB2E4!"
+  flavorText: "\uD3ED\uD0C4\uC744 \uC9C0\uB2CC\uB2E4\uB294 \uC0AC\uC2E4\uC740 \uC704\uD5D8\uD558\uC8E0."
+  icon: {fileID: 7187665122349066479, guid: 70627a357a9fb4df0a285ca145a27dea, type: 3}
+  isSoldInShop: 1
+  sealPrefab: {fileID: 2006435481796697723, guid: 260b7b141de6846c9a882f93bc2ac4f6, type: 3}
+  compatiblePieces: 
+  effectType: 3
+  effectValue: 0

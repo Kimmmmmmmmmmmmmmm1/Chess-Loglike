@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddba3317ad88842559babe2d15b90561, type: 3}
+  m_Name: Test_Other
+  m_EditorClassIdentifier: 
+  id: test_other
+  achievementName: 이변 탐지
+  description: 특수 조건을 한 번 달성해보세요.
+  category: 2
+  targetCount: 1
+  difficulty: 2

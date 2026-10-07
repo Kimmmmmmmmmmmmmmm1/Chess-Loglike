@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddba3317ad88842559babe2d15b90561, type: 3}
+  m_Name: Other_Turn100
+  m_EditorClassIdentifier: 
+  id: other_turn_100
+  achievementName: 100턴의 장인
+  description: 한 번의 게임에서 100턴을 버티세요.
+  category: 2
+  nextAchievement: {fileID: 11400000, guid: 4d6a950bf7824d52ad8a63a3eec1b2c8, type: 2}
+  targetCount: 100
+  difficulty: 2

@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddba3317ad88842559babe2d15b90561, type: 3}
+  m_Name: Test_StageClear_Chain
+  m_EditorClassIdentifier: 
+  id: stage_clear_chain
+  achievementName: 스테이지 정복자
+  description: 스테이지를 반복 클리어해 단계 업적을 달성하세요.
+  category: 0
+  targetCount: 1
+  difficulty: 1
+  useStepProgress: 1
+  stepCount: 5
+  stepGoalInterval: 5

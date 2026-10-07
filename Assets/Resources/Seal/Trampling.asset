@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
+  m_Name: Trampling
+  m_EditorClassIdentifier: Assembly-CSharp::SealData
+  sealName: "\uC720\uB9B0\uC758 \uC778\uC7A5"
+  rarity: 2
+  description: "\uC801 \uAE30\uBB3C\uC774 \uC774\uB3D9 \uACBD\uB85C\uB97C \uB9C9\uACE0
+    \uC788\uC744 \uB54C, \uACBD\uB85C \uC704\uC758 \uC801\uC744 \uC804\uBD80 \uCC98\uCE58\uD558\uACE0
+    \uC774\uB3D9\uD569\uB2C8\uB2E4!"
+  flavorText: "\u3147\u3147"
+  icon: {fileID: 3944343766228188813, guid: 95980ea79e9734fbc9fe2d2728f381c0, type: 3}
+  isSoldInShop: 1
+  sealPrefab: {fileID: 2006435481796697723, guid: 2ef7c9199128947b0be0ae13b245982a, type: 3}
+  compatiblePieces: 0200000003000000
+  effectType: 2
+  effectValue: 0

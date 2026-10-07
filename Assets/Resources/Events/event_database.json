@@ -1,0 +1,109 @@
+{
+  
+  "events": [
+    {
+      "eventId": "RandomEvent1",
+      "title": "흑안개 성문 앞의 흉조",
+      "startNodeId": "start",
+      "defaultImagePath": "Events/Images/Event1",
+      "nodes": [
+        {
+          "nodeId": "start",
+          "dialogue": "마기로 물든 성의 수문장 처럼 생긴 석상이 보인다. 오랜 세월이 지나 무너진 수문장 석상 아래엔 전리품과 함께 알 수 없는 기운이 맴돈다.",
+          "choices": [
+            {
+              "text": "석상 밑 봉헌함을 연다 (70 골드 획득)",
+              "nextNodeId": "gold_choice",
+              "effect": {
+                "effectType": "GainGold",
+                "goldAmount": 70
+              }
+            },
+            {
+              "text": "봉인실 파편을 주워 든다 (랜덤 유물 획득)",
+              "nextNodeId": "artifact_choice",
+              "effect": {
+                "effectType": "GainRandomArtifact"
+              }
+            },
+            {
+              "text": "마기에 잠긴 병장기를 정화한다 (랜덤 기물 획득)",
+              "nextNodeId": "piece_choice",
+              "effect": {
+                "effectType": "GainRandomPiece",
+                "Seal": 1
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "gold_choice",
+          "endEvent": true,
+          "dialogue": "봉헌함에서 오래된 은전이 쏟아졌다. 군자금이 70 늘었다."
+        },
+        {
+          "nodeId": "artifact_choice",
+          "endEvent": true,
+          "dialogue": "깨진 봉인 파편이 손안에서 맥동하며 형체를 갖췄다. 기묘한 유물을 손에 넣었다."
+        },
+        {
+          "nodeId": "piece_choice",
+          "endEvent": true,
+          "dialogue": "핏빛 마기에 절어 있던 병장기가 정화되며 전열에 합류했다. 새로운 기물을 얻었다."
+        }
+      ]
+    },
+    {
+      "eventId": "RandomEvent2",
+      "title": "내성 회랑의 주술 함정",
+      "startNodeId": "start",
+      "defaultImagePath": "Events/Images/Event2",
+      "nodes": [
+        {
+          "nodeId": "start",
+          "dialogue": "내성 회랑에 발을 들이자 바닥의 주술진이 붉게 타올랐다. 성을 지키던 원귀들이 탐욕스러운 대가를 요구한다.",
+          "choices": [
+            {
+              "text": "진을 진정시키기 위해 군자금을 바친다 (70 골드 소모)",
+              "nextNodeId": "gold_choice",
+              "effect": {
+                "effectType": "LoseGold",
+                "goldAmount": 70
+              }
+            },
+            {
+              "text": "원귀의 손길을 막다 유물을 놓친다 (랜덤 유물 상실)",
+              "nextNodeId": "artifact_choice",
+              "effect": {
+                "effectType": "RemoveRandomArtifact"
+              }
+            },
+            {
+              "text": "퇴로를 열기 위해 후위를 희생한다 (랜덤 기물 상실)",
+              "nextNodeId": "piece_choice",
+              "effect": {
+                "effectType": "RemoveRandomPiece",
+                "Seal": 1
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "gold_choice",
+          "endEvent": true,
+          "dialogue": "주술진의 불길이 가라앉는 대신 군자금 70이 재처럼 사라졌다."
+        },
+        {
+          "nodeId": "artifact_choice",
+          "endEvent": true,
+          "dialogue": "원귀가 지나간 자리엔 차가운 바람만 남았다. 소중한 유물 하나를 잃었다."
+        },
+        {
+          "nodeId": "piece_choice",
+          "endEvent": true,
+          "dialogue": "피비린내 속 후위가 무너졌다. 전열에서 기물 하나가 사라졌다."
+        }
+      ]
+    }
+  ]
+}

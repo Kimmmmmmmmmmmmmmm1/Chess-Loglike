@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c130df2a6ade4f77bfc67c18a347949, type: 3}
+  m_Name: BossDifficulty3_Map2
+  m_EditorClassIdentifier: Assembly-CSharp::BossData
+  difficulty: 3
+  bossTitle: "\uBCBD\uB825\uC131\uC758 \uD654\uD3EC\uC7A5"
+  bossName: "\uC5FC\uB77C"
+  bossSprite: {fileID: 0}
+  mapWidth: 5
+  mapHeight: 7
+  minX: -2
+  minY: -3
+  bossPieces:
+  - pieceType: 0
+    gridCoordinate: {x: 0, y: 3}
+    seals: []
+  - pieceType: 4
+    gridCoordinate: {x: -2, y: 3}
+    seals: []
+  - pieceType: 4
+    gridCoordinate: {x: 2, y: 3}
+    seals: []
+  - pieceType: 4
+    gridCoordinate: {x: -1, y: 2}
+    seals: []
+  - pieceType: 4
+    gridCoordinate: {x: 1, y: 2}
+    seals: []
+  - pieceType: 5
+    gridCoordinate: {x: 0, y: 2}
+    seals:
+    - {fileID: 11400000, guid: bff5f243f0f1b4729b9396ef4bb062a3, type: 2}
+  - pieceType: 5
+    gridCoordinate: {x: 0, y: 1}
+    seals:
+    - {fileID: 11400000, guid: bff5f243f0f1b4729b9396ef4bb062a3, type: 2}
+  skills:
+  - {fileID: 9087290157756559987, guid: e0f9206f725c340caa3892af45f60f87, type: 3}

@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64464163a72ba43ad9a0d139b11b7f57, type: 3}
+  m_Name: NewInitialPieceData
+  m_EditorClassIdentifier: Assembly-CSharp::InitialPieceData
+  initialPieces:
+  - pieceType: 5
+    seals:
+    - {fileID: 11400000, guid: bff5f243f0f1b4729b9396ef4bb062a3, type: 2}
+  - pieceType: 0
+    seals: []
+  - pieceType: 5
+    seals: []

@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddba3317ad88842559babe2d15b90561, type: 3}
+  m_Name: Combat_Stage20
+  m_EditorClassIdentifier: 
+  id: combat_stage_20
+  achievementName: 20 스테이지 클리어
+  description: 스테이지를 총 20번 클리어하세요.
+  category: 0
+  nextAchievement: {fileID: 11400000, guid: 9aad5b64f78d4d28a0f75c36038d5e96, type: 2}
+  targetCount: 20
+  difficulty: 2
