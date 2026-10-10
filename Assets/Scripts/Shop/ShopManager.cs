@@ -394,22 +394,7 @@ public class ShopManager : MonoBehaviour
 
     public void EnterShopNode()
     {
-        if (shopPanel != null && shopPanel.activeSelf)
-        {
-            Close();
-        }
-
-        EnsureMerchantObject();
-
-        if (merchantObject == null)
-        {
-            Open();
-            return;
-        }
-
-        merchantObject.SetActive(true);
-        merchantObject.transform.SetAsLastSibling();
-        PlayMerchantEnterAnimation();
+        Open();
     }
 
     public void OpenFromMerchant()
@@ -456,12 +441,10 @@ public class ShopManager : MonoBehaviour
             GenerateShopItems();
             GenerateShopArtifact(); // 상점이 열릴 때 유물 생성 (리롤 시에는 호출되지 않음)
 
-            // 패널 애니메이션: 가로 폭을 넓히는 방식으로 전개
             if (shopPanelRect != null)
             {
                 shopPanelRect.DOKill();
-                SetShopPanelWidth(shopCollapsedWidth);
-                CreateShopPanelWidthTween(shopExpandedWidth).SetEase(openEase);
+                SetShopPanelWidth(shopExpandedWidth);
             }
         }
 
@@ -490,25 +473,15 @@ public class ShopManager : MonoBehaviour
         {
             if (shopPanelRect != null)
             {
-                // 패널 폭을 줄여서 숨김
                 shopPanelRect.DOKill();
-                CreateShopPanelWidthTween(shopCollapsedWidth)
-                    .SetEase(closeEase)
-                    .OnComplete(() =>
-                    {
-                        if (shopPanel != null) shopPanel.SetActive(false);
-                        onComplete?.Invoke();
-                    });
+                SetShopPanelWidth(shopExpandedWidth);
             }
-            else if (shopPanel != null)
+
+            if (shopPanel != null)
             {
                 shopPanel.SetActive(false);
-                onComplete?.Invoke();
             }
-            else
-            {
-                onComplete?.Invoke();
-            }
+            onComplete?.Invoke();
 
             // 장기판 원위치 복귀 연출 제거: 패널이 겹치므로 별도 복귀 동작 불필요
 
@@ -655,14 +628,14 @@ public class ShopManager : MonoBehaviour
     {
         if (confirmButton != null) confirmButton.interactable = false; // 중복 클릭 방지
 
-        // 상점이 닫히고 장기판이 돌아온 후 Battle 상태로 전환
+        // 상점이 닫힌 후 다음 전투 상태로 전환
         Close(() => 
         {
             if (confirmButton != null) confirmButton.interactable = true;
             
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.ChangeFlowState(GameFlowState.Map);
+                GameManager.Instance.StartNextStage();
             }
         });
     }

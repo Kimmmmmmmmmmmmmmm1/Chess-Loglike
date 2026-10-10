@@ -203,13 +203,13 @@ public class BossDataEditor : Editor
     {
         switch (type)
         {
-            case PieceType.King: return "궁";
-            case PieceType.Chariot: return "차";
-            case PieceType.Horse: return "마";
-            case PieceType.Elephant: return "상";
-            case PieceType.Cannon: return "포";
-            case PieceType.Soldier: return "졸";
-            default: return "?";
+            case PieceType.King: return "[K]";
+            case PieceType.Rook: return "[R]";
+            case PieceType.Knight: return "[N]";
+            case PieceType.Bishop: return "[B]";
+            case PieceType.Queen: return "[Q]";
+            case PieceType.Pawn: return "[P]";
+            default: return "[?]";
         }
     }
 
@@ -217,10 +217,12 @@ public class BossDataEditor : Editor
     {
         switch (type)
         {
-            case PieceType.King: return new Color(1f, 0.5f, 0.5f);
-            case PieceType.Chariot: return new Color(1f, 0.7f, 0.7f);
-            case PieceType.Cannon: return new Color(1f, 0.8f, 0.6f);
-            default: return new Color(1f, 0.9f, 0.9f);
+            case PieceType.King: return new Color(1f, 0.4f, 0.4f);
+            case PieceType.Queen: return new Color(1f, 0.6f, 0.8f);
+            case PieceType.Rook: return new Color(1f, 0.7f, 0.7f);
+            case PieceType.Bishop: return new Color(0.8f, 0.8f, 1f);
+            case PieceType.Knight: return new Color(0.8f, 1f, 0.8f);
+            default: return new Color(0.9f, 0.9f, 0.9f);
         }
     }
 }

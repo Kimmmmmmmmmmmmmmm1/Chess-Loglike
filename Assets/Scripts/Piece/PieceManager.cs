@@ -38,8 +38,8 @@ public class PieceManager : MonoBehaviour
 
     [Header("Settings")]
     [SerializeField] private float captureDestroyDelay = 0.25f;
-    [SerializeField] private int playerPrepareMaxY = 0;
-    [SerializeField] private int maxPlayerPiecesOnBoard = 3;
+    [SerializeField] private int playerPrepareMaxY = -1;
+    [SerializeField] private int maxPlayerPiecesOnBoard = 4;
     public int PlayerPrepareMaxY => playerPrepareMaxY;
     public int MaxPlayerPiecesOnBoard => maxPlayerPiecesOnBoard;
     public const int AbsoluteMaxPlayerPieces = 10;
@@ -62,6 +62,8 @@ public class PieceManager : MonoBehaviour
 
     public PieceController SelectedPiece => selectedPiece;
     public IReadOnlyList<PieceController> Pieces => pieces;
+    public IReadOnlyList<PieceController> PlayerPieces => playerPieces;
+    public IReadOnlyList<PieceController> EnemyPieces => enemyPieces;
     public bool HasPlacementSnapshot => hasPlacementSnapshot && placementSnapshot.Count > 0;
 
     private void Awake()
@@ -140,6 +142,19 @@ public class PieceManager : MonoBehaviour
         if (piece == null || (selectedPiece == piece && activeMarkers.Count > 0))
         {
             return;
+        }
+
+        if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.GamePlay)
+        {
+            if (PiecePromotionManager.Instance != null && PiecePromotionManager.Instance.IsPromoting)
+            {
+                return;
+            }
+
+            if (piece != null && !piece.IsEnemy && TurnManager.Instance != null && !TurnManager.Instance.IsPlayerTurn)
+            {
+                return;
+            }
         }
 
         selectedPiece = piece;
@@ -300,7 +315,7 @@ public class PieceManager : MonoBehaviour
                 continue;
             }
 
-            if (!piece.HasPromotionSeal() || piece.Type == PieceType.Soldier)
+            if (!piece.HasPromotionSeal() || piece.Type == PieceType.Pawn)
             {
                 continue;
             }
@@ -348,7 +363,7 @@ public class PieceManager : MonoBehaviour
         PieceController newPiece = newPieceObj != null ? newPieceObj.GetComponent<PieceController>() : null;
         if (newPiece != null)
         {
-            newPiece.Initialize(PieceType.Soldier, false);
+            newPiece.Initialize(PieceType.Pawn, false);
             newPiece.MoveToGrid(position);
         }
     }
@@ -378,7 +393,7 @@ public class PieceManager : MonoBehaviour
         PieceController newPiece = newPieceObj != null ? newPieceObj.GetComponent<PieceController>() : null;
         if (newPiece != null)
         {
-            newPiece.Initialize(PieceType.Soldier, false);
+            newPiece.Initialize(PieceType.Pawn, false);
             newPiece.MoveToInventory(slotTransform);
         }
     }
@@ -531,15 +546,16 @@ public class PieceManager : MonoBehaviour
 
         if (EffectManager.Instance != null)
         {
-            Color targetColor = piece.PieceImage != null ? piece.PieceImage.color : Color.white;
+            Color targetColor = piece.IsEnemy ? new Color(1f, 0.2f, 0.33f, 1f) : new Color(0f, 1f, 0f, 1f);
 
             float scale = 1f;
             switch (piece.Type)
             {
                 case PieceType.King:
+                case PieceType.Queen:
                     scale = 1.2f;
                     break;
-                case PieceType.Soldier:
+                case PieceType.Pawn:
                     scale = 0.8f;
                     break;
                 default:
@@ -570,15 +586,15 @@ public class PieceManager : MonoBehaviour
         {
             case PieceType.King:
                 return kingSprite;
-            case PieceType.Chariot:
+            case PieceType.Rook:
                 return chariotSprite;
-            case PieceType.Horse:
+            case PieceType.Knight:
                 return horseSprite;
-            case PieceType.Elephant:
+            case PieceType.Bishop:
                 return elephantSprite;
-            case PieceType.Cannon:
+            case PieceType.Queen:
                 return cannonSprite;
-            case PieceType.Soldier:
+            case PieceType.Pawn:
             default:
                 return soldierSprite;
         }
@@ -590,15 +606,15 @@ public class PieceManager : MonoBehaviour
         {
             case PieceType.King:
                 return enemykingSprite;
-            case PieceType.Chariot:
+            case PieceType.Rook:
                 return enemychariotSprite;
-            case PieceType.Horse:
+            case PieceType.Knight:
                 return enemyhorseSprite;
-            case PieceType.Elephant:
+            case PieceType.Bishop:
                 return enemyelephantSprite;
-            case PieceType.Cannon:
+            case PieceType.Queen:
                 return enemycannonSprite;
-            case PieceType.Soldier:
+            case PieceType.Pawn:
             default:
                 return enemysoldierSprite;
         }
@@ -627,7 +643,8 @@ public class PieceManager : MonoBehaviour
     {
         if (pieceCountText != null)
         {
-            pieceCountText.text = $"배치 가능 기물: {GetPlayerPieceCountOnBoard()}/{maxPlayerPiecesOnBoard}";
+            pieceCountText.text = $"[NODES DEPLOYED: {GetPlayerPieceCountOnBoard()}/{maxPlayerPiecesOnBoard}]";
+            pieceCountText.color = new Color(0f, 1f, 0f, 1f);
         }
     }
 
@@ -772,6 +789,19 @@ public class PieceManager : MonoBehaviour
         if (piece == null) return false;
         if (!piece.gridPosition.HasValue) return false;
 
+        if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.GamePlay)
+        {
+            if (PiecePromotionManager.Instance != null && PiecePromotionManager.Instance.IsPromoting)
+            {
+                return false;
+            }
+
+            if (!piece.IsEnemy && TurnManager.Instance != null && !TurnManager.Instance.IsPlayerTurn)
+            {
+                return false;
+            }
+        }
+
         Vector2Int fromPosition = piece.gridPosition.Value;
 
         PieceController targetPiece = GetPieceAt(gridPosition);
@@ -836,7 +866,6 @@ public class PieceManager : MonoBehaviour
             return;
         }
 
-        string actorTeam = mover.IsEnemy ? "적" : "플레이어";
         string moverTypeName = GetPieceTypeKoreanName(mover.Type);
         string moverPositionFrom = FormatDisplayGridPosition(from);
         string moverPositionTo = FormatDisplayGridPosition(to);
@@ -847,7 +876,7 @@ public class PieceManager : MonoBehaviour
         string logStr = null;
         if (useSimpleTurnLog)
         {
-            logStr = $"{moverTypeName} {moverPositionTo}";
+            logStr = $"> mv {moverTypeName} {moverPositionTo}";
             TurnLogUIManager.Instance?.AddLog(logStr, mover.IsEnemy);
             return;
         }
@@ -855,15 +884,14 @@ public class PieceManager : MonoBehaviour
         if (capturedType.HasValue && capturedIsEnemy.HasValue)
         {
             string targetTypeName = GetPieceTypeKoreanName(capturedType.Value);
-            string moverSubjectParticle = GetKoreanParticle(moverTypeName, ParticleKind.Subject);
-            string targetObjectParticle = GetKoreanParticle(targetTypeName, ParticleKind.Object);
-            logStr = $"{moverTypeName}{moverSubjectParticle} {moverPositionFrom}에서 {moverPositionTo}로 이동하며 {targetTypeName}{targetObjectParticle} 포획";
+            string attackTag = mover.IsEnemy ? "[INTRUSION DETECTED]" : "[DDoS ATTACK SUCCESS]";
+            logStr = $"{attackTag} {moverTypeName}({moverPositionFrom}->{moverPositionTo}) :: KILLED {targetTypeName}";
             TurnLogUIManager.Instance?.AddLog(logStr, mover.IsEnemy);
             return;
         }
 
-        string moverSubject = GetKoreanParticle(moverTypeName, ParticleKind.Subject);
-        logStr = $"{moverTypeName}{moverSubject} {moverPositionFrom}에서 {moverPositionTo}로 이동";
+        string cmdTag = mover.IsEnemy ? "[SYS_DAEMON]" : "[ROOT_EXEC]";
+        logStr = $"{cmdTag} mv {moverTypeName} {moverPositionFrom} -> {moverPositionTo}";
         TurnLogUIManager.Instance?.AddLog(logStr, mover.IsEnemy);
     }
 
@@ -874,12 +902,10 @@ public class PieceManager : MonoBehaviour
             return $"({gridPos.x},{gridPos.y})";
         }
 
-        int minX = gridManager.gridMinBounds.x;
-        int maxY = gridManager.gridMinBounds.y + gridManager.boardHeight - 1;
-
-        int displayX = (gridPos.x - minX) + 1;
-        int displayY = (maxY - gridPos.y) + 1;
-        return $"({displayX},{displayY})";
+        int fileIndex = Mathf.Clamp(gridPos.x - gridManager.gridMinBounds.x, 0, 7);
+        int rankNumber = Mathf.Clamp(gridPos.y - gridManager.gridMinBounds.y + 1, 1, 8);
+        char fileChar = (char)('a' + fileIndex);
+        return $"{fileChar}{rankNumber}";
     }
 
     private enum ParticleKind { Subject, Object, Topic }
@@ -913,12 +939,12 @@ public class PieceManager : MonoBehaviour
     {
         return type switch
         {
-            PieceType.King => "궁",
-            PieceType.Chariot => "차",
-            PieceType.Horse => "마",
-            PieceType.Elephant => "상",
-            PieceType.Cannon => "포",
-            PieceType.Soldier => "졸",
+            PieceType.King => "KING[K]",
+            PieceType.Queen => "QUEEN[Q]",
+            PieceType.Rook => "ROOK[R]",
+            PieceType.Bishop => "BISHOP[B]",
+            PieceType.Knight => "KNIGHT[N]",
+            PieceType.Pawn => "PAWN[P]",
             _ => type.ToString()
         };
     }
@@ -996,9 +1022,20 @@ public class PieceManager : MonoBehaviour
 
     public bool HasAnyPlayerMoves()
     {
-        foreach (var piece in pieces)
+        return HasAnyMovesForSide(false);
+    }
+
+    public bool HasAnyEnemyMoves()
+    {
+        return HasAnyMovesForSide(true);
+    }
+
+    public bool HasAnyMovesForSide(bool isEnemySide)
+    {
+        var targetList = isEnemySide ? enemyPieces : playerPieces;
+        foreach (var piece in targetList)
         {
-            if (piece != null && !piece.IsEnemy && piece.CurrentLocation == PieceLocation.Board)
+            if (piece != null && piece.IsEnemy == isEnemySide && piece.CurrentLocation == PieceLocation.Board)
             {
                 if (piece.GetCandidateMoves().Count > 0)
                 {

@@ -42,6 +42,11 @@ public class TitleManager : MonoBehaviour
     {
         if (achievementPanel != null)
         {
+            if (achievementPanelView == null)
+            {
+                achievementPanelView = achievementPanel.GetComponent<AchievementPanelView>();
+            }
+
             var anim = achievementPanel.GetComponent<PanelAnimator>();
             if (anim != null) anim.Hide(true);
             else achievementPanel.SetActive(false);
@@ -49,6 +54,11 @@ public class TitleManager : MonoBehaviour
 
         if (collectionPanel != null)
         {
+            if (collectionPanelView == null)
+            {
+                collectionPanelView = collectionPanel.GetComponent<CollectionPanelView>();
+            }
+
             var anim = collectionPanel.GetComponent<PanelAnimator>();
             if (anim != null) anim.Hide(true);
             else collectionPanel.SetActive(false);
@@ -182,6 +192,11 @@ public class TitleManager : MonoBehaviour
 
     private void Update()
     {
+        if (HandleOverlayPanelKeyboardInput())
+        {
+            return;
+        }
+
         if (HandleShortcutInput())
         {
             return;
@@ -371,6 +386,46 @@ public class TitleManager : MonoBehaviour
         }
     }
 
+    private bool HandleOverlayPanelKeyboardInput()
+    {
+        if (ModalManager.IsKeyboardBlocked)
+        {
+            return false;
+        }
+
+        if (IsPanelOpen(achievementPanel))
+        {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseAchievementPanel();
+                return true;
+            }
+        }
+
+        if (IsPanelOpen(collectionPanel))
+        {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseCollectionPanel();
+                return true;
+            }
+
+            if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A))
+            {
+                collectionPanelView?.GoToPreviousPage();
+                return true;
+            }
+
+            if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D))
+            {
+                collectionPanelView?.GoToNextPage();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void OnAchievementClicked()
     {
         if (!CanUseTitleShortcuts())
@@ -378,18 +433,20 @@ public class TitleManager : MonoBehaviour
             return;
         }
 
-        CloseSettingsPanel();
-        CloseCollectionPanel();
+        if (IsSettingsPanelOpen()) CloseSettingsPanel();
+        if (IsPanelOpen(collectionPanel)) CloseCollectionPanel();
 
         if (achievementPanel != null)
         {
             var anim = achievementPanel.GetComponent<PanelAnimator>();
             if (anim != null)
             {
-                achievementPanel.SetActive(true);
                 anim.Show();
             }
-            else achievementPanel.SetActive(true);
+            else
+            {
+                achievementPanel.SetActive(true);
+            }
         }
 
         if (achievementPanelView != null)
@@ -407,12 +464,14 @@ public class TitleManager : MonoBehaviour
             TooltipManager.Instance.HideTooltip();
         }
 
-        if (achievementPanel != null)
+        if (achievementPanel != null && achievementPanel.activeInHierarchy)
         {
             var anim = achievementPanel.GetComponent<PanelAnimator>();
             if (anim != null) anim.Hide();
             else achievementPanel.SetActive(false);
         }
+
+        UpdateMainTitleButtonsInteractable();
     }
 
     private void OnSettingsClicked()
@@ -422,8 +481,8 @@ public class TitleManager : MonoBehaviour
             return;
         }
 
-        CloseAchievementPanel();
-        CloseCollectionPanel();
+        if (IsPanelOpen(achievementPanel)) CloseAchievementPanel();
+        if (IsPanelOpen(collectionPanel)) CloseCollectionPanel();
 
         if (SettingPanelView.Instance != null)
         {
@@ -441,13 +500,20 @@ public class TitleManager : MonoBehaviour
 
         if (settingsPanel != null)
         {
-            settingsPanel.SetActive(true);
+            var anim = settingsPanel.GetComponent<PanelAnimator>();
+            if (anim != null) anim.Show();
+            else settingsPanel.SetActive(true);
             UpdateMainTitleButtonsInteractable();
         }
     }
 
     public void CloseSettingsPanel()
     {
+        if (!IsSettingsPanelOpen())
+        {
+            return;
+        }
+
         if (TooltipManager.Instance != null)
         {
             TooltipManager.Instance.HideTooltip();
@@ -462,7 +528,7 @@ public class TitleManager : MonoBehaviour
 
         if (settingsPanelView != null)
         {
-            settingsPanelView.gameObject.SetActive(false);
+            settingsPanelView.ClosePanel();
             UpdateMainTitleButtonsInteractable();
             return;
         }
@@ -484,18 +550,20 @@ public class TitleManager : MonoBehaviour
             return;
         }
 
-        CloseAchievementPanel();
-        CloseSettingsPanel();
+        if (IsPanelOpen(achievementPanel)) CloseAchievementPanel();
+        if (IsSettingsPanelOpen()) CloseSettingsPanel();
 
         if (collectionPanel != null)
         {
             var anim = collectionPanel.GetComponent<PanelAnimator>();
             if (anim != null)
             {
-                collectionPanel.SetActive(true);
                 anim.Show();
             }
-            else collectionPanel.SetActive(true);
+            else
+            {
+                collectionPanel.SetActive(true);
+            }
         }
 
         if (collectionPanelView != null)
@@ -513,7 +581,7 @@ public class TitleManager : MonoBehaviour
             TooltipManager.Instance.HideTooltip();
         }
 
-        if (collectionPanel != null)
+        if (collectionPanel != null && collectionPanel.activeInHierarchy)
         {
             var anim = collectionPanel.GetComponent<PanelAnimator>();
             if (anim != null) anim.Hide();

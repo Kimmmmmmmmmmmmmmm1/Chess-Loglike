@@ -8,7 +8,7 @@ public enum ArtifactRarity
     Legendary
 }
 
-[CreateAssetMenu(fileName = "NewArtifact", menuName = "Janggi/Artifact Data")]
+[CreateAssetMenu(fileName = "NewArtifact", menuName = "Chess/Artifact Data")]
 public class ArtifactData : ScriptableObject
 {
     public string id;
@@ -52,7 +52,7 @@ public class ArtifactData : ScriptableObject
             return artifactName;
         }
 
-        return $"{artifactName}";
+        return $"{artifactName} (Lv.{Level})";
     }
 
     public string GetTooltipDescription()
@@ -101,7 +101,6 @@ public class ArtifactData : ScriptableObject
             "A003" => placeholderIndex == 0 ? (int)ArtifactEffectHandlers.GetSealChanceBonusForLevel(level) : -1,
             "A004" => placeholderIndex == 0 ? ArtifactEffectHandlers.GetGourdRecoveryMaxForLevel(level) : -1,
             "A005" => placeholderIndex == 0 ? ArtifactEffectHandlers.GetTombstoneThresholdForLevel(level) : -1,
-            "A006" => placeholderIndex == 0 ? ArtifactEffectHandlers.GetMedalPromotionMaxForLevel(level) : -1,
             _ => -1
         };
     }

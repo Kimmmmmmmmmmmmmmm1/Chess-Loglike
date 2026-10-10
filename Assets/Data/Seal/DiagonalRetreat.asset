@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
+  m_Name: DiagonalRetreat
+  m_EditorClassIdentifier: Assembly-CSharp::SealData
+  sealName: "후방 대각선의 인장"
+  injectionCommand: ""
+  rarity: 1
+  description: "폰이 후방 대각선(1칸)으로 이동 및 포획할 수 있게 됩니다."
+  flavorText: "뒤를 돌아볼 줄 아는 용기."
+  icon: {fileID: 3944343766228188813, guid: 95980ea79e9734fbc9fe2d2728f381c0, type: 3}
+  isSoldInShop: 1
+  sealPrefab: {fileID: 2006435481796697724, guid: a83e8aa925574b72acd650144657b364, type: 3}
+  compatiblePieces:
+  - 0
+  effectType: 1
+  effectValue: 0
+

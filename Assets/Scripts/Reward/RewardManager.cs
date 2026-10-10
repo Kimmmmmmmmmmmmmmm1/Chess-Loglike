@@ -36,6 +36,74 @@ public class RewardManager : MonoBehaviour
 
     private int activeRewardCount = 0;
 
+    [Header("Reroll")]
+    public Button rerollButton;
+    public TMPro.TextMeshProUGUI rerollCostText;
+    public int baseRerollCost = 5;
+
+    [Header("Reward Probabilities (완전 랜덤 가중치)")]
+    [Tooltip("기물 등장 확률 가중치")]
+    [Range(0f, 100f)] public float pieceWeight = 35f;
+
+    [Tooltip("인장 등장 확률 가중치")]
+    [Range(0f, 100f)] public float sealWeight = 35f;
+
+    [Tooltip("유물 등장 확률 가중치")]
+    [Range(0f, 100f)] public float artifactWeight = 20f;
+
+    [Tooltip("골드 등장 확률 가중치")]
+    [Range(0f, 100f)] public float coinWeight = 10f;
+
+    [Header("Treasure Bonus")]
+    [Tooltip("보물상자 시 유물 가중치 배율")]
+    public float treasureArtifactMultiplier = 2.5f;
+
+    private int currentRarity = 0;
+    private bool currentIsTreasure = false;
+
+    /// <summary>
+    /// 가중치 비율에 따라 완전 랜덤으로 보상 타입을 추첨합니다.
+    /// 인스펙터의 pieceWeight, sealWeight, artifactWeight, coinWeight 설정에 의해 결정됩니다.
+    /// </summary>
+    public RewardButton.RewardType GetRandomRewardType(bool isTreasure = false)
+    {
+        float pWeight = Mathf.Max(0f, pieceWeight);
+        float sWeight = Mathf.Max(0f, sealWeight);
+        float aWeight = Mathf.Max(0f, artifactWeight) * (isTreasure ? treasureArtifactMultiplier : 1f);
+        float cWeight = Mathf.Max(0f, coinWeight);
+
+        float totalWeight = pWeight + sWeight + aWeight + cWeight;
+        if (totalWeight <= 0f)
+        {
+            return RewardButton.RewardType.Piece;
+        }
+
+        float randomVal = Random.Range(0f, totalWeight);
+        float current = 0f;
+
+        current += pWeight;
+        if (randomVal < current) return RewardButton.RewardType.Piece;
+
+        current += sWeight;
+        if (randomVal < current) return RewardButton.RewardType.Seal;
+
+        current += aWeight;
+        if (randomVal < current) return RewardButton.RewardType.Artifact;
+
+        return RewardButton.RewardType.Coin;
+    }
+
+    /// <summary>
+    /// 외부 코드 또는 밸런스 설정에서 보상 확률 가중치를 손쉽게 재설정할 수 있는 편의 메서드입니다.
+    /// </summary>
+    public void SetRewardWeights(float piece, float seal, float artifact, float coin)
+    {
+        pieceWeight = piece;
+        sealWeight = seal;
+        artifactWeight = artifact;
+        coinWeight = coin;
+    }
+
     private void Start()
     {
         // Register self as the current UI with RewardService (if present)
@@ -50,7 +118,6 @@ public class RewardManager : MonoBehaviour
             if (rewardPanelRect != null)
             {
                 rewardExpandedHeight = rewardPanelRect.sizeDelta.y;
-                SetRewardPanelHeight(rewardCollapsedHeight);
             }
             rewardPanel.SetActive(false);
         }
@@ -58,6 +125,27 @@ public class RewardManager : MonoBehaviour
         {
             closeButton.onClick.AddListener(OnRewardClaimed);
         }
+
+        if (rerollButton == null && rewardPanel != null)
+        {
+            Button[] buttons = rewardPanel.GetComponentsInChildren<Button>(true);
+            foreach (var b in buttons)
+            {
+                if (b.name.Contains("Reroll") || b.name.Contains("Refresh"))
+                {
+                    rerollButton = b;
+                    break;
+                }
+            }
+        }
+
+        if (rerollButton != null)
+        {
+            rerollButton.onClick.RemoveListener(OnRerollClicked);
+            rerollButton.onClick.AddListener(OnRerollClicked);
+        }
+
+        UpdateRerollUI();
 
         if (GameStateManager.Instance != null)
         {
@@ -76,6 +164,57 @@ public class RewardManager : MonoBehaviour
         {
             RewardService.Instance.UnregisterUI(this);
         }
+
+        if (rerollButton != null)
+        {
+            rerollButton.onClick.RemoveListener(OnRerollClicked);
+        }
+    }
+
+    private int GetCurrentRerollCost()
+    {
+        int cost = baseRerollCost;
+        if (ArtifactManager.Instance != null)
+        {
+            ArtifactManager.Instance.ApplyArtifactWithLevel("A002", level =>
+            {
+                int discount = 2 + (level - 1);
+                cost = Mathf.Max(1, baseRerollCost - discount);
+            });
+        }
+        return cost;
+    }
+
+    private void UpdateRerollUI()
+    {
+        if (rerollCostText != null)
+        {
+            rerollCostText.text = $"{GetCurrentRerollCost()}";
+        }
+    }
+
+    public void OnRerollClicked()
+    {
+        if (GameManager.Instance == null) return;
+        int cost = GetCurrentRerollCost();
+        if (GameManager.Instance.Coin < cost)
+        {
+            if (rerollButton != null)
+            {
+                rerollButton.transform.DOShakePosition(0.3f, 5f, 20, 90, false, true);
+            }
+            return;
+        }
+
+        if (GameManager.Instance.UseCoin(cost))
+        {
+            GenerateRewards(3, currentRarity, currentIsTreasure);
+            UpdateRerollUI();
+            if (rewardContainer != null)
+            {
+                rewardContainer.DOShakePosition(0.25f, 6f, 20, 90, false, true);
+            }
+        }
     }
 
     private void OnGameStateChanged(GameStateManager.GameState newState)
@@ -88,16 +227,17 @@ public class RewardManager : MonoBehaviour
                 difficulty = GameManager.Instance.ClearedStage + 1;
             }
 
-            // 보상 개수: 스테이지/3 (최소 1개, 최대 maxRewardCount개)
-            int count = Mathf.Clamp(difficulty / 3, 1, maxRewardCount);
-            // 보상 등급(희귀도): 스테이지/2 (스테이지가 높을수록 좋은 보상 확률 증가)
             int rarity = difficulty / 2;
-            ShowRewards(count, rarity, false);
+            ShowRewards(3, rarity, false);
         }
     }
 
     public void ShowRewards(int count, int rarity, bool isTreasure = false)
     {
+        currentRarity = rarity;
+        currentIsTreasure = isTreasure;
+        UpdateRerollUI();
+
         if (rewardPanel != null)
         {
             rewardPanel.SetActive(true);
@@ -119,21 +259,18 @@ public class RewardManager : MonoBehaviour
                 cg.interactable = true;
             }
 
-            // 패널 등장 애니메이션: 세로 높이 축소 -> 원래 높이로 확장
             if (rewardPanelRect != null)
             {
                 rewardPanelRect.DOKill();
-                SetRewardPanelHeight(rewardCollapsedHeight);
-                // start from slightly above, move down into final position, then expand height
-                rewardPanelRect.anchoredPosition = rewardPanelFinalAnchoredPos + new Vector2(0f, panelMoveOffset);
-                rewardPanelRect.DOAnchorPos(rewardPanelFinalAnchoredPos, panelMoveDuration).SetEase(panelMoveEaseIn).SetUpdate(true).OnComplete(() =>
+                if (rewardExpandedHeight > 0f)
                 {
-                    CreateRewardPanelHeightTween(rewardExpandedHeight).SetEase(panelHeightEase).SetUpdate(true);
-                });
+                    SetRewardPanelHeight(rewardExpandedHeight);
+                }
+                rewardPanelRect.anchoredPosition = rewardPanelFinalAnchoredPos;
             }
         }
 
-        GenerateRewards(count, rarity, isTreasure);
+        GenerateRewards(3, rarity, isTreasure);
     }
 
     private void GenerateRewards(int count, int rarity, bool isTreasure)
@@ -149,7 +286,7 @@ public class RewardManager : MonoBehaviour
 
         activeRewardCount = 0;
 
-        // 지정된 개수의 보상 선택지 생성
+        // 각 카드 슬롯마다 가중치 기반으로 완전 랜덤 추첨
         for (int i = 0; i < count; i++)
         {
             GameObject obj = Instantiate(rewardButtonPrefab, rewardContainer);
@@ -161,7 +298,8 @@ public class RewardManager : MonoBehaviour
             RewardButton btn = obj.GetComponent<RewardButton>();
             if (btn != null)
             {
-                btn.Initialize(this, rarity, isTreasure);
+                RewardButton.RewardType randomType = GetRandomRewardType(isTreasure);
+                btn.InitializeWithType(this, rarity, randomType, isTreasure);
                 activeRewardCount++;
             }
 
@@ -183,68 +321,65 @@ public class RewardManager : MonoBehaviour
 
     public void OnRewardButtonClicked()
     {
-        activeRewardCount--;
-        if (activeRewardCount <= 0)
+        // 3개 중 하나만 선택: 선택 즉시 나머지 버튼 비활성화 및 완료 처리
+        if (rewardContainer != null)
         {
-            OnRewardClaimed();
+            foreach (Transform child in rewardContainer)
+            {
+                Button btn = child.GetComponent<Button>();
+                if (btn != null)
+                {
+                    btn.interactable = false;
+                }
+            }
         }
+
+        activeRewardCount = 0;
+        OnRewardClaimed();
     }
 
     public void OnRewardClaimed()
     {
         if (rewardPanel != null)
         {
-            // 패널 퇴장 애니메이션: 가로 폭 원래 폭 -> 축소 폭
+            if (rewardContainer != null)
+            {
+                foreach (Transform child in rewardContainer)
+                {
+                    Destroy(child.gameObject);
+                }
+            }
             if (rewardPanelRect != null)
             {
                 rewardPanelRect.DOKill();
-                // collapse height then move up and hide
-                CreateRewardPanelHeightTween(rewardCollapsedHeight).SetEase(panelHeightEase).SetUpdate(true).OnComplete(() =>
+                if (rewardExpandedHeight > 0f)
                 {
-                    rewardPanelRect.DOAnchorPos(rewardPanelFinalAnchoredPos + new Vector2(0f, panelMoveOffset), panelMoveDuration).SetEase(panelMoveEaseOut).SetUpdate(true).OnComplete(() =>
-                    {
-                        rewardPanel.SetActive(false);
-                        PieceManager pieceManager = PieceManager.Instance;
-                        if (pieceManager == null)
-                        {
-                            pieceManager = FindFirstObjectByType<PieceManager>(FindObjectsInactive.Include);
-                        }
-                        if (pieceManager != null && pieceManager.HasPlacementSnapshot)
-                        {
-                            pieceManager.RestorePlacementPositions(false);
-                        }
-
-                        if (GameManager.Instance != null)
-                        {
-                            GameManager.Instance.ChangeFlowState(GameFlowState.Map);
-                            GameManager.Instance.BossJustCleared = false;
-                        }
-                    });
-                });
+                    SetRewardPanelHeight(rewardExpandedHeight);
+                }
+                rewardPanelRect.anchoredPosition = rewardPanelFinalAnchoredPos;
             }
-            else
-            {
-                rewardPanel.SetActive(false);
-                PieceManager pieceManager = PieceManager.Instance;
-                if (pieceManager == null)
-                {
-                    pieceManager = FindFirstObjectByType<PieceManager>(FindObjectsInactive.Include);
-                }
-                if (pieceManager != null && pieceManager.HasPlacementSnapshot)
-                {
-                    pieceManager.RestorePlacementPositions(false);
-                }
 
-                if (GameManager.Instance != null)
-                {
-                    GameManager.Instance.ChangeFlowState(GameFlowState.Map);
-                    GameManager.Instance.BossJustCleared = false;
-                }
+            rewardPanel.SetActive(false);
+            PieceManager pieceManager = PieceManager.Instance;
+            if (pieceManager == null)
+            {
+                pieceManager = FindFirstObjectByType<PieceManager>(FindObjectsInactive.Include);
+            }
+            if (pieceManager != null && pieceManager.HasPlacementSnapshot)
+            {
+                pieceManager.RestorePlacementPositions(false);
+            }
+
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.BossJustCleared = false;
+                // 전투 -> 보상 -> 상점 -> 다음 전투 순서로 전환
+                GameManager.Instance.ChangeFlowState(GameFlowState.Shop);
             }
         }
         else if (GameManager.Instance != null)
         {
-            GameManager.Instance.ChangeFlowState(GameFlowState.Map);
+            GameManager.Instance.ChangeFlowState(GameFlowState.Shop);
         }
     }
 

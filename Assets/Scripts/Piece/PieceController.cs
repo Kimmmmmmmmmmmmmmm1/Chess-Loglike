@@ -8,12 +8,12 @@ using TMPro;
 
 public enum PieceType
 {
-    [InspectorName("궁")] King,
-    [InspectorName("차")] Chariot,
-    [InspectorName("마")] Horse,
-    [InspectorName("상")] Elephant,
-    [InspectorName("포")] Cannon,
-    [InspectorName("졸")] Soldier
+    [InspectorName("킹 (King)")] King = 0,
+    [InspectorName("룩 (Rook)")] Rook = 1,
+    [InspectorName("나이트 (Knight)")] Knight = 2,
+    [InspectorName("비숍 (Bishop)")] Bishop = 3,
+    [InspectorName("퀸 (Queen)")] Queen = 4,
+    [InspectorName("폰 (Pawn)")] Pawn = 5
 }
 
 public enum PieceLocation
@@ -32,7 +32,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     private SellPieceButton activeSellButton;
 
     [Header("Piece Settings")]
-    [SerializeField] private PieceType pieceType = PieceType.Soldier;
+    [SerializeField] private PieceType pieceType = PieceType.Pawn;
     [SerializeField] private Image pieceImage;
     [SerializeField] private Image shadowImage;
     [SerializeField] private bool isEnemy;
@@ -47,12 +47,26 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
             this.pieceType = pieceType;
             this.isEnemy = isEnemy;
+            if (CollectionManager.Instance != null)
+            {
+                if (!isEnemy)
+                {
+                    CollectionManager.Instance.RecordPiece(pieceType);
+                }
+                else
+                {
+                    CollectionManager.Instance.RecordPieceSeen(pieceType);
+                }
+            }
             ApplySprite();
             UpdateUiPosition(); // 초기화 시 위치 설정
             isInitialized = true;
             RegisterSelf();
         }
+
     public PieceType Type => pieceType;
+    public PieceType PieceType => pieceType;
+    public Vector2Int? GridPosition => gridPosition;
     public bool IsEnemy => isEnemy;
     public Image PieceImage => pieceImage;
 
@@ -130,6 +144,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     private CanvasGroup canvasGroup;
     private Outline outline;
     private TextMeshProUGUI nameText;
+    private TextMeshProUGUI asciiArtText;
+    private static Sprite terminalBlockSprite;
     private ButtonTweenAnimation buttonTween;
     private Image hitBoxImage;
 
@@ -350,6 +366,50 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
     }
 
+    public static string GetShortAsciiSymbol(PieceType type)
+    {
+        return type switch
+        {
+            PieceType.King => "[K]",
+            PieceType.Queen => "[Q]",
+            PieceType.Rook => "[R]",
+            PieceType.Bishop => "[B]",
+            PieceType.Knight => "[N]",
+            PieceType.Pawn => "[P]",
+            _ => "[?]"
+        };
+    }
+
+    public static string GetAsciiSymbol(PieceType type, bool enemy = false)
+    {
+        return type switch
+        {
+            PieceType.King => enemy ? "<K!>" : "{K}",
+            PieceType.Queen => enemy ? "[Q!]" : "[Q]",
+            PieceType.Rook => enemy ? "[R!]" : "[R]",
+            PieceType.Bishop => enemy ? "<B!>" : "<B>",
+            PieceType.Knight => enemy ? "/N!\\" : "/N\\",
+            PieceType.Pawn => enemy ? "(P!)" : "(P)",
+            _ => "[?]"
+        };
+    }
+
+    public static string GetAsciiBlock(PieceType type, bool enemy = false)
+    {
+        string sym = GetAsciiSymbol(type, enemy);
+        string tag = type switch
+        {
+            PieceType.King => "KING",
+            PieceType.Queen => "QUEEN",
+            PieceType.Rook => "ROOK",
+            PieceType.Bishop => "BSHP",
+            PieceType.Knight => "KNGT",
+            PieceType.Pawn => "PAWN",
+            _ => "PROC"
+        };
+        return $"{sym}\n{tag}";
+    }
+
     public void SelectSelf()
     {
         if (isDragging)
@@ -365,10 +425,11 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         bool isPrepare = GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare;
         bool isShop = GameManager.Instance != null && GameManager.Instance.CurrentFlowState == GameFlowState.Shop;
 
-        // 준비/상점 단계이거나 인벤토리에 있는 경우 턴과 무관하게 드래그 허용
-        if (!isPrepare && !isShop && currentLocation == PieceLocation.Board)
+        // 준비/상점 단계가 아닐 때(GamePlay 등)는 내 턴이 아니거나 프로모션 연출 중이면 선택 불가
+        if (!isPrepare && !isShop)
         {
             if (TurnManager.Instance != null && !TurnManager.Instance.IsPlayerTurn) return;
+            if (PiecePromotionManager.Instance != null && PiecePromotionManager.Instance.IsPromoting) return;
         }
 
         if (PieceManager.Instance != null)
@@ -538,6 +599,14 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     public void OnPointerDown(PointerEventData eventData)
     {
+        bool isPrepare = GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare;
+        bool isShopOrWorkshop = GameManager.Instance != null && (GameManager.Instance.CurrentFlowState == GameFlowState.Shop || GameManager.Instance.CurrentFlowState == GameFlowState.WorkShop);
+        if (!isPrepare && !isShopOrWorkshop)
+        {
+            if (TurnManager.Instance != null && !TurnManager.Instance.IsPlayerTurn) return;
+            if (PiecePromotionManager.Instance != null && PiecePromotionManager.Instance.IsPromoting) return;
+        }
+
         if (buttonTween != null) buttonTween.OnPointerDown(eventData);
     }
 
@@ -564,15 +633,28 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             return;
         }
 
+        bool isPrepare = GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare;
+        bool isShopOrWorkshop = GameManager.Instance != null && (GameManager.Instance.CurrentFlowState == GameFlowState.Shop || GameManager.Instance.CurrentFlowState == GameFlowState.WorkShop);
+
+        // 전투 진행 중(GamePlay)에는 내 턴이 아니거나 프로모션 연출 중이면 절대 드래그 불가
+        if (!isPrepare && !isShopOrWorkshop)
+        {
+            if (TurnManager.Instance != null && !TurnManager.Instance.IsPlayerTurn)
+            {
+                return;
+            }
+            if (PiecePromotionManager.Instance != null && PiecePromotionManager.Instance.IsPromoting)
+            {
+                return;
+            }
+        }
+
         // 현재 부모가 SynthesisSlot이면, 슬롯에서 기물을 제거하고 piece1/piece2를 null로 업데이트
         SynthesisSlot synthesisSlot = transform.parent?.GetComponent<SynthesisSlot>();
         if (synthesisSlot != null)
         {
             synthesisSlot.RemovePiece();
         }
-
-        bool isPrepare = GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare;
-        bool isShopOrWorkshop = GameManager.Instance != null && (GameManager.Instance.CurrentFlowState == GameFlowState.Shop || GameManager.Instance.CurrentFlowState == GameFlowState.WorkShop);
 
         // 부모가 InventorySlot인 경우를 인벤토리로 판단 (currentLocation보다 확실함)
         bool isInInventorySlot = transform.parent != null && transform.parent.GetComponent<InventorySlot>() != null;
@@ -842,8 +924,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
         else if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.GamePlay)
         {
-                // 내 턴이 아니면 이동 취소 (드래그는 허용하되 배치는 막음)
-                if (TurnManager.Instance != null && !TurnManager.Instance.IsPlayerTurn)
+                // 내 턴이 아니거나 프로모션 연출 중이면 무조건 이동 취소
+                if ((TurnManager.Instance != null && !TurnManager.Instance.IsPlayerTurn) ||
+                    (PiecePromotionManager.Instance != null && PiecePromotionManager.Instance.IsPromoting))
                 {
                     ReturnToOriginalPosition();
                     return;
@@ -1012,7 +1095,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             gridPosition = target;
         }
 
-        // A006: 전장의 훈장 - 졸이 적 진영 끝 줄에 도달했는지 체크
+        // 폰(Pawn)이 적 진영 끝 줄에 도달했는지 체크
         CheckSoldierPromotion();
 
         // 이동하는 기물이 다른 기물들 위에 보이도록 순서를 가장 마지막으로 변경
@@ -1044,8 +1127,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     private void CheckSoldierPromotion()
     {
-        // 자신이 아군 졸이 아니면 return
-        if (pieceType != PieceType.Soldier || isEnemy || !gridPosition.HasValue)
+        // 자신이 폰(Pawn)이 아니거나 그리드 위치가 없으면 return
+        if (pieceType != PieceType.Pawn || !gridPosition.HasValue)
             return;
 
         if (GameManager.Instance == null || GameManager.Instance.CurrentFlowState != GameFlowState.Battle)
@@ -1054,27 +1137,34 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         if (GameStateManager.Instance == null || GameStateManager.Instance.CurrentState != GameStateManager.GameState.GamePlay)
             return;
 
-        if (ArtifactManager.Instance == null || !ArtifactManager.Instance.HasArtifact("A006"))
-            return;
-
-        if (!ArtifactEffectHandlers.HasMedalPromotionRemaining())
-            return;
-
-        // 적 진영 끝 줄(y = 최대값) 도달 체크
         if (PieceManager.Instance == null || PieceManager.Instance.gridManager == null)
             return;
 
         GridManager gridManager = PieceManager.Instance.gridManager;
         int maxY = gridManager.gridMinBounds.y + gridManager.boardHeight - 1;
+        int minY = gridManager.gridMinBounds.y;
         int myY = gridPosition.Value.y;
 
-        // 아군 졸이 적 진영 끝 줄에 도달
-        if (myY >= maxY)
+        if (!isEnemy)
         {
-            // A006: 전장의 훈장 - 승급 패널 표시
-            if (PiecePromotionManager.Instance != null)
+            // 아군 폰이 적 진영 끝 줄에 도달하면 승급 패널 표시
+            if (myY >= maxY)
             {
-                PiecePromotionManager.Instance.ShowPromotionPanel(this);
+                if (PiecePromotionManager.Instance != null)
+                {
+                    PiecePromotionManager.Instance.ShowPromotionPanel(this);
+                }
+            }
+        }
+        else
+        {
+            // 적군 폰이 아군 진영 끝 줄에 도달하면 적군 승급(퀸) 처리
+            if (myY <= minY)
+            {
+                if (PiecePromotionManager.Instance != null)
+                {
+                    PiecePromotionManager.Instance.PromoteEnemyPawn(this, PieceType.Queen);
+                }
             }
         }
     }
@@ -1214,17 +1304,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
 
         GridManager gridManager = PieceManager.Instance.gridManager;
-        GridPoint gridPoint = gridManager.GetGridPoint(position);
-        return gridPoint != null && gridPoint.isDestroyed;
-    }
-
-    /// <summary>
-    /// 슬라이딩 기물(마, 상)의 경로 차단 여부를 확인합니다.
-    /// 기물 또는 파괴된 칸으로 차단됩니다.
-    /// </summary>
-    private bool IsBlockedForSlidingMoves(Vector2Int position)
-    {
-        return IsOccupied(position) || IsDestroyedCell(position);
+        GridCell cell = gridManager.GetGridCell(position);
+        return cell != null && cell.isDestroyed;
     }
 
     public bool CanMoveTo(Vector2Int target)
@@ -1234,12 +1315,14 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             return false;
         }
 
-        // 파괴된 GridPoint로는 이동 불가
-        GridManager gridManager = FindFirstObjectByType<GridManager>();
+        // 파괴된 타일로는 이동 불가
+        GridManager gridManager = PieceManager.Instance.gridManager != null
+            ? PieceManager.Instance.gridManager
+            : FindFirstObjectByType<GridManager>();
         if (gridManager != null)
         {
-            GridPoint gridPoint = gridManager.GetGridPoint(target);
-            if (gridPoint != null && gridPoint.isDestroyed)
+            GridCell cell = gridManager.GetGridCell(target);
+            if (cell != null && cell.isDestroyed)
             {
                 return false;
             }
@@ -1264,42 +1347,42 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             case PieceType.King:
                 moves = GetKingMoves();
                 break;
-            case PieceType.Chariot:
-                moves = GetChariotMoves();
+            case PieceType.Queen:
+                moves = GetQueenMoves();
                 break;
-            case PieceType.Horse:
-                moves = GetHorseMoves();
+            case PieceType.Rook:
+                moves = GetRookMoves();
                 break;
-            case PieceType.Elephant:
-                moves = GetElephantMoves();
+            case PieceType.Bishop:
+                moves = GetBishopMoves();
                 break;
-            case PieceType.Cannon:
-                moves = GetCannonMoves();
+            case PieceType.Knight:
+                moves = GetKnightMoves();
                 break;
-            case PieceType.Soldier:
+            case PieceType.Pawn:
             default:
-                moves = GetSoldierMoves();
+                moves = GetPawnMoves();
                 break;
         }
 
-        // 📌 Case A Hook: 인장들에게 이동 경로 수정 요청
+        // 📌 Case A Hook: 코드 인젝션(Seal)들에게 이동 경로 수정 요청
         foreach (var seal in equippedSeals) seal.ModifyMoves(ref moves, gridPosition.Value, isEnemy, null, IsOccupied);
         return moves;
     }
 
     private List<Vector2Int> GetKingMoves()
     {
-        List<Vector2Int> moves = new ();
+        List<Vector2Int> moves = new();
         Vector2Int[] offsets =
         {
             Vector2Int.up,
             Vector2Int.down,
             Vector2Int.left,
             Vector2Int.right,
-            new (1, 1),
-            new (1, -1),
-            new (-1, 1),
-            new (-1, -1)
+            new(1, 1),
+            new(1, -1),
+            new(-1, 1),
+            new(-1, -1)
         };
 
         for (int i = 0; i < offsets.Length; i++)
@@ -1314,7 +1397,21 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         return moves;
     }
 
-    private List<Vector2Int> GetChariotMoves()
+    private List<Vector2Int> GetQueenMoves()
+    {
+        List<Vector2Int> moves = new List<Vector2Int>();
+        AddRayMoves(moves, Vector2Int.up);
+        AddRayMoves(moves, Vector2Int.down);
+        AddRayMoves(moves, Vector2Int.left);
+        AddRayMoves(moves, Vector2Int.right);
+        AddRayMoves(moves, new Vector2Int(1, 1));
+        AddRayMoves(moves, new Vector2Int(1, -1));
+        AddRayMoves(moves, new Vector2Int(-1, 1));
+        AddRayMoves(moves, new Vector2Int(-1, -1));
+        return moves;
+    }
+
+    private List<Vector2Int> GetRookMoves()
     {
         List<Vector2Int> moves = new List<Vector2Int>();
         AddRayMoves(moves, Vector2Int.up);
@@ -1324,125 +1421,94 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         return moves;
     }
 
-    private List<Vector2Int> GetCannonMoves()
+    private List<Vector2Int> GetBishopMoves()
     {
         List<Vector2Int> moves = new List<Vector2Int>();
-        AddCannonRayMoves(moves, Vector2Int.up);
-        AddCannonRayMoves(moves, Vector2Int.down);
-        AddCannonRayMoves(moves, Vector2Int.left);
-        AddCannonRayMoves(moves, Vector2Int.right);
+        AddRayMoves(moves, new Vector2Int(1, 1));
+        AddRayMoves(moves, new Vector2Int(1, -1));
+        AddRayMoves(moves, new Vector2Int(-1, 1));
+        AddRayMoves(moves, new Vector2Int(-1, -1));
         return moves;
     }
 
-    private List<Vector2Int> GetHorseMoves()
+    private List<Vector2Int> GetKnightMoves()
     {
         List<Vector2Int> moves = new List<Vector2Int>();
         Vector2Int[] offsets =
         {
-            new (2, 1),
-            new (2, -1),
-            new (-2, 1),
-            new (-2, -1),
-            new (1, 2),
-            new (1, -2),
-            new (-1, 2),
-            new (-1, -2)
+            new(2, 1),
+            new(2, -1),
+            new(-2, 1),
+            new(-2, -1),
+            new(1, 2),
+            new(1, -2),
+            new(-1, 2),
+            new(-1, -2)
         };
 
-        for (int i = 0; i < offsets.Length; i++)
-        {
-            Vector2Int offset = offsets[i];
-            int stepX = offset.x == 0 ? 0 : (int)Mathf.Sign(offset.x);
-            int stepY = offset.y == 0 ? 0 : (int)Mathf.Sign(offset.y);
-
-            Vector2Int block = Mathf.Abs(offset.x) == 2 ?
-                new Vector2Int(stepX, 0) :
-                new Vector2Int(0, stepY);
-
-            if (IsBlockedForSlidingMoves(gridPosition.Value + block))
-            {
-                continue;
-            }
-
-            Vector2Int target = gridPosition.Value + offset;
-            if (CanMoveTo(target))
-            {
-                moves.Add(target);
-            }
-        }
-
-        return moves;
-    }
-
-    private List<Vector2Int> GetElephantMoves()
-    {
-        List<Vector2Int> moves = new ();
-        Vector2Int[] offsets =
-        {
-            new (3, 2),
-            new (3, -2),
-            new (-3, 2),
-            new (-3, -2),
-            new (2, 3),
-            new (2, -3),
-            new (-2, 3),
-            new (-2, -3)
-        };
-
-        for (int i = 0; i < offsets.Length; i++)
-        {
-            Vector2Int offset = offsets[i];
-            int stepX = offset.x == 0 ? 0 : (int)Mathf.Sign(offset.x);
-            int stepY = offset.y == 0 ? 0 : (int)Mathf.Sign(offset.y);
-
-            Vector2Int step1 = Mathf.Abs(offset.x) == 3 ?
-                new Vector2Int(stepX, 0) :
-                new Vector2Int(0, stepY);
-            Vector2Int step2 = step1 + new Vector2Int(stepX, stepY);
-
-            if (IsBlockedForSlidingMoves(gridPosition.Value + step1) || IsBlockedForSlidingMoves(gridPosition.Value + step2))
-            {
-                continue;
-            }
-
-            Vector2Int target = gridPosition.Value + offset;
-            if (CanMoveTo(target))
-            {
-                moves.Add(target);
-            }
-        }
-
-        return moves;
-    }
-
-    private List<Vector2Int> GetSoldierMoves()
-    {
-        List<Vector2Int> moves = new List<Vector2Int>();
-        Vector2Int[] offsets;
-        if (isEnemy)
-        {
-            offsets = new Vector2Int[]
-            {
-                Vector2Int.down,
-                Vector2Int.left,
-                Vector2Int.right
-            };
-        }
-        else
-        {
-            offsets = new Vector2Int[]
-            {
-                Vector2Int.up,
-                Vector2Int.left,
-                Vector2Int.right
-            };
-        }
         for (int i = 0; i < offsets.Length; i++)
         {
             Vector2Int target = gridPosition.Value + offsets[i];
             if (CanMoveTo(target))
             {
                 moves.Add(target);
+            }
+        }
+
+        return moves;
+    }
+
+    private List<Vector2Int> GetPawnMoves()
+    {
+        List<Vector2Int> moves = new List<Vector2Int>();
+        if (PieceManager.Instance == null || PieceManager.Instance.gridManager == null)
+        {
+            return moves;
+        }
+
+        GridManager gridManager = PieceManager.Instance.gridManager;
+        int dirY = isEnemy ? -1 : 1;
+        Vector2Int forward = new Vector2Int(0, dirY);
+
+        // 1. 전진 1칸 (빈 칸일 때만 이동 가능)
+        Vector2Int oneStep = gridPosition.Value + forward;
+        if (IsInBounds(oneStep) && !IsDestroyedCell(oneStep) && !IsOccupied(oneStep))
+        {
+            moves.Add(oneStep);
+
+            // 2. 초기 2칸 전진 (시작 진영 1~2번째 줄에서 두 칸 모두 비어있을 때)
+            int minY = gridManager.gridMinBounds.y;
+            int maxY = minY + gridManager.boardHeight - 1;
+            bool isStartRank = isEnemy
+                ? (gridPosition.Value.y >= maxY - 1)
+                : (gridPosition.Value.y <= minY + 1);
+
+            Vector2Int twoStep = gridPosition.Value + (forward * 2);
+            if (isStartRank && IsInBounds(twoStep) && !IsDestroyedCell(twoStep) && !IsOccupied(twoStep))
+            {
+                moves.Add(twoStep);
+            }
+        }
+
+        // 3. 대각선 전방 포획 (적 기물이 있을 때만 공격 이동 가능)
+        Vector2Int[] captureOffsets =
+        {
+            new Vector2Int(-1, dirY),
+            new Vector2Int(1, dirY)
+        };
+
+        for (int i = 0; i < captureOffsets.Length; i++)
+        {
+            Vector2Int diagTarget = gridPosition.Value + captureOffsets[i];
+            if (!IsInBounds(diagTarget) || IsDestroyedCell(diagTarget))
+            {
+                continue;
+            }
+
+            PieceController targetPiece = PieceManager.Instance.GetPieceAt(diagTarget);
+            if (targetPiece != null && targetPiece.IsEnemy != isEnemy)
+            {
+                moves.Add(diagTarget);
             }
         }
 
@@ -1482,72 +1548,6 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
 
             break;
-        }
-    }
-
-    private void AddCannonRayMoves(List<Vector2Int> moves, Vector2Int direction)
-    {
-        if (PieceManager.Instance == null)
-        {
-            return;
-        }
-
-        Vector2Int current = gridPosition.Value + direction;
-        bool hasScreen = false;
-
-        while (IsInBounds(current))
-        {
-            PieceController pieceAtCell = PieceManager.Instance.GetPieceAt(current);
-            bool isDestroyed = IsDestroyedCell(current);
-
-            if (!hasScreen)
-            {
-                // 파괴된 칸을 만나면 멈춤 (화면으로 삼을 수 없음)
-                if (isDestroyed)
-                {
-                    break;
-                }
-
-                if (pieceAtCell != null)
-                {
-                    // 포는 다른 포를 넘을 수 없음
-                    if (pieceAtCell.Type == PieceType.Cannon)
-                    {
-                        break;
-                    }
-                    hasScreen = true;
-                }
-
-                current += direction;
-                continue;
-            }
-
-            // 화면을 찾은 후
-            if (pieceAtCell != null)
-            {
-                if (pieceAtCell.IsEnemy != isEnemy)
-                {
-                    // 포는 다른 포를 잡을 수 없음
-                    if (pieceAtCell.Type != PieceType.Cannon && CanMoveTo(current))
-                    {
-                        moves.Add(current);
-                    }
-                }
-
-                break;
-            }
-
-            // 파괴된 칸을 만나면 멈춤
-            if (isDestroyed)
-            {
-                break;
-            }
-
-            if (CanMoveTo(current))
-            {
-                moves.Add(current);
-            }
-            current += direction;
         }
     }
 
@@ -1702,6 +1702,18 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     public void EquipSeal(SealData data)
     {
         if (data == null) return;
+
+        if (CollectionManager.Instance != null)
+        {
+            if (isEnemy)
+            {
+                CollectionManager.Instance.RecordSealSeen(data);
+            }
+            else
+            {
+                CollectionManager.Instance.RecordSeal(data);
+            }
+        }
 
         // 프리팹이 없으면 기본 로직이나 에러 처리
         if (data.sealPrefab == null)
@@ -1971,9 +1983,14 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
     }
 
-    public void MarkPromotedByMedalThisStage()
+    public void MarkPromotedThisStage()
     {
         promotedByMedalThisStage = true;
+    }
+
+    public void MarkPromotedByMedalThisStage()
+    {
+        MarkPromotedThisStage();
     }
 
     public bool HasPromotionSeal()
@@ -1991,7 +2008,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
 
             if (seal.Data != null &&
-                (seal.Data.sealName == "승급의 인장" || seal.Data.sealName == "승급자의 인장"))
+                (seal.Data.sealName == "승급의 인장" ||
+                 seal.Data.sealName == "승급자의 인장" ||
+                 seal.Data.sealName.Contains("Privilege_Escalation") ||
+                 seal.Data.sealName.Contains("권한 상승")))
             {
                 return true;
             }
@@ -2045,15 +2065,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     }
 
     /// <summary>
-    /// 이동범위 패턴 텍스트를 생성하여 반환합니다 (기본 · + 인장 추가분 ★)
+    /// 이동범위 패턴 텍스트를 생성하여 반환합니다 (기본 · + 코드 인젝션 추가분 ★)
     /// </summary>
     public string GenerateMovementPatternText()
     {
-        if (pieceType == PieceType.Cannon)
-        {
-            return GenerateCannonTooltipTemplate();
-        }
-
         bool replacesMovement = HasMovementReplacementPreview();
 
         // 기본 패턴 오프셋
@@ -2076,10 +2091,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
         }
 
-        // 중심에 현재 기물 표시 (하얀색)
-        grid[center, center] = 'W'; // White marker
+        // 중심에 현재 기물 표시
+        grid[center, center] = 'W';
 
-        // 기본 이동범위: 연두색 □ (B = Basic)
+        // 기본 이동범위: 터미널 그린 □ (B = Basic)
         foreach (var offset in baseOffsets)
         {
             int gridX = center + offset.x;
@@ -2092,7 +2107,23 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
         }
 
-        // 인장의 추가 이동범위: 핑크색 □ (S = Seal)
+        // 폰(Pawn)인 경우 대각선 포획 위치(C = Capture) 표시
+        if (!replacesMovement && pieceType == PieceType.Pawn)
+        {
+            int dirY = isEnemy ? -1 : 1;
+            Vector2Int[] capOffsets = { new Vector2Int(-1, dirY), new Vector2Int(1, dirY) };
+            foreach (var cap in capOffsets)
+            {
+                int gx = center + cap.x;
+                int gy = center - cap.y;
+                if (gx >= 0 && gx < gridSize && gy >= 0 && gy < gridSize && grid[gy, gx] == ' ')
+                {
+                    grid[gy, gx] = 'C';
+                }
+            }
+        }
+
+        // 코드 인젝션 추가 이동범위: 시안/핑크 □ (S = Seal/Injection)
         foreach (var offset in additionalOffsets)
         {
             int gridX = center + offset.x;
@@ -2105,9 +2136,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
         }
 
-        // 텍스트로 변환 (색상 코드 적용)
+        // 텍스트로 변환 (터미널 색상 코드 적용)
         System.Text.StringBuilder sb = new System.Text.StringBuilder();
-        sb.Append($"[{pieceType}]\n");
+        sb.Append($"<color=#00FF00>[PROC::{GetPieceNameForType(pieceType)}]</color>\n");
 
         for (int y = 0; y < gridSize; y++)
         {
@@ -2117,15 +2148,17 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 string symbol;
 
                 if (c == ' ')
-                    symbol = FormatTooltipCell("#FFFFFF", "□"); // 하얀색 빈칸
+                    symbol = FormatTooltipCell("#1F4D1F", "·"); // 어두운 터미널 빈칸
                 else if (c == 'W')
-                    symbol = FormatTooltipCell("#FFFFFF", "■"); // 하얀색 내 기물
+                    symbol = FormatTooltipCell("#FFFFFF", "■"); // 현재 기물 코어
                 else if (c == 'B')
-                    symbol = FormatTooltipCell("#80FF00", "□"); // 연두색 이동 가능
+                    symbol = FormatTooltipCell("#00FF00", "□"); // 터미널 그린 이동 가능
+                else if (c == 'C')
+                    symbol = FormatTooltipCell("#FF5555", "×"); // 대각선 포획(Capture) 전용
                 else if (c == 'S')
-                    symbol = FormatTooltipCell("#FF80FF", "□"); // 핑크색 인장 추가
+                    symbol = FormatTooltipCell("#00FFFF", "▣"); // 코드 인젝션 변조 경로
                 else if (c == 'G')
-                    symbol = FormatTooltipCell("#00CC00", "■"); // 초록색 다른 기물
+                    symbol = FormatTooltipCell("#00CC00", "■");
                 else
                     symbol = c.ToString();
 
@@ -2133,6 +2166,15 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 if (x < gridSize - 1) sb.Append(" ");
             }
             if (y < gridSize - 1) sb.Append("\n");
+        }
+
+        if (pieceType == PieceType.Pawn)
+        {
+            sb.Append("\n<size=85%><color=#88FF88>□:전진(초기2칸) / </color><color=#FF5555>×:대각선 포획</color></size>");
+        }
+        else if (pieceType == PieceType.Knight)
+        {
+            sb.Append("\n<size=85%><color=#88FF88>※ 장애물 점프(Jump) 이동 가능</color></size>");
         }
 
         return sb.ToString();
@@ -2147,7 +2189,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     }
 
     /// <summary>
-    /// 지정된 기물 타입의 기본 이동범위 오프셋을 반환합니다
+    /// 지정된 체스 기물 타입의 기본 이동범위 오프셋을 반환합니다
     /// </summary>
     public static List<Vector2Int> GetBaseMovementOffsetsForType(PieceType pieceType, bool isEnemy = false)
     {
@@ -2156,56 +2198,71 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         switch (pieceType)
         {
             case PieceType.King:
-                // 궁: 8방향 1칸
+                // 킹: 8방향 1칸
                 offsets.AddRange(new[] {
                     Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right,
-                    new (1, 1), new (1, -1), new (-1, 1), new (-1, -1)
+                    new Vector2Int(1, 1), new Vector2Int(1, -1), new Vector2Int(-1, 1), new Vector2Int(-1, -1)
                 });
                 break;
 
-            case PieceType.Chariot:
-                // 차: 상하좌우 직선 (5칸까지 표시)
-                offsets.AddRange(new[] {
-                    Vector2Int.up, new (0, 2), new (0, 3),
-                    Vector2Int.down, new (0, -2), new (0, -3),
-                    Vector2Int.left, new (-2, 0), new (-3, 0),
-                    Vector2Int.right, new (2, 0), new (3, 0)
-                });
+            case PieceType.Queen:
+                // 퀸: 직선 + 대각선 8방향 전방위 슬라이딩
+                for (int i = 1; i <= 3; i++)
+                {
+                    offsets.Add(new Vector2Int(0, i));
+                    offsets.Add(new Vector2Int(0, -i));
+                    offsets.Add(new Vector2Int(-i, 0));
+                    offsets.Add(new Vector2Int(i, 0));
+                    offsets.Add(new Vector2Int(i, i));
+                    offsets.Add(new Vector2Int(i, -i));
+                    offsets.Add(new Vector2Int(-i, i));
+                    offsets.Add(new Vector2Int(-i, -i));
+                }
                 break;
 
-            case PieceType.Horse:
-                // 마: 2+1 형태 8칸
+            case PieceType.Rook:
+                // 룩: 상하좌우 직선 슬라이딩
+                for (int i = 1; i <= 3; i++)
+                {
+                    offsets.Add(new Vector2Int(0, i));
+                    offsets.Add(new Vector2Int(0, -i));
+                    offsets.Add(new Vector2Int(-i, 0));
+                    offsets.Add(new Vector2Int(i, 0));
+                }
+                break;
+
+            case PieceType.Bishop:
+                // 비숍: 대각선 4방향 슬라이딩
+                for (int i = 1; i <= 3; i++)
+                {
+                    offsets.Add(new Vector2Int(i, i));
+                    offsets.Add(new Vector2Int(i, -i));
+                    offsets.Add(new Vector2Int(-i, i));
+                    offsets.Add(new Vector2Int(-i, -i));
+                }
+                break;
+
+            case PieceType.Knight:
+                // 나이트: L자 점프 8칸
                 offsets.AddRange(new Vector2Int[] {
-                    new (2, 1), new (2, -1), new (-2, 1), new (-2, -1),
-                    new (1, 2), new (1, -2), new (-1, 2), new (-1, -2)
+                    new(2, 1), new(2, -1), new(-2, 1), new(-2, -1),
+                    new(1, 2), new(1, -2), new(-1, 2), new(-1, -2)
                 });
                 break;
 
-            case PieceType.Elephant:
-                // 상: 3+2 형태 8칸
-                offsets.AddRange(new Vector2Int[] {
-                    new (3, 2), new (3, -2), new (-3, 2), new (-3, -2),
-                    new (2, 3), new (2, -3), new (-2, 3), new (-2, -3)
-                });
-                break;
-
-            case PieceType.Cannon:
-                // 포: 상하좌우 직선 (차와 같음)
-                offsets.AddRange(new[] {
-                    Vector2Int.up, new (0, 2), new (0, 3),
-                    Vector2Int.down, new (0, -2), new (0, -3),
-                    Vector2Int.left, new (-2, 0), new (-3, 0),
-                    Vector2Int.right, new (2, 0), new (3, 0)
-                });
-                break;
-
-            case PieceType.Soldier:
+            case PieceType.Pawn:
             default:
-                // 졸: 전진 및 좌우 1칸
+                // 폰: 전진 1칸 (및 초기 2칸)
                 if (isEnemy)
-                    offsets.AddRange(new[] { Vector2Int.down, Vector2Int.left, Vector2Int.right });
+                {
+                    offsets.Add(Vector2Int.down);
+                    offsets.Add(new Vector2Int(0, -2));
+                }
                 else
-                    offsets.AddRange(new[] { Vector2Int.up, Vector2Int.left, Vector2Int.right });
+                {
+                    offsets.Add(Vector2Int.up);
+                    offsets.Add(new Vector2Int(0, 2));
+                }
                 break;
         }
 
@@ -2217,15 +2274,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     /// </summary>
     public static string GenerateMovementPatternForType(PieceType pieceType, SealData seal = null)
     {
-        if (pieceType == PieceType.Cannon)
-        {
-            return GenerateCannonTooltipTemplate();
-        }
-
         bool replacesMovement = false;
         List<Vector2Int> baseOffsets = GetBaseMovementOffsetsForType(pieceType, false);
 
-        // 인장의 추가 오프셋 계산
+        // 코드 인젝션의 추가 오프셋 계산
         List<Vector2Int> additionalOffsets = GetTooltipAdditionalOffsetsForType(pieceType, seal, out replacesMovement);
         if (replacesMovement)
         {
@@ -2246,10 +2298,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
         }
 
-        // 중심에 현재 기물 표시 (하얀색)
-        grid[center, center] = 'W'; // White marker
+        // 중심에 현재 기물 표시
+        grid[center, center] = 'W';
 
-        // 기본 이동범위: 연두색 □ (B = Basic)
+        // 기본 이동범위: 터미널 그린 □ (B = Basic)
         foreach (var offset in baseOffsets)
         {
             int gridX = center + offset.x;
@@ -2262,7 +2314,21 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
         }
 
-        // 인장의 추가 이동범위: 핑크색 □ (S = Seal)
+        if (!replacesMovement && pieceType == PieceType.Pawn)
+        {
+            Vector2Int[] capOffsets = { new Vector2Int(-1, 1), new Vector2Int(1, 1) };
+            foreach (var cap in capOffsets)
+            {
+                int gx = center + cap.x;
+                int gy = center - cap.y;
+                if (gx >= 0 && gx < gridSize && gy >= 0 && gy < gridSize && grid[gy, gx] == ' ')
+                {
+                    grid[gy, gx] = 'C';
+                }
+            }
+        }
+
+        // 인장의 추가 이동범위: 시안 ▣ (S = Seal)
         foreach (var offset in additionalOffsets)
         {
             int gridX = center + offset.x;
@@ -2277,7 +2343,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         // 텍스트로 변환 (색상 코드 적용)
         System.Text.StringBuilder sb = new System.Text.StringBuilder();
-        sb.Append($"[{pieceType}]\n");
+        sb.Append($"[{GetPieceNameForType(pieceType)}]\n");
 
         for (int y = 0; y < gridSize; y++)
         {
@@ -2287,15 +2353,17 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 string symbol;
 
                 if (c == ' ')
-                    symbol = FormatTooltipCell("#FFFFFF", "□"); // 하얀색 빈칸
+                    symbol = FormatTooltipCell("#1F4D1F", "·");
                 else if (c == 'W')
-                    symbol = FormatTooltipCell("#FFFFFF", "■"); // 하얀색 내 기물
+                    symbol = FormatTooltipCell("#FFFFFF", "■");
                 else if (c == 'B')
-                    symbol = FormatTooltipCell("#80FF00", "□"); // 연두색 이동 가능
+                    symbol = FormatTooltipCell("#00FF00", "□");
+                else if (c == 'C')
+                    symbol = FormatTooltipCell("#FF5555", "×");
                 else if (c == 'S')
-                    symbol = FormatTooltipCell("#FF80FF", "□"); // 핑크색 인장 추가
+                    symbol = FormatTooltipCell("#00FFFF", "▣");
                 else if (c == 'G')
-                    symbol = FormatTooltipCell("#00CC00", "■"); // 초록색 다른 기물
+                    symbol = FormatTooltipCell("#00CC00", "■");
                 else
                     symbol = c.ToString();
 
@@ -2305,20 +2373,15 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             if (y < gridSize - 1) sb.Append("\n");
         }
 
-        return sb.ToString();
-    }
+        if (pieceType == PieceType.Pawn)
+        {
+            sb.Append("\n<size=85%><color=#88FF88>□:전진(초기2칸) / </color><color=#FF5555>×:대각선 포획</color></size>");
+        }
+        else if (pieceType == PieceType.Knight)
+        {
+            sb.Append("\n<size=85%><color=#88FF88>※ 장애물 점프(Jump) 이동 가능</color></size>");
+        }
 
-    private static string GenerateCannonTooltipTemplate()
-    {
-        System.Text.StringBuilder sb = new System.Text.StringBuilder();
-        sb.Append("[포 (Cannon)]\n");
-        sb.Append(FormatTooltipCell("#FFFFFF", "□") + " " + FormatTooltipCell("#FFFFFF", "□") + " " + FormatTooltipCell("#80FF00", "□") + " " + FormatTooltipCell("#FFFFFF", "□") + " " + FormatTooltipCell("#FFFFFF", "□") + "\n");
-        sb.Append(FormatTooltipCell("#FFFFFF", "□") + " " + FormatTooltipCell("#FFFFFF", "□") + " " + FormatTooltipCell("#00CC00", "■") + " " + FormatTooltipCell("#FFFFFF", "□") + " " + FormatTooltipCell("#FFFFFF", "□") + "\n");
-        sb.Append(FormatTooltipCell("#80FF00", "□") + " " + FormatTooltipCell("#00CC00", "■") + " " + FormatTooltipCell("#FFFFFF", "■") + " " + FormatTooltipCell("#00CC00", "■") + " " + FormatTooltipCell("#80FF00", "□") + "\n");
-        sb.Append(FormatTooltipCell("#FFFFFF", "□") + " " + FormatTooltipCell("#FFFFFF", "□") + " " + FormatTooltipCell("#00CC00", "■") + " " + FormatTooltipCell("#FFFFFF", "□") + " " + FormatTooltipCell("#FFFFFF", "□") + "\n");
-        sb.Append(FormatTooltipCell("#FFFFFF", "□") + " " + FormatTooltipCell("#FFFFFF", "□") + " " + FormatTooltipCell("#80FF00", "□") + " " + FormatTooltipCell("#FFFFFF", "□") + " " + FormatTooltipCell("#FFFFFF", "□") + "\n");
-        sb.Append("(다른 기물(" + FormatTooltipCell("#00CC00", "■") + ")을 뛰어넘어 직선 이동)\n");
-        sb.Append("※ 포끼리는 뛰어넘거나 잡을 수 없음");
         return sb.ToString();
     }
 
@@ -2377,16 +2440,16 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         return additionalOffsets;
     }
 
-    private string GetPieceNameForType(PieceType type)
+    public static string GetPieceNameForType(PieceType type)
     {
         return type switch
         {
-            PieceType.King => "궁",
-            PieceType.Chariot => "차",
-            PieceType.Horse => "마",
-            PieceType.Elephant => "상",
-            PieceType.Cannon => "포",
-            PieceType.Soldier => "졸",
+            PieceType.King => "킹 (King)",
+            PieceType.Queen => "퀸 (Queen)",
+            PieceType.Rook => "룩 (Rook)",
+            PieceType.Bishop => "비숍 (Bishop)",
+            PieceType.Knight => "나이트 (Knight)",
+            PieceType.Pawn => "폰 (Pawn)",
             _ => "기물"
         };
     }

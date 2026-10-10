@@ -73,10 +73,6 @@ public class PresentationManager : MonoBehaviour
     {
         if (presentationEffectPrefab == null)
         {
-            if (MapManager.Instance != null)
-            {
-                MapManager.Instance.ReloadMap();
-            }
             return;
         }
 
@@ -96,10 +92,6 @@ public class PresentationManager : MonoBehaviour
         if (effect == null)
         {
             Destroy(presentationInstance);
-            if (MapManager.Instance != null)
-            {
-                MapManager.Instance.ReloadMap();
-            }
             return;
         }
 
@@ -117,10 +109,6 @@ public class PresentationManager : MonoBehaviour
         {
             IsPresenting = false;
             OnPresentationComplete?.Invoke();
-            if (MapManager.Instance != null)
-            {
-                MapManager.Instance.ReloadMap();
-            }
         });
     }
 
@@ -192,9 +180,37 @@ public class PresentationManager : MonoBehaviour
         RectTransform rt = bossImgObj.AddComponent<RectTransform>();
         Image img = bossImgObj.AddComponent<Image>();
 
-        Sprite fallback = presentationEffectPrefab.GetComponentInChildren<Image>()?.sprite;
-        img.sprite = bossSprite != null ? bossSprite : fallback;
+        img.sprite = bossSprite;
+        img.color = bossSprite != null ? Color.white : new Color(0f, 0.08f, 0f, 0.95f);
         img.preserveAspect = true;
+
+        if (bossSprite == null)
+        {
+            GameObject asciiObj = new GameObject("BossAsciiBanner", typeof(RectTransform));
+            asciiObj.transform.SetParent(bossImgObj.transform, false);
+            RectTransform asciiRt = asciiObj.GetComponent<RectTransform>();
+            asciiRt.anchorMin = Vector2.zero;
+            asciiRt.anchorMax = Vector2.one;
+            asciiRt.offsetMin = new Vector2(4f, 4f);
+            asciiRt.offsetMax = new Vector2(-4f, -4f);
+
+            TMPro.TextMeshProUGUI tmp = asciiObj.AddComponent<TMPro.TextMeshProUGUI>();
+            if (TMPro.TMP_Settings.defaultFontAsset != null)
+            {
+                tmp.font = TMPro.TMP_Settings.defaultFontAsset;
+            }
+            tmp.raycastTarget = false;
+            tmp.alignment = TMPro.TextAlignmentOptions.Center;
+            tmp.fontSize = 11f;
+            tmp.fontStyle = TMPro.FontStyles.Bold;
+            tmp.color = new Color(1f, 0.2f, 0.33f, 1f);
+            tmp.text = "+==================+\n" +
+                       "|  [ROOT_DAEMON]   |\n" +
+                       "|    .+.  \\^/      |\n" +
+                       "|    [K]  [Q]      |\n" +
+                       "+==================+\n" +
+                       $"<color=#00FF00>{(string.IsNullOrEmpty(bossName) ? "KERNEL_BOSS.sys" : bossName)}</color>";
+        }
 
         Vector2 anchoredPos = Vector2.zero;
         if (grid != null && grid.boardContainer != null)
@@ -206,7 +222,7 @@ public class PresentationManager : MonoBehaviour
         rt.localScale = Vector3.zero;
 
         rt.DOScale(Vector3.one, bossPopDuration).SetEase(Ease.OutBack);
-        img.DOFade(1f, bossPopDuration).From(0f).SetEase(Ease.InQuad);
+        img.DOFade(bossSprite != null ? 1f : 0.95f, bossPopDuration).From(0f).SetEase(Ease.InQuad);
 
         yield return new WaitForSeconds(bossPopDuration + 0.05f);
 

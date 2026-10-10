@@ -128,6 +128,7 @@ public class PieceInventory : MonoBehaviour
     public void AddPiece(PieceType pieceType)
     {
         ownedPieces.Add(new PieceInfo { pieceType = pieceType });
+        CollectionManager.EnsureInstance()?.RecordPiece(pieceType);
     }
 
     public bool RemovePiece(PieceType pieceType)
@@ -168,7 +169,7 @@ public class PieceInventory : MonoBehaviour
                     }
                 }
 
-                AddPiece(piece.HasPromotionSeal() ? PieceType.Soldier : piece.Type);
+                AddPiece(piece.HasPromotionSeal() ? PieceType.Pawn : piece.Type);
             }
         }
     }
@@ -195,7 +196,7 @@ public class PieceInventory : MonoBehaviour
                 continue;
             }
 
-            AddPiece(piece.HasPromotionSeal() ? PieceType.Soldier : piece.Type);
+            AddPiece(piece.HasPromotionSeal() ? PieceType.Pawn : piece.Type);
         }
 
         hasStageSnapshot = true;
@@ -208,14 +209,14 @@ public class PieceInventory : MonoBehaviour
 
     private void AddDefaultPieces()
     {
-        // 기본 장기 기물 세트 예시 (로그라이크 특성에 맞춰 조절 가능)
+        // 기본 체스 기물 세트 예시 (로그라이크 특성에 맞춰 조절 가능)
         AddPiece(PieceType.King);
-        AddPiece(PieceType.Chariot);
-        AddPiece(PieceType.Cannon);
-        AddPiece(PieceType.Horse);
-        AddPiece(PieceType.Elephant);
-        AddPiece(PieceType.Soldier);
-        AddPiece(PieceType.Soldier);
-        AddPiece(PieceType.Soldier);
+        AddPiece(PieceType.Queen);
+        AddPiece(PieceType.Rook);
+        AddPiece(PieceType.Bishop);
+        AddPiece(PieceType.Knight);
+        AddPiece(PieceType.Pawn);
+        AddPiece(PieceType.Pawn);
+        AddPiece(PieceType.Pawn);
     }
 }

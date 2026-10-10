@@ -238,13 +238,13 @@ public class SellPieceButton : MonoBehaviour, IPointerExitHandler, IPointerEnter
 
         switch (type)
         {
-            case PieceType.Soldier: return 10;
-            case PieceType.Cannon: return 20;
-            case PieceType.Horse: return 25;
-            case PieceType.Elephant: return 30;
-            case PieceType.Chariot: return 40;
+            case PieceType.Pawn: return 20;
+            case PieceType.Knight: return 50;
+            case PieceType.Bishop: return 50;
+            case PieceType.Rook: return 90;
+            case PieceType.Queen: return 130;
             case PieceType.King: return 100;
-            default: return 10;
+            default: return 20;
         }
     }
 }

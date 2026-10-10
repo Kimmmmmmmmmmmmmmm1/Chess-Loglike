@@ -12,12 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
   m_Name: Diagnal
   m_EditorClassIdentifier: Assembly-CSharp::SealData
-  sealName: "\uBD80\uC11C\uC9C4 \uBE44\uC20D \uC778\uC7A5"
+  sealName: "[INJ] Diag_Step.dll"
+  injectionCommand: "inject --offset-diag1"
   rarity: 0
-  description: "\uB300\uAC01\uC120\uC73C\uB85C \uC6C0\uC9C1\uC77C \uC218 \uC788\uB3C4\uB85D
-    \uD574\uC900\uB2E4."
+  description: "기물의 이동 알고리즘에 1칸 대각선 오프셋 벡터[(±1, ±1)]를 인젝션합니다."
+  flavorText: "// Vector table patched: +4 adjacent diagonal nodes unlocked."
   icon: {fileID: 3944343766228188813, guid: 95980ea79e9734fbc9fe2d2728f381c0, type: 3}
-  price: 0
+  isSoldInShop: 1
   sealPrefab: {fileID: 2006435481796697723, guid: e85f17783a2a343ef8e5d683859884c3, type: 3}
   compatiblePieces: 
   effectType: 1

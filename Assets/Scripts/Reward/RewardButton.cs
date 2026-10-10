@@ -5,8 +5,10 @@ using System.Linq;
 using DG.Tweening;
 using System.Collections.Generic;
 
+using UnityEngine.EventSystems;
+
 [RequireComponent(typeof(Button))]
-public class RewardButton : MonoBehaviour
+public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
 
     public enum RewardType { Coin, Piece, Artifact, Seal }
@@ -14,6 +16,10 @@ public class RewardButton : MonoBehaviour
     [Header("UI")]
     public TextMeshProUGUI infoText;
     public Image iconImage;
+
+    [Header("Hover Settings")]
+    [SerializeField] private float hoverScale = 1.05f;
+    [SerializeField] private float hoverDuration = 0.18f;
 
     private RewardType type;
     private int coinAmount;
@@ -23,45 +29,102 @@ public class RewardButton : MonoBehaviour
     private Button button;
     private SealData attachedSeal;
     private Image sealIconImage;
+    private Image backgroundImage;
+    private Color originalBgColor = Color.white;
+    private bool isHovered = false;
+
     public SealData AttachedSeal => attachedSeal;
 
+    private void Awake()
+    {
+        backgroundImage = GetComponent<Image>();
+        if (backgroundImage != null)
+        {
+            originalBgColor = backgroundImage.color;
+        }
+    }
+
     public void Initialize(RewardManager manager, int rarity, bool isTreasure = false)
+    {
+        InitializeWithType(manager, rarity, null, isTreasure);
+    }
+
+    public void InitializeWithType(RewardManager manager, int rarity, RewardType? forcedType, bool isTreasure = false)
     {
         this.manager = manager;
         button = GetComponent<Button>();
         button.onClick.RemoveAllListeners();
         button.onClick.AddListener(OnClicked);
 
-        // 확률 설정: 돈(90), 기물(7), 유물(3)
-        float rand = Random.Range(0f, 100f);
-
-        // 희귀도에 따른 확률 보정 (희귀도가 높을수록 기물/유물 확률 증가)
-        float baseCoinChance = Mathf.Max(50f, 90f - (rarity * 10f));
-        float basePieceChance = 7f + (rarity * 5f);
-        float baseSealChance = 5f + (rarity * 2f); // 인장 보상 확률 추가
-        float baseArtifactChance = 100f - baseCoinChance - basePieceChance - baseSealChance;
-        
-        // 유물 확률 조정
-        float artifactMultiplier = isTreasure ? 3f : 0.5f;
-        float adjustedArtifactChance = baseArtifactChance * artifactMultiplier;
-        
-        // 조정된 유물 확률에 따라 코인과 기물 확률 재분배
-        float remainingChance = 100f - adjustedArtifactChance;
-        float totalBaseChance = baseCoinChance + basePieceChance + baseSealChance;
-        float coinChance = (baseCoinChance / totalBaseChance) * remainingChance;
-        float pieceChance = coinChance + ((basePieceChance / totalBaseChance) * remainingChance);
-        float sealChance = pieceChance + ((baseSealChance / totalBaseChance) * remainingChance);
-
-        if (rand < coinChance)
+        if (backgroundImage == null)
         {
-            type = RewardType.Coin;
+            backgroundImage = GetComponent<Image>();
+            if (backgroundImage != null)
+            {
+                originalBgColor = backgroundImage.color;
+            }
+        }
+
+        if (forcedType.HasValue)
+        {
+            type = forcedType.Value;
+        }
+        else if (manager != null)
+        {
+            type = manager.GetRandomRewardType(isTreasure);
+        }
+        else
+        {
+            // 확률 설정: 돈(90), 기물(7), 유물(3)
+            float rand = Random.Range(0f, 100f);
+
+            // 희귀도에 따른 확률 보정 (희귀도가 높을수록 기물/유물 확률 증가)
+            float baseCoinChance = Mathf.Max(50f, 90f - (rarity * 10f));
+            float basePieceChance = 7f + (rarity * 5f);
+            float baseSealChance = 5f + (rarity * 2f); // 인장 보상 확률 추가
+            float baseArtifactChance = 100f - baseCoinChance - basePieceChance - baseSealChance;
+            
+            // 유물 확률 조정
+            float artifactMultiplier = isTreasure ? 3f : 0.5f;
+            float adjustedArtifactChance = baseArtifactChance * artifactMultiplier;
+            
+            // 조정된 유물 확률에 따라 코인과 기물 확률 재분배
+            float remainingChance = 100f - adjustedArtifactChance;
+            float totalBaseChance = baseCoinChance + basePieceChance + baseSealChance;
+            float coinChance = (baseCoinChance / totalBaseChance) * remainingChance;
+            float pieceChance = coinChance + ((basePieceChance / totalBaseChance) * remainingChance);
+            float sealChance = pieceChance + ((baseSealChance / totalBaseChance) * remainingChance);
+
+            if (rand < coinChance)
+            {
+                type = RewardType.Coin;
+            }
+            else if (rand < pieceChance)
+            {
+                type = RewardType.Piece;
+            }
+            else if (rand < sealChance)
+            {
+                type = RewardType.Seal;
+            }
+            else
+            {
+                type = RewardType.Artifact;
+            }
+        }
+
+        SetupRewardContent(rarity);
+    }
+
+    private void SetupRewardContent(int rarity)
+    {
+        if (type == RewardType.Coin)
+        {
             coinAmount = Random.Range(20, 50) + (rarity * 10); // 희귀도에 따라 코인 증가
             if (infoText != null) infoText.text = $"{coinAmount} Coin";
-            // 코인 아이콘 설정 로직 추가 가능
         }
-        else if (rand < pieceChance)
+        else if (type == RewardType.Piece)
         {
-            type = RewardType.Piece;
             ShopPieceData pieceData = null;
             if (RewardService.Instance != null)
             {
@@ -75,28 +138,30 @@ public class RewardButton : MonoBehaviour
             if (pieceData != null)
             {
                 var pieceInfo = pieceData.GetRandomPiece();
-                pieceType = pieceInfo != null ? pieceInfo.pieceType : PieceType.Soldier;
-                if (infoText != null) infoText.text = $"{pieceType}";
+                pieceType = pieceInfo != null ? pieceInfo.pieceType : PieceType.Pawn;
+                if (infoText != null) infoText.text = PieceController.GetPieceNameForType(pieceType);
                 
                 if (iconImage != null && PieceManager.Instance != null)
                 {
-                    iconImage.sprite = PieceManager.Instance.GetSpriteFor(pieceType);
-                    iconImage.color = Color.white;
+                    Sprite s = PieceManager.Instance.GetSpriteFor(pieceType);
+                    iconImage.sprite = s;
+                    iconImage.color = s != null ? Color.white : new Color(0f, 0.12f, 0f, 0.9f);
                 }
-
             }
             else
             {
-                pieceType = PieceType.Soldier;
-                if (infoText != null) infoText.text = "Soldier";
+                pieceType = PieceType.Pawn;
+                if (infoText != null) infoText.text = PieceController.GetPieceNameForType(PieceType.Pawn);
             }
+
+            CollectionManager.EnsureInstance()?.RecordPieceSeen(pieceType);
         }
-        else if (rand < sealChance)
+        else if (type == RewardType.Seal)
         {
-            type = RewardType.Seal;
             attachedSeal = GetRandomSeal(null); // 특정 기물 타입에 제약 없이 인장 획득
             if (attachedSeal != null)
             {
+                CollectionManager.EnsureInstance()?.RecordSealSeen(attachedSeal);
                 if (infoText != null) infoText.text = attachedSeal.sealName;
                 if (iconImage != null) iconImage.sprite = attachedSeal.icon;
                 CreateSealIcon(attachedSeal);
@@ -108,7 +173,7 @@ public class RewardButton : MonoBehaviour
                 if (infoText != null) infoText.text = $"{coinAmount} Coin";
             }
         }
-        else
+        else if (type == RewardType.Artifact)
         {
             // 유물 보상 시도
             if (ArtifactManager.Instance != null)
@@ -118,7 +183,7 @@ public class RewardButton : MonoBehaviour
 
             if (artifactReward != null)
             {
-                type = RewardType.Artifact;
+                CollectionManager.EnsureInstance()?.RecordArtifactSeen(artifactReward);
                 if (infoText != null) infoText.text = artifactReward.artifactName;
                 if (iconImage != null)
                 {
@@ -278,12 +343,114 @@ public class RewardButton : MonoBehaviour
                 break;
         }
 
+        if (TooltipManager.Instance != null)
+        {
+            TooltipManager.Instance.HideTooltip(gameObject);
+        }
+
         if (manager != null)
         {
             manager.OnRewardButtonClicked();
         }
 
         Destroy(gameObject);
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (button != null && !button.interactable) return;
+        isHovered = true;
+
+        transform.DOKill();
+        transform.DOScale(Vector3.one * hoverScale, hoverDuration).SetEase(Ease.OutQuad).SetUpdate(true);
+
+        if (backgroundImage != null)
+        {
+            backgroundImage.DOKill();
+            Color highlightColor = new Color(
+                Mathf.Min(1f, originalBgColor.r + 0.15f),
+                Mathf.Min(1f, originalBgColor.g + 0.15f),
+                Mathf.Min(1f, originalBgColor.b + 0.15f),
+                originalBgColor.a
+            );
+            backgroundImage.DOColor(highlightColor, hoverDuration).SetUpdate(true);
+        }
+
+        SoundManager.Instance?.PlaySFX(SFXType.Hover);
+
+        if (TooltipManager.Instance != null)
+        {
+            if (type == RewardType.Piece)
+            {
+                string movementPattern = PieceController.GenerateMovementPatternForType(pieceType, attachedSeal);
+                TooltipManager.Instance.ShowTooltip(
+                    $"{pieceType}",
+                    movementPattern,
+                    transform.position,
+                    attachedSeal != null ? $"인장: {attachedSeal.sealName}" : "",
+                    TooltipManager.TooltipPriorityPieceMove,
+                    gameObject);
+            }
+            else if (type == RewardType.Artifact && artifactReward != null)
+            {
+                TooltipManager.Instance.ShowTooltip(
+                    artifactReward.artifactName,
+                    artifactReward.description,
+                    transform.position,
+                    $"유물 (Lv.{artifactReward.Level})",
+                    TooltipManager.TooltipPriorityDefault,
+                    gameObject);
+            }
+            else if (type == RewardType.Seal && attachedSeal != null)
+            {
+                TooltipManager.Instance.ShowTooltip(
+                    attachedSeal.sealName,
+                    attachedSeal.description,
+                    transform.position,
+                    $"인장 ({attachedSeal.rarity})",
+                    TooltipManager.TooltipPriorityDefault,
+                    gameObject);
+            }
+        }
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        if (!isHovered) return;
+        isHovered = false;
+
+        transform.DOKill();
+        transform.DOScale(Vector3.one, hoverDuration).SetEase(Ease.OutQuad).SetUpdate(true);
+
+        if (backgroundImage != null)
+        {
+            backgroundImage.DOKill();
+            backgroundImage.DOColor(originalBgColor, hoverDuration).SetUpdate(true);
+        }
+
+        if (TooltipManager.Instance != null)
+        {
+            TooltipManager.Instance.HideTooltip(gameObject);
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (isHovered)
+        {
+            isHovered = false;
+            transform.localScale = Vector3.one;
+            if (backgroundImage != null) backgroundImage.color = originalBgColor;
+            TooltipManager.Instance?.HideTooltip(gameObject);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (TooltipManager.Instance != null)
+        {
+            TooltipManager.Instance.HideTooltip(gameObject);
+        }
     }
 
     private InventorySlot FindEmptyInventorySlot()

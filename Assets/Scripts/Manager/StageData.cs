@@ -1,22 +1,22 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-[CreateAssetMenu(fileName = "NewStageData", menuName = "Janggi/Stage Data")]
+[CreateAssetMenu(fileName = "NewStageData", menuName = "Chess/Stage Data")]
 public class StageData : ScriptableObject
 {
     [Tooltip("스테이지 난이도")]
     public int difficulty;
 
     [Header("Map Settings")]
-    [Tooltip("맵의 가로 크기")]
-    public int mapWidth = 5;
-    [Tooltip("맵의 세로 크기")]
-    public int mapHeight = 7;
+    [Tooltip("맵의 가로 크기 (기본 6)")]
+    public int mapWidth = 6;
+    [Tooltip("맵의 세로 크기 (기본 5)")]
+    public int mapHeight = 5;
     
     [Tooltip("그리드 시작 X 좌표 (GridManager의 gridMinBounds.x와 일치시켜주세요)")]
-    public int minX = -2;
+    public int minX = -3;
     [Tooltip("그리드 시작 Y 좌표 (GridManager의 gridMinBounds.y와 일치시켜주세요)")]
-    public int minY = -3;
+    public int minY = -2;
 
     [Tooltip("적 기물 배치 정보")]
     public List<PieceSpawner.PieceSpawnInfo> enemyPieces;

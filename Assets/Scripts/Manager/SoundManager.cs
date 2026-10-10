@@ -269,7 +269,6 @@ public class SoundManager : MonoBehaviour
                 case GameFlowState.Battle:
                     bgmType = BGMType.BattleBGM;
                     return true;
-                case GameFlowState.Map:
                 case GameFlowState.Event:
                 case GameFlowState.None:
                 default:

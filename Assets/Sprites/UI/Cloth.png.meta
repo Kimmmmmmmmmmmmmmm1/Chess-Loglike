@@ -56,7 +56,9 @@ TextureImporter:
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
+  spriteTessellationMethod: 0
   spriteTessellationDetail: -1
+  spriteGeometrySubdivision: -1
   textureType: 8
   textureShape: 1
   singleChannelComponent: 0
@@ -161,8 +163,8 @@ TextureImporter:
       - key: SpriteEditor.SliceOnImport
         value: True
     nameFileIdTable:
-      Cloth_0: -487807498
-      Cloth_1: -2000791242
+      Cloth_0: -1300857071
+      Cloth_1: 366778704
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

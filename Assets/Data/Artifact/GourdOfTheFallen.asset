@@ -13,16 +13,13 @@ MonoBehaviour:
   m_Name: GourdOfTheFallen
   m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
   id: A004
-  artifactName: "\uB9DD\uC790\uC758 \uD638\uB9AC\uBCD1"
-  description: "\uC804\uD22C \uC911 \uC544\uAD70 \uAE30\uBB3C\uC774 \uD30C\uAD34\uB420
-    \uB54C, \uD30C\uAD34\uB97C \uB9C9\uACE0 \uD574\uB2F9 \uAE30\uBB3C\uC744 \uC989\uC2DC
-    \uC778\uBCA4\uD1A0\uB9AC\uB85C \uD68C\uC218\uD569\uB2C8\uB2E4."
-  flavorText: "\uC8FD\uC740 \uC790\uB4E4\uC758 \uC601\uD63C\uC774 \uB2F4\uAE34 \uD638\uB9AC\uBCD1.
-    \uB418\uC0B4\uB9BC\uC758 \uD798\uC744 \uAC00\uC9C0\uACE0 \uC788\uB2E4."
+  artifactName: "망자의 호리병"
+  description: "전투 중 아군 기물이 파괴될 때, 파괴를 막고 해당 기물을 즉시 인벤토리로 회수합니다."
+  flavorText: "죽은 자들의 영혼이 담긴 호리병. 되살림의 힘을 가지고 있다."
   rarity: 2
   icon: {fileID: 862281467, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
   price: 300
   isSoldInShop: 1
-  isRequireGage: 1
+  isGaugeRequired: 1
   maxLevel: 4
   level: 1

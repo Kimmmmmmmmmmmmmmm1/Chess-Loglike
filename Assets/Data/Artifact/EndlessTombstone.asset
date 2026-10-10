@@ -13,17 +13,13 @@ MonoBehaviour:
   m_Name: EndlessTombstone
   m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
   id: A005
-  artifactName: "\uB05D\uC5C6\uB294 \uBB18\uBE44"
-  description: "\uC544\uAD70 \uAE30\uBB3C\uC774 <link=wavy><color=#FF1111>{0}\uBC88
-    </color><color=#FFD700>\uD30C\uAD34</color></link>\uB420 \uB54C\uB9C8\uB2E4,
-    \uC544\uAD70 \uC9C4\uC601\uC758 \uBB34\uC791\uC704 \uBE48\uCE78\uC5D0 <color=#FF1111>\uC878(Soldier)</color>
-    1\uAC1C\uB97C \uC989\uC2DC \uC2A4\uD3F0\uD569\uB2C8\uB2E4."
-  flavorText: "\uBB34\uD55C\uD55C \uC601\uD63C\uB4E4\uC758 \uBB34\uB364. \uC8FD\uC74C
-    \uC704\uC5D0\uC11C \uC0C8\uB85C\uC6B4 \uC0DD\uBA85\uC774 \uD53C\uC5B4\uB09C\uB2E4."
+  artifactName: "끝없는 묘비"
+  description: "아군 기물이 <link=wavy><color=#FF1111>{0}번</color><color=#FFD700>파괴</color></link>될 때마다, 아군 진영의 무작위 빈칸에 <color=#FF1111>폰(Pawn)</color> 1개를 즉시 스폰합니다."
+  flavorText: "무한한 영혼들의 무덤. 죽음 위에서 새로운 생명이 피어난다."
   rarity: 3
   icon: {fileID: -1910449255, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
   price: 500
   isSoldInShop: 1
-  isRequireGage: 1
+  isGaugeRequired: 1
   maxLevel: 3
-  level: 3
+  level: 1

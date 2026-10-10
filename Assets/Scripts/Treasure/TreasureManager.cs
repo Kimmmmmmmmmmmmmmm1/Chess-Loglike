@@ -121,26 +121,21 @@ public class TreasureManager : MonoBehaviour
         {
             treasurePanel.SetActive(true);
 
-            // 패널 애니메이션: 위쪽 화면 밖에서 아래로 슬라이드
             if (treasurePanelRect != null)
             {
-                // 초기 위치를 위쪽 밖으로 설정 (높이만큼 이동)
+                treasurePanelRect.DOKill();
                 treasurePanelRect.anchoredPosition = new Vector2(
                     treasurePanelRect.anchoredPosition.x,
-                    treasurePanelRect.rect.height
+                    panelOpenY
                 );
-                treasurePanelRect.DOAnchorPosY(panelOpenY, animDuration).SetEase(openEase);
             }
 
             // 보물상자 버튼 활성화 및 연출
             if (treasureChestButton != null)
             {
                 treasureChestButton.interactable = true;
-                // 상자 등장 연출: 약간의 바운스
-                treasureChestButton.transform.localScale = Vector3.zero;
-                treasureChestButton.transform.DOScale(Vector3.one, 0.4f)
-                    .SetEase(Ease.OutBack)
-                    .SetDelay(animDuration * 0.5f);
+                treasureChestButton.transform.DOKill();
+                treasureChestButton.transform.localScale = Vector3.one;
             }
 
             HideTreasureLabel();
@@ -150,7 +145,7 @@ public class TreasureManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 보물상자 패널을 위로 슬라이드하며 닫기
+    /// 보물상자 패널 닫기
     /// </summary>
     public void Close(Action onComplete = null)
     {
@@ -164,24 +159,13 @@ public class TreasureManager : MonoBehaviour
 
         if (treasurePanelRect != null)
         {
-            // 패널을 위쪽(높이만큼)으로 이동하여 숨김
-            treasurePanelRect.DOAnchorPosY(treasurePanelRect.rect.height, animDuration)
-                .SetEase(closeEase)
-                .OnComplete(() =>
-                {
-                    if (treasurePanel != null) treasurePanel.SetActive(false);
-                    onComplete?.Invoke();
-                });
+            treasurePanelRect.DOKill();
         }
-        else if (treasurePanel != null)
+        if (treasurePanel != null)
         {
             treasurePanel.SetActive(false);
-            onComplete?.Invoke();
         }
-        else
-        {
-            onComplete?.Invoke();
-        }
+        onComplete?.Invoke();
 
         // 장기판 원위치 복귀 연출 제거: 패널이 겹치므로 별도 복귀 동작 불필요
     }
@@ -465,12 +449,12 @@ public class TreasureManager : MonoBehaviour
         }
         else
         {
-            // 보상 없이 보물상자 패널 닫고 맵으로 복귀
+            // 보상 없이 보물상자 패널 닫고 다음 전투로 복귀
             Close(() =>
             {
                 if (GameManager.Instance != null)
                 {
-                    GameManager.Instance.ChangeFlowState(GameFlowState.Map);
+                    GameManager.Instance.StartNextStage();
                 }
             });
         }

@@ -6,15 +6,15 @@ public class SealTooltipHandler : MonoBehaviour, IPointerEnterHandler, IPointerE
 {
     private SealData sealData;
 
-    // PieceType 한글 표기 (InspectorName과 동일)
+    // PieceType 한글 표기
     private static readonly Dictionary<PieceType, string> PieceKoreanNames = new Dictionary<PieceType, string>
     {
-        { PieceType.King,     "궁" },
-        { PieceType.Chariot,  "차" },
-        { PieceType.Horse,    "마" },
-        { PieceType.Elephant, "상" },
-        { PieceType.Cannon,   "포" },
-        { PieceType.Soldier,  "졸" }
+        { PieceType.King,   "킹" },
+        { PieceType.Rook,   "룩" },
+        { PieceType.Knight, "나이트" },
+        { PieceType.Bishop, "비숍" },
+        { PieceType.Queen,  "퀸" },
+        { PieceType.Pawn,   "폰" }
     };
 
     public void Initialize(SealData data)

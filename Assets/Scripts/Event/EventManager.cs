@@ -132,8 +132,8 @@ public class EventManager : MonoBehaviour
 
             if (eventPanelRect != null)
             {
-                eventPanelRect.anchoredPosition = new Vector2(eventPanelRect.anchoredPosition.x, eventPanelRect.rect.height);
-                eventPanelRect.DOAnchorPosY(eventOpenY, animDuration).SetEase(openEase);
+                eventPanelRect.DOKill();
+                eventPanelRect.anchoredPosition = new Vector2(eventPanelRect.anchoredPosition.x, eventOpenY);
             }
         }
 
@@ -449,7 +449,7 @@ public class EventManager : MonoBehaviour
         if (pieceData != null)
         {
             var pieceInfo = pieceData.GetRandomPiece();
-            pieceType = pieceInfo != null ? pieceInfo.pieceType : PieceType.Soldier;
+            pieceType = pieceInfo != null ? pieceInfo.pieceType : PieceType.Pawn;
         }
         else
         {
@@ -725,8 +725,32 @@ public class EventManager : MonoBehaviour
     {
         if (string.IsNullOrEmpty(source))
         {
-            pieceType = PieceType.Soldier;
+            pieceType = PieceType.Pawn;
             return false;
+        }
+
+        switch (source.Trim().ToLowerInvariant())
+        {
+            case "soldier":
+            case "pawn":
+                pieceType = PieceType.Pawn;
+                return true;
+            case "chariot":
+            case "rook":
+                pieceType = PieceType.Rook;
+                return true;
+            case "horse":
+            case "knight":
+                pieceType = PieceType.Knight;
+                return true;
+            case "elephant":
+            case "bishop":
+                pieceType = PieceType.Bishop;
+                return true;
+            case "cannon":
+            case "queen":
+                pieceType = PieceType.Queen;
+                return true;
         }
 
         return Enum.TryParse(source, true, out pieceType);
@@ -971,7 +995,7 @@ public class EventManager : MonoBehaviour
 
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.ChangeFlowState(GameFlowState.Map);
+            GameManager.Instance.StartNextStage();
         }
     }
 
@@ -987,18 +1011,11 @@ public class EventManager : MonoBehaviour
 
         if (eventPanel != null)
         {
-            // 패널 애니메이션: 아래쪽으로 슬라이드 아웃 (세로)
             if (eventPanelRect != null)
             {
-                eventPanelRect.DOAnchorPosY(eventPanelRect.rect.height, animDuration).SetEase(closeEase).OnComplete(() =>
-                {
-                    eventPanel.SetActive(false);
-                });
+                eventPanelRect.DOKill();
             }
-            else
-            {
-                eventPanel.SetActive(false);
-            }
+            eventPanel.SetActive(false);
         }
     }
 

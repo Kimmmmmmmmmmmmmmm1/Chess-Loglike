@@ -13,8 +13,8 @@ public class TurnLogUIManager : MonoBehaviour
     public ScrollRect scrollRect;
 
     [Header("Appearance")]
-    public Color playerColor = new Color(0.1f, 0.6f, 0.1f);
-    public Color enemyColor = new Color(0.6f, 0.1f, 0.1f);
+    public Color playerColor = new Color(0f, 1f, 0f, 1f);
+    public Color enemyColor = new Color(1f, 0.2f, 0.33f, 1f);
     public int maxEntries = 200;
 
     [Header("Fade Settings")]

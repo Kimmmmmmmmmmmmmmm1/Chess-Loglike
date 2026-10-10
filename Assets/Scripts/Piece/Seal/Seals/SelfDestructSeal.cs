@@ -9,7 +9,7 @@ public class SelfDestructSeal : SealBase
 
     public override void OnOwnerDestroyed(PieceController killer, Vector2Int ownerPosition)
     {
-        if (owner == null || owner.Type != PieceType.Soldier)
+        if (owner == null || owner.Type != PieceType.Pawn)
         {
             return;
         }
@@ -18,6 +18,8 @@ public class SelfDestructSeal : SealBase
         {
             return;
         }
+
+        TurnLogUIManager.Instance?.AddLog("[INJECTION TRIGGERED] Logic_Bomb.exe :: PAYLOAD DETONATED", owner.IsEnemy);
 
         List<PieceController> targets = new List<PieceController>();
 

@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Combat_CaptureCannon
   m_EditorClassIdentifier: 
   id: combat_capture_cannon
-  achievementName: 포 포획
-  description: 적 포(包)를 처음으로 포획하세요.
+  achievementName: 퀸 포획
+  description: 적 퀸(Queen)을 처음으로 포획하세요.
   category: 0
   targetCount: 1
   difficulty: 1

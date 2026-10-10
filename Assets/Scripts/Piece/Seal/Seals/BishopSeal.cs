@@ -3,14 +3,11 @@ using UnityEngine;
 
 public class BishopSeal : SealBase
 {
-    public override bool ReplacesMovementPreview => true;
+    public override bool ReplacesMovementPreview => false;
 
     public override void ModifyMoves(ref List<Vector2Int> moves, Vector2Int currentPos, bool isEnemy, System.Func<Vector2Int, bool> validator = null, System.Func<Vector2Int, bool> isOccupied = null)
     {
-        // 기존 이동 경로 제거 (이동 방식 변경)
-        moves.Clear();
-
-        // 대각선 4방향 정의
+        // [CODE INJECTION: Vector_Override.sh] 기존 기물 이동 벡터에 무제한 대각선 슬라이딩 알고리즘을 주입
         Vector2Int[] diagonals = new Vector2Int[]
         {
             new Vector2Int(1, 1),
@@ -29,7 +26,10 @@ public class BishopSeal : SealBase
                 bool canMove = (validator != null) ? validator(target) : (owner != null && owner.CanMoveTo(target));
                 if (!canMove) break; // 이동 불가(맵 밖이거나 아군)하면 중단
 
-                moves.Add(target);
+                if (!moves.Contains(target))
+                {
+                    moves.Add(target);
+                }
 
                 // 적이거나 장애물이 있으면 이동 후 중단 (validator가 true여도 적일 수 있음)
                 bool occupied = (isOccupied != null) ? isOccupied(target) : (owner != null && owner.IsOccupied(target));

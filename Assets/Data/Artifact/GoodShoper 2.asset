@@ -13,14 +13,12 @@ MonoBehaviour:
   m_Name: GoodShoper 2
   m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
   id: A003
-  artifactName: "\uC0C1\uC778\uC758 \uAC00\uC871\uC0AC\uC9C4"
-  description: "\uC0C1\uC810\uC5D0\uC11C \uC778\uC7A5\uC774 \uBD99\uC740 \uAE30\uBB3C\uC774
-    \uB4F1\uC7A5\uD560 \uD655\uB960\uC774 \uB192\uC544\uC9C4\uB2E4"
-  flavorText: "\uC0C1\uC778\uC758 \uC5B4\uB9B4\uC801 \uBAA8\uC2B5\uC774 \uADF8\uB824\uC9C4
-    \uAC00\uC871\uC0AC\uC9C4\uC774\uB2E4."
-  rarity: 0
+  artifactName: "상인의 가족사진"
+  description: "상점에서 인장이 붙은 기물이 등장할 확률이 +{0}% 높아진다."
+  flavorText: "상인의 어릴적 모습이 그려진 가족사진이다."
+  rarity: 1
   icon: {fileID: -1669061208, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
   price: 150
-  isSoldInShop: 0
+  isSoldInShop: 1
   maxLevel: 3
   level: 1

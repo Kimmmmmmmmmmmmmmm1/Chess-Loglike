@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
   m_Name: Bishop
   m_EditorClassIdentifier: Assembly-CSharp::SealData
-  sealName: "\uBE44\uC20D \uC778\uC7A5"
+  sealName: "비숍의 인장"
+  injectionCommand: ""
   rarity: 2
-  description: "<color=#FF111111>\uC0C1</color>\"\uC5D0\uAC8C\uB9CC \uC7A5\uCC29\uB41C\uB2E4.\n\uC0C1\uC774
-    \uBAA8\uB4E0 \uB300\uAC01\uC120 \uBC29\uD5A5\uC73C\uB85C \uC774\uB3D9\uD55C\uB2E4."
-  flavorText: 
+  description: "기물이 모든 대각선 방향으로 이동할 수 있게 됩니다."
+  flavorText: "사선의 지배자."
   icon: {fileID: 310542206, guid: 95980ea79e9734fbc9fe2d2728f381c0, type: 3}
   isSoldInShop: 1
   sealPrefab: {fileID: 2006435481796697723, guid: 89b74c4e506074ecebbb626467672420, type: 3}
-  compatiblePieces: 03000000
+  compatiblePieces: 010000000200000005000000
   effectType: 2
   effectValue: 0

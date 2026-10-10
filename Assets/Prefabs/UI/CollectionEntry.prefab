@@ -388,8 +388,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -983, y: -553}
-  m_SizeDelta: {x: 240, y: 280}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 240, y: 268}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5109239319122939696
 CanvasRenderer:
@@ -419,8 +419,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
-  m_Type: 0
+  m_Sprite: {fileID: 1547656950194197981, guid: 1da18ac607eae4f56b1b296a94d01e25, type: 3}
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -428,7 +428,7 @@ MonoBehaviour:
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1
+  m_PixelsPerUnitMultiplier: 4
 --- !u!114 &1004200580658138137
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -448,16 +448,16 @@ MonoBehaviour:
   typeBackgroundImage: {fileID: 5479901098663942362}
   lockedCanvasGroup: {fileID: 0}
   unlockedIconColor: {r: 1, g: 1, b: 1, a: 1}
-  lockedIconColor: {r: 0.12, g: 0.12, b: 0.12, a: 0.85}
-  lockedAlpha: 0.55
-  commonRarityColor: {r: 0.75, g: 0.78, b: 0.8, a: 1}
-  rareRarityColor: {r: 0.25, g: 0.62, b: 1, a: 1}
-  epicRarityColor: {r: 0.74, g: 0.34, b: 1, a: 1}
-  legendaryRarityColor: {r: 1, g: 0.64, b: 0.16, a: 1}
-  lockedRarityColor: {r: 0.22, g: 0.22, b: 0.22, a: 1}
-  artifactTypeColor: {r: 0.21, g: 0.42, b: 0.72, a: 1}
-  sealTypeColor: {r: 0.58, g: 0.34, b: 0.2, a: 1}
-  lockedTypeColor: {r: 0.16, g: 0.16, b: 0.16, a: 1}
+  lockedIconColor: {r: 0.18, g: 0.15, b: 0.12, a: 0.65}
+  lockedAlpha: 0.75
+  commonRarityColor: {r: 0.45, g: 0.48, b: 0.52, a: 1}
+  rareRarityColor: {r: 0.2, g: 0.52, b: 0.88, a: 1}
+  epicRarityColor: {r: 0.62, g: 0.26, b: 0.86, a: 1}
+  legendaryRarityColor: {r: 0.92, g: 0.55, b: 0.12, a: 1}
+  lockedRarityColor: {r: 0.35, g: 0.32, b: 0.28, a: 0.7}
+  artifactTypeColor: {r: 0.96, g: 0.98, b: 1, a: 1}
+  sealTypeColor: {r: 1, g: 0.96, b: 0.9, a: 1}
+  lockedTypeColor: {r: 0.78, g: 0.74, b: 0.68, a: 0.94}
 --- !u!1 &4410718167823188690
 GameObject:
   m_ObjectHideFlags: 0

@@ -81,14 +81,7 @@ public class MousePointer : MonoBehaviour
 
     void Update()
     {
-        if (GameManager.Instance != null && GameManager.Instance.CurrentFlowState == GameFlowState.Map)
-        {
-            SetCornersActive(false);
-            return;
-        }
-
-        // 이벤트 상태일 때 포인터 숨김
-        if (GameManager.Instance != null && GameManager.Instance.CurrentFlowState == GameFlowState.Event)
+        if (GameManager.Instance != null && GameManager.Instance.CurrentFlowState != GameFlowState.Battle)
         {
             SetCornersActive(false);
             return;
@@ -277,8 +270,8 @@ public class MousePointer : MonoBehaviour
                     case PieceType.King:
                         offset = 4f; // 왕은 4픽셀 더 크게
                         break;
-                    case PieceType.Soldier:
-                        offset = -4f; // 졸은 4픽셀 더 작게
+                    case PieceType.Pawn:
+                        offset = -4f; // 폰은 4픽셀 더 작게
                         break;
                     default:
                         offset = 0f;

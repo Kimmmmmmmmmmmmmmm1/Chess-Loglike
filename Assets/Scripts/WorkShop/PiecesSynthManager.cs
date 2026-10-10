@@ -96,10 +96,9 @@ public class PiecesSynthManager : MonoBehaviour
 
         if (descriptionText != null)
         {
-            descriptionText.text = "인벤토리에서 기물을 드래그해서\n" +
-                "두 개의 슬롯에 올려놓으세요.\n" +
-                "그 후 합성 버튼을 누르면\n" +
-                "새로운 기물을 획득할 수 있습니다!";
+            descriptionText.text = "[CODE MERGE COMPILER]\n인벤토리에서 기물 프로세스 2개를 슬롯에 마운트하세요.\n" +
+                "두 노드의 코드 인젝션(Seal)을 병합하거나\n" +
+                "새로운 체스 기물 프로세스로 리컴파일합니다.";
         }
 
     }
@@ -351,7 +350,7 @@ public class PiecesSynthManager : MonoBehaviour
             .Select(s => s.Data.sealName)
             .OrderBy(n => n));
 
-        return $"{piece1.GetInstanceID()}:{piece1.Type}:{p1Seals}>{piece2.GetInstanceID()}:{piece2.Type}:{p2Seals}";
+        return $"{piece1.GetEntityId()}:{piece1.Type}:{p1Seals}>{piece2.GetEntityId()}:{piece2.Type}:{p2Seals}";
     }
 
     private void UpdatePreviewUI()
@@ -360,15 +359,15 @@ public class PiecesSynthManager : MonoBehaviour
         {
             if (!hasPreviewResult)
             {
-                previewText.text = "미리보기: -";
+                previewText.text = "[OUTPUT]: NULL";
             }
             else if (isPreviewRandom)
             {
-                previewText.text = "미리보기: 랜덤 기물";
+                previewText.text = "[OUTPUT]: RANDOM_NODE [?]";
             }
             else
             {
-                previewText.text = $"미리보기: {previewResultType}";
+                previewText.text = $"[OUTPUT]: {previewResultType} {PieceController.GetAsciiSymbol(previewResultType)}";
             }
         }
 

@@ -16,6 +16,8 @@ MonoBehaviour:
   - pieceType: 5
     seals:
     - {fileID: 11400000, guid: bff5f243f0f1b4729b9396ef4bb062a3, type: 2}
+  - pieceType: 2
+    seals: []
   - pieceType: 0
     seals: []
   - pieceType: 5

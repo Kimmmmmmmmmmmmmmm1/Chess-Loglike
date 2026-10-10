@@ -66,6 +66,8 @@ public class SettingPanelView : MonoBehaviour
     private TextMeshProUGUI saveTextComponent;
     private TextMeshProUGUI cancelTextComponent;
 
+    private GameObject persistentCanvasRoot;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -78,11 +80,13 @@ public class SettingPanelView : MonoBehaviour
 
         SettingsManager.EnsureInstance();
 
-        transform.SetParent(null, false);
         EnsurePersistentCanvasSetup();
-        DontDestroyOnLoad(gameObject);
 
         panelAnimator = GetComponent<PanelAnimator>();
+        if (panelAnimator != null)
+        {
+            panelAnimator.RecacheTransform();
+        }
 
         if (saveButton != null)
         {
@@ -147,27 +151,70 @@ public class SettingPanelView : MonoBehaviour
 
     private void EnsurePersistentCanvasSetup()
     {
-        Canvas canvas = GetComponent<Canvas>();
-        if (canvas == null)
+        // ScreenSpaceOverlay 루트 Canvas가 SettingPanel 자체에 붙어있으면 Unity가 매 프레임 RectTransform을 화면 크기에 강제 고정하여
+        // PanelAnimator의 위치/너비 트윈이 동작하지 않습니다. 별도의 영속 부모 Canvas 하위로 배치합니다.
+        if (persistentCanvasRoot == null)
         {
-            canvas = gameObject.AddComponent<Canvas>();
-        }
+            persistentCanvasRoot = new GameObject("SettingPanelCanvas", typeof(RectTransform));
+            Canvas rootCanvas = persistentCanvasRoot.AddComponent<Canvas>();
+            rootCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            rootCanvas.sortingOrder = 300;
 
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = Mathf.Max(canvas.sortingOrder, 300);
-
-        if (GetComponent<GraphicRaycaster>() == null)
-        {
-            gameObject.AddComponent<GraphicRaycaster>();
-        }
-
-        if (GetComponent<CanvasScaler>() == null)
-        {
-            CanvasScaler scaler = gameObject.AddComponent<CanvasScaler>();
+            CanvasScaler scaler = persistentCanvasRoot.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
+
+            persistentCanvasRoot.AddComponent<GraphicRaycaster>();
+            DontDestroyOnLoad(persistentCanvasRoot);
+        }
+
+        // SettingPanel 자체에 붙어있을 수 있는 루트 Canvas 관련 컴포넌트 제거
+        GraphicRaycaster selfRaycaster = GetComponent<GraphicRaycaster>();
+        if (selfRaycaster != null) DestroyImmediate(selfRaycaster);
+
+        CanvasScaler selfScaler = GetComponent<CanvasScaler>();
+        if (selfScaler != null) DestroyImmediate(selfScaler);
+
+        Canvas selfCanvas = GetComponent<Canvas>();
+        if (selfCanvas != null) DestroyImmediate(selfCanvas);
+
+        transform.SetParent(persistentCanvasRoot.transform, false);
+
+        if (transform is RectTransform rt)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = Vector2.zero;
+
+            // 가로 펼침 애니메이션 중 내부 요소가 찌그러지지 않고 마스킹되도록 설정
+            if (GetComponent<RectMask2D>() == null)
+            {
+                gameObject.AddComponent<RectMask2D>();
+            }
+
+            for (int i = 0; i < rt.childCount; i++)
+            {
+                if (rt.GetChild(i) is RectTransform childRt)
+                {
+                    float spanX = childRt.anchorMax.x - childRt.anchorMin.x;
+                    float spanY = childRt.anchorMax.y - childRt.anchorMin.y;
+                    if (Mathf.Abs(spanX) > 0.001f || Mathf.Abs(spanY) > 0.001f)
+                    {
+                        float w = (1920f * spanX) + childRt.sizeDelta.x;
+                        float h = (1080f * spanY) + childRt.sizeDelta.y;
+                        Vector2 anchorCenter = (childRt.anchorMin + childRt.anchorMax) * 0.5f;
+                        Vector2 posOffset = new Vector2((anchorCenter.x - 0.5f) * 1920f, (anchorCenter.y - 0.5f) * 1080f);
+                        childRt.anchorMin = new Vector2(0.5f, 0.5f);
+                        childRt.anchorMax = new Vector2(0.5f, 0.5f);
+                        childRt.sizeDelta = new Vector2(w, h);
+                        childRt.anchoredPosition += posOffset;
+                    }
+                }
+            }
         }
     }
 
@@ -581,6 +628,12 @@ public class SettingPanelView : MonoBehaviour
             return;
         }
 
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            EnterHeaderFocus();
+            return;
+        }
+
         if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A))
         {
             SetFooterSelectionIndex(footerSelectionIndex == 0 ? 1 : 0);
@@ -619,6 +672,12 @@ public class SettingPanelView : MonoBehaviour
     {
         if (AnySelectorIsEditing())
         {
+            return;
+        }
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            ClosePanel();
             return;
         }
 
@@ -952,7 +1011,7 @@ public class SettingPanelView : MonoBehaviour
 
     private void UpdateHeaderNavigationButtons()
     {
-        bool showHeaderButtons = focusRegion == FocusRegion.Header;
+        bool showHeaderButtons = focusRegion == FocusRegion.Header || focusRegion == FocusRegion.Mouse;
 
         if (previousPageButton != null)
         {
@@ -1031,8 +1090,13 @@ public class SettingPanelView : MonoBehaviour
         return ModalManager.Instance.ShowModalAsync(message);
     }
 
-    private void ClosePanel()
+    public void ClosePanel()
     {
+        if (panelAnimator == null)
+        {
+            panelAnimator = GetComponent<PanelAnimator>();
+        }
+
         if (panelAnimator != null)
         {
             panelAnimator.Hide();

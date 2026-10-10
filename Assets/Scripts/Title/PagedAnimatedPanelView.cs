@@ -80,8 +80,10 @@ public abstract class PagedAnimatedPanelView : MonoBehaviour
 
         for (int i = contentRoot.childCount - 1; i >= 0; i--)
         {
-            GameObject childObj = contentRoot.GetChild(i).gameObject;
+            Transform childTransform = contentRoot.GetChild(i);
+            GameObject childObj = childTransform.gameObject;
             childObj.SetActive(false); // 레이아웃에서 즉시 제외되도록 비활성화
+            childTransform.SetParent(null, false);
             Destroy(childObj);         // 안전한 삭제
         }
     }
@@ -168,11 +170,18 @@ public abstract class PagedAnimatedPanelView : MonoBehaviour
         StopEntryAnimations();
         PrepareCurrentEntriesForAnimation();
 
+        float baseOpenDelay = 0f;
+        PanelAnimator panelAnimator = GetComponent<PanelAnimator>();
+        if (panelAnimator != null && panelAnimator.IsOpening)
+        {
+            baseOpenDelay = panelAnimator.TotalOpenDuration * 0.72f;
+        }
+
         int childCount = contentRoot.childCount;
         for (int i = 0; i < childCount; i++)
         {
             Transform child = GetAnimationTarget(contentRoot.GetChild(i));
-            float delay = GetEntryDelay(i);
+            float delay = baseOpenDelay + GetEntryDelay(i);
             Coroutine coroutine = StartCoroutine(AnimateEntryWithDelay(child, delay, entryAnimationDuration));
             entryCoroutines.Add(coroutine);
         }
@@ -286,7 +295,17 @@ public abstract class PagedAnimatedPanelView : MonoBehaviour
     {
         if (delay > 0f)
         {
-            yield return new WaitForSeconds(delay);
+            float waited = 0f;
+            while (waited < delay)
+            {
+                if (child == null)
+                {
+                    yield break;
+                }
+
+                waited += Time.unscaledDeltaTime;
+                yield return null;
+            }
         }
 
         yield return AnimateEntry(child, duration);
@@ -311,16 +330,17 @@ public abstract class PagedAnimatedPanelView : MonoBehaviour
         Quaternion fromRotation = child.localRotation;
         Quaternion toRotation = Quaternion.identity;
 
+        float safeDuration = Mathf.Max(0.01f, duration);
         float elapsedTime = 0f;
-        while (elapsedTime < duration)
+        while (elapsedTime < safeDuration)
         {
             if (child == null)
             {
                 yield break;
             }
 
-            elapsedTime += Time.deltaTime;
-            float progress = Mathf.Clamp01(elapsedTime / duration);
+            elapsedTime += Time.unscaledDeltaTime;
+            float progress = Mathf.Clamp01(elapsedTime / safeDuration);
             float easedProgress = 1f - Mathf.Pow(1f - progress, 3f);
 
             if (rectTransform != null)

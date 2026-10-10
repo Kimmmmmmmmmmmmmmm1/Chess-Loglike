@@ -13,13 +13,12 @@ MonoBehaviour:
   m_Name: GoodShoper 1
   m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
   id: A002
-  artifactName: "\uC0C1\uC778\uC758 \uBA38\uD50C\uB7EC"
-  description: "\uC0C1\uC810\uC758 \uAE30\uBB3C \uC0C8\uB85C\uACE0\uCE68 \uBE44\uC6A9\uC774
-    3\u20A9\uC774 \uB41C\uB2E4."
-  flavorText: "\uC0C1\uC778\uC758 \uAC83\uACFC \uAC19\uC740 \uB0A1\uC740 \uBA38\uD50C\uB7EC\uC774\uB2E4."
+  artifactName: "상인의 머플러"
+  description: "상점의 기물 새로고침 비용이 {0}₩ 할인된다."
+  flavorText: "상인의 것과 같은 낡은 머플러이다."
   rarity: 0
   icon: {fileID: 2029276739914651385, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
   price: 150
-  isSoldInShop: 0
+  isSoldInShop: 1
   maxLevel: 3
   level: 1

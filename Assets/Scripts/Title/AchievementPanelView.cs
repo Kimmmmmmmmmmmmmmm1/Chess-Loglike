@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -24,27 +25,41 @@ public class AchievementPanelView : MonoBehaviour
     [SerializeField] private Sprite selectedTabSprite;
     [SerializeField] private Sprite unselectedTabSprite;
 
+    [Header("Entry Animation")]
+    [SerializeField] private PanelAnimator panelAnimator;
+    [SerializeField] private bool animateEntriesOnRefresh = true;
+    [SerializeField] private float entryFadeDuration = 0.2f;
+    [SerializeField] private float entryStaggerInterval = 0.03f;
+    [SerializeField] private float entryStartScale = 0.94f;
+
     private bool isBindingToggles;
     private readonly List<AchievementData> filteredAchievements = new List<AchievementData>();
+    private readonly List<RectTransform> spawnedEntries = new List<RectTransform>();
+    private readonly List<Coroutine> activeEntryAnimations = new List<Coroutine>();
 
     private void Awake()
     {
+        if (panelAnimator == null)
+        {
+            panelAnimator = GetComponent<PanelAnimator>();
+        }
+
+        EnsureTabAndButtonLabels();
         BindToggles();
         SelectAllCategoryWithoutRefresh();
     }
 
     private void OnEnable()
     {
+        EnsureTabAndButtonLabels();
+        AchievementManager.EnsureInstance();
         SubscribeAchievementEvents();
 
-        if (EnsureCategorySelection())
-        {
-            Refresh();
-        }
-
+        EnsureCategorySelection();
         Refresh();
         UpdateCategoryToggleVisuals();
         UpdateOverallProgressDisplay();
+        ResetScrollToTop();
     }
 
     private void LateUpdate()
@@ -60,12 +75,14 @@ public class AchievementPanelView : MonoBehaviour
 
     private void OnDestroy()
     {
+        StopEntryAnimations();
         UnsubscribeAchievementEvents();
         UnbindToggles();
     }
 
     private void OnDisable()
     {
+        StopEntryAnimations();
         UnsubscribeAchievementEvents();
     }
 
@@ -76,7 +93,9 @@ public class AchievementPanelView : MonoBehaviour
             return;
         }
 
-        AchievementManager achievementManager = AchievementManager.Instance;
+        AchievementManager achievementManager = AchievementManager.Instance != null
+            ? AchievementManager.Instance
+            : AchievementManager.EnsureInstance();
         if (achievementManager == null)
         {
             ClearContent();
@@ -87,8 +106,10 @@ public class AchievementPanelView : MonoBehaviour
 
         BuildFilteredAchievements(achievementManager);
 
+        StopEntryAnimations();
         ClearContent();
         RenderCurrentPage(achievementManager);
+        AnimateSpawnedEntries();
 
         UpdateOverallProgressDisplay();
     }
@@ -127,11 +148,18 @@ public class AchievementPanelView : MonoBehaviour
             string displayProgressText = achievementManager.GetDisplayProgressText(achievement.id);
             string clearTimeText = achievementManager.GetClearTimeText(achievement.id);
             entry.Initialize(achievement, currentCount, isUnlocked, displayProgressText, clearTimeText);
+
+            if (entry.transform is RectTransform entryRect)
+            {
+                spawnedEntries.Add(entryRect);
+            }
         }
     }
 
     private void ClearContent()
     {
+        spawnedEntries.Clear();
+
         if (contentRoot == null)
         {
             return;
@@ -145,10 +173,217 @@ public class AchievementPanelView : MonoBehaviour
         }
     }
 
+    private void AnimateSpawnedEntries()
+    {
+        if (!animateEntriesOnRefresh || !isActiveAndEnabled || spawnedEntries.Count == 0)
+        {
+            return;
+        }
+
+        float baseDelay = (panelAnimator != null && panelAnimator.IsOpening)
+            ? panelAnimator.TotalOpenDuration * 0.72f
+            : 0f;
+
+        int maxAnimatedCount = Mathf.Min(spawnedEntries.Count, 12);
+        for (int i = 0; i < maxAnimatedCount; i++)
+        {
+            RectTransform entryRect = spawnedEntries[i];
+            if (entryRect == null)
+            {
+                continue;
+            }
+
+            float delay = baseDelay + i * Mathf.Max(0f, entryStaggerInterval);
+            Coroutine routine = StartCoroutine(AnimateEntryRoutine(entryRect, delay));
+            activeEntryAnimations.Add(routine);
+        }
+    }
+
+    private IEnumerator AnimateEntryRoutine(RectTransform entryRect, float delay)
+    {
+        if (entryRect == null)
+        {
+            yield break;
+        }
+
+        CanvasGroup cg = entryRect.GetComponent<CanvasGroup>();
+        if (cg == null)
+        {
+            cg = entryRect.gameObject.AddComponent<CanvasGroup>();
+        }
+
+        cg.alpha = 0f;
+        entryRect.localScale = Vector3.one * entryStartScale;
+
+        if (delay > 0f)
+        {
+            float waited = 0f;
+            while (waited < delay)
+            {
+                if (entryRect == null)
+                {
+                    yield break;
+                }
+                waited += Time.unscaledDeltaTime;
+                yield return null;
+            }
+        }
+
+        float duration = Mathf.Max(0.01f, entryFadeDuration);
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            if (entryRect == null)
+            {
+                yield break;
+            }
+
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            float eased = 1f - Mathf.Pow(1f - t, 3f);
+
+            cg.alpha = eased;
+            entryRect.localScale = Vector3.LerpUnclamped(Vector3.one * entryStartScale, Vector3.one, eased);
+            yield return null;
+        }
+
+        if (entryRect != null)
+        {
+            cg.alpha = 1f;
+            entryRect.localScale = Vector3.one;
+        }
+    }
+
+    private void StopEntryAnimations()
+    {
+        for (int i = 0; i < activeEntryAnimations.Count; i++)
+        {
+            if (activeEntryAnimations[i] != null)
+            {
+                StopCoroutine(activeEntryAnimations[i]);
+            }
+        }
+        activeEntryAnimations.Clear();
+
+        for (int i = 0; i < spawnedEntries.Count; i++)
+        {
+            RectTransform entryRect = spawnedEntries[i];
+            if (entryRect == null)
+            {
+                continue;
+            }
+
+            CanvasGroup cg = entryRect.GetComponent<CanvasGroup>();
+            if (cg != null)
+            {
+                cg.alpha = 1f;
+            }
+            entryRect.localScale = Vector3.one;
+        }
+    }
+
+    private void EnsureTabAndButtonLabels()
+    {
+        TMP_FontAsset sharedFont = overallProgressText != null ? overallProgressText.font : null;
+
+        EnsureToggleLabel(allToggle, "전체", sharedFont);
+        EnsureToggleLabel(combatToggle, "전투", sharedFont);
+        EnsureToggleLabel(collectionToggle, "수집", sharedFont);
+        EnsureToggleLabel(otherToggle, "기타", sharedFont);
+
+        Transform closeBtnTransform = transform.Find("Mask/CloseBtn");
+        if (closeBtnTransform == null)
+        {
+            closeBtnTransform = transform.Find("CloseBtn");
+        }
+        if (closeBtnTransform != null)
+        {
+            EnsureButtonLabel(closeBtnTransform, "X", sharedFont, 26f, new Color(0.20f, 0.14f, 0.08f, 1f));
+        }
+    }
+
+    private void EnsureToggleLabel(Toggle toggle, string labelText, TMP_FontAsset font)
+    {
+        if (toggle == null)
+        {
+            return;
+        }
+
+        TextMeshProUGUI label = toggle.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label == null)
+        {
+            GameObject labelObj = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            labelObj.transform.SetParent(toggle.transform, false);
+
+            RectTransform rect = labelObj.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = Vector2.zero;
+
+            label = labelObj.GetComponent<TextMeshProUGUI>();
+        }
+
+        if (font != null && label.font == null)
+        {
+            label.font = font;
+        }
+
+        label.text = labelText;
+        label.fontSize = 26f;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
+        label.color = toggle.isOn
+            ? new Color(0.16f, 0.10f, 0.05f, 1f)
+            : new Color(0.88f, 0.82f, 0.72f, 0.90f);
+    }
+
+    private void EnsureButtonLabel(Transform buttonTransform, string labelText, TMP_FontAsset font, float fontSize, Color textColor)
+    {
+        if (buttonTransform == null)
+        {
+            return;
+        }
+
+        Image buttonImage = buttonTransform.GetComponent<Image>();
+        if (buttonImage != null && buttonImage.sprite == null)
+        {
+            buttonImage.color = new Color(0.24f, 0.16f, 0.10f, 0.88f);
+            textColor = new Color(0.96f, 0.92f, 0.84f, 1f);
+        }
+
+        TextMeshProUGUI label = buttonTransform.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label == null)
+        {
+            GameObject labelObj = new GameObject("Label", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            labelObj.transform.SetParent(buttonTransform, false);
+
+            RectTransform rect = labelObj.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = Vector2.zero;
+
+            label = labelObj.GetComponent<TextMeshProUGUI>();
+        }
+
+        if (font != null && label.font == null)
+        {
+            label.font = font;
+        }
+
+        label.text = labelText;
+        label.fontSize = fontSize;
+        label.alignment = TextAlignmentOptions.Center;
+        label.color = textColor;
+        label.raycastTarget = false;
+    }
+
     private void OnFilterChanged()
     {
         if (isBindingToggles) return;
 
+        SoundManager.Instance?.PlaySFX(SFXType.Click);
         Refresh();
         UpdateCategoryToggleVisuals();
         ResetScrollToTop();
@@ -338,6 +573,7 @@ public class AchievementPanelView : MonoBehaviour
         if (overallProgressText != null)
         {
             overallProgressText.text = $"{unlockedCount} / {totalCount} ({completionPercent}%)";
+            overallProgressText.color = new Color(0.16f, 0.11f, 0.06f, 1f);
         }
 
         if (overallProgressFillImage != null)
@@ -347,6 +583,16 @@ public class AchievementPanelView : MonoBehaviour
             overallProgressFillImage.fillOrigin = (int)Image.OriginHorizontal.Left;
             overallProgressFillImage.fillClockwise = true;
             overallProgressFillImage.fillAmount = completionRatio;
+            overallProgressFillImage.color = new Color(0.78f, 0.56f, 0.20f, 0.95f);
+
+            if (overallProgressFillImage.transform.parent != null)
+            {
+                Image bg = overallProgressFillImage.transform.parent.GetComponent<Image>();
+                if (bg != null)
+                {
+                    bg.color = new Color(0.18f, 0.14f, 0.10f, 0.85f);
+                }
+            }
         }
     }
 
@@ -373,7 +619,19 @@ public class AchievementPanelView : MonoBehaviour
 
         if (image != null)
         {
-            image.sprite = toggle.isOn ? selectedTabSprite : unselectedTabSprite;
+            Sprite targetSprite = toggle.isOn ? selectedTabSprite : unselectedTabSprite;
+            if (targetSprite != null)
+            {
+                image.sprite = targetSprite;
+            }
+        }
+
+        TextMeshProUGUI label = toggle.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (label != null)
+        {
+            label.color = toggle.isOn
+                ? new Color(0.16f, 0.10f, 0.05f, 1f)
+                : new Color(0.88f, 0.82f, 0.72f, 0.90f);
         }
     }
 

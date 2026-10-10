@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4da099f0f7d54b7f9ffd8afa398d3cc7, type: 3}
+  m_Name: Rook
+  m_EditorClassIdentifier: Assembly-CSharp::PieceData
+  id: Rook
+  pieceType: 1
+  pieceName: 룩
+  icon: {fileID: -2014393228016629789, guid: fd633027036cd4c11bed298215d4b898, type: 3}
+  description: "가로와 세로 방향으로 거리 제한 없이 이동할 수 있습니다."
+  flavorText: "[SYSTEM // LINEAR_OVERDRIVE]
+수평과 수직의 데이터 버스를 관통하는 직선형 중장갑 프로세스."

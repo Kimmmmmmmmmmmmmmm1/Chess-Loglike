@@ -30,6 +30,10 @@ public class ShopArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExi
     {
         artifactData = data;
         isSoldOut = false;
+        if (artifactData != null)
+        {
+            CollectionManager.EnsureInstance()?.RecordArtifactSeen(artifactData);
+        }
         UpdateUI();
     }
 

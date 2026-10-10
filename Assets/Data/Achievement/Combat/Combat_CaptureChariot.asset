@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: Combat_CaptureChariot
   m_EditorClassIdentifier: 
   id: combat_capture_chariot
-  achievementName: 전차 포획
-  description: 적 전차(車)를 처음으로 포획하세요.
+  achievementName: 룩 포획
+  description: 적 룩(Rook)을 처음으로 포획하세요.
   category: 0
   targetCount: 1
   difficulty: 1

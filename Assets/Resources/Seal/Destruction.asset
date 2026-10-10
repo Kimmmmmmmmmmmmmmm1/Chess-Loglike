@@ -12,13 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
   m_Name: Destruction
   m_EditorClassIdentifier: Assembly-CSharp::SealData
-  sealName: "\uC790\uD3ED\uC758 \uC778\uC7A5"
+  sealName: "[INJ] Logic_Bomb.exe"
+  injectionCommand: "exec --logic-bomb --aoe=3x3"
   rarity: 0
-  description: "\uC774 \uAE30\uBB3C\uC774 \uC0AC\uB9DD\uD588\uC744 \uB54C, \uD3ED\uBC1C\uD569\uB2C8\uB2E4!"
-  flavorText: "\uD3ED\uD0C4\uC744 \uC9C0\uB2CC\uB2E4\uB294 \uC0AC\uC2E4\uC740 \uC704\uD5D8\uD558\uC8E0."
+  description: "이 기물 프로세스가 종료(사망)될 때, 주변 8방향 섹터에 논리 폭탄 오버플로우를 일으켜 인접 기물을 강제 종료시킵니다."
+  flavorText: "// trap SIGTERM -> broadcast kill -9 *;"
   icon: {fileID: 7187665122349066479, guid: 70627a357a9fb4df0a285ca145a27dea, type: 3}
   isSoldInShop: 1
   sealPrefab: {fileID: 2006435481796697723, guid: 260b7b141de6846c9a882f93bc2ac4f6, type: 3}
-  compatiblePieces: 
+  compatiblePieces: 05000000
   effectType: 3
   effectValue: 0

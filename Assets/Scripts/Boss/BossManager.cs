@@ -44,8 +44,7 @@ public class BossManager : MonoBehaviour
             // 이미 Battle 상태라면 보스 노드인지 확인 후 초기화 진행
             if (GameManager.Instance.CurrentFlowState == GameFlowState.Battle)
             {
-                MapManager mapManager = MapManager.Instance;
-                if (mapManager != null && mapManager.CurrentNode != null && mapManager.CurrentNode.type == NodeType.Boss)
+                if (IsBossStage())
                 {
                     SetupBoss();
                 }
@@ -81,15 +80,22 @@ public class BossManager : MonoBehaviour
         }
     }
 
+    private bool IsBossStage()
+    {
+        if (GameManager.Instance != null && (GameManager.Instance.ClearedStage + 1) % 5 == 0)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     private void OnGameFlowStateChanged(GameFlowState newState)
     {
         // Battle 상태로 진입할 때 보스 노드인지 확인
         if (newState == GameFlowState.Battle)
         {
-            // 현재 노드가 보스인지 확인
-            MapManager mapManager = MapManager.Instance;
-            
-            if (mapManager != null && mapManager.CurrentNode != null && mapManager.CurrentNode.type == NodeType.Boss)
+            if (IsBossStage())
             {
                 SetupBoss();
             }

@@ -50,6 +50,8 @@ public class GameStateManager : MonoBehaviour
 
     private bool pieceInventoryHovered;
     private bool sealInventoryHovered;
+    private Sequence pieceInventorySequence;
+    private Sequence sealInventorySequence;
 
     private Dictionary<GameState, Action> stateActions = new Dictionary<GameState, Action>();
 
@@ -124,12 +126,19 @@ public class GameStateManager : MonoBehaviour
             return;
         }
         Instance = this;
+        InitializeInventoryPanels();
+        InitializeInventoryHoverTargets();
     }
 
     void Start()
     {
+        InitializeInventoryPanels();
+        InitializeInventoryHoverTargets();
+        if (gameStartButton != null)
+        {
+            gameStartButton.onClick.AddListener(OnGameStartButtonClick);
+        }
         ChangeState(GameState.None);
-        gameStartButton.onClick.AddListener(OnGameStartButtonClick);
     }
     
     private void OnEnable()
@@ -242,6 +251,16 @@ public class GameStateManager : MonoBehaviour
             {
                 sealInventoryPanel = panelObject;
             }
+        }
+
+        if (pieceInventoryPanel != null && !pieceInventoryPanel.activeSelf)
+        {
+            pieceInventoryPanel.SetActive(true);
+        }
+
+        if (sealInventoryPanel != null && !sealInventoryPanel.activeSelf)
+        {
+            sealInventoryPanel.SetActive(true);
         }
 
         CacheInventoryPanel(pieceInventoryPanel, ref pieceInventoryRect, ref pieceInventoryCanvasGroup, ref pieceInventoryShownPosition, ref pieceInventoryHiddenPosition, ref pieceInventoryPositionsCached, slideLeft: true);
@@ -365,11 +384,13 @@ public class GameStateManager : MonoBehaviour
             sealInventoryHovered = false;
         }
 
-        bool pieceShouldShow = newState == GameState.Prepare || pieceInventoryHovered;
-        bool sealShouldShow = newState == GameState.Prepare || sealInventoryHovered;
+        // Keep inventory visible during battle states (Prepare, GamePlay, Win, GameOver, Cleanup)
+        bool isBattleState = newState == GameState.Prepare || newState == GameState.GamePlay || newState == GameState.Win || newState == GameState.GameOver || newState == GameState.Cleanup;
+        bool pieceShouldShow = isBattleState || pieceInventoryHovered;
+        bool sealShouldShow = isBattleState || sealInventoryHovered;
 
-        SetInventoryPanelVisible(pieceInventoryPanel, pieceInventoryRect, pieceInventoryCanvasGroup, pieceInventoryShownPosition, pieceInventoryHiddenPosition, pieceShouldShow);
-        SetInventoryPanelVisible(sealInventoryPanel, sealInventoryRect, sealInventoryCanvasGroup, sealInventoryShownPosition, sealInventoryHiddenPosition, sealShouldShow);
+        SetInventoryPanelVisible(pieceInventoryPanel, pieceInventoryRect, pieceInventoryCanvasGroup, pieceInventoryShownPosition, pieceInventoryHiddenPosition, ref pieceInventorySequence, pieceShouldShow);
+        SetInventoryPanelVisible(sealInventoryPanel, sealInventoryRect, sealInventoryCanvasGroup, sealInventoryShownPosition, sealInventoryHiddenPosition, ref sealInventorySequence, sealShouldShow);
 
         if (sealShouldShow)
         {
@@ -384,6 +405,7 @@ public class GameStateManager : MonoBehaviour
         CanvasGroup panelCanvasGroup,
         Vector2 shownPosition,
         Vector2 hiddenPosition,
+        ref Sequence panelSequence,
         bool visible)
     {
         if (panelObject == null || panelRect == null || panelCanvasGroup == null)
@@ -391,45 +413,37 @@ public class GameStateManager : MonoBehaviour
             return;
         }
 
+        if (panelSequence != null)
+        {
+            panelSequence.Kill();
+            panelSequence = null;
+        }
         panelRect.DOKill();
         panelCanvasGroup.DOKill();
 
+        // Always ensure the panel GameObject remains active so slots and events function properly
+        if (!panelObject.activeSelf)
+        {
+            panelObject.SetActive(true);
+        }
+
         if (visible)
         {
-            if (!panelObject.activeSelf)
-            {
-                panelObject.SetActive(true);
-            }
-
-            panelRect.anchoredPosition = hiddenPosition;
-            panelCanvasGroup.alpha = 0f;
             panelCanvasGroup.interactable = true;
             panelCanvasGroup.blocksRaycasts = true;
 
-            panelRect.DOAnchorPos(shownPosition, inventorySlideDuration).SetEase(Ease.OutCubic).SetLink(panelObject);
-            panelCanvasGroup.DOFade(1f, inventorySlideDuration).SetEase(Ease.OutCubic).SetLink(panelObject);
+            panelSequence = DOTween.Sequence().SetLink(panelObject);
+            panelSequence.Join(panelRect.DOAnchorPos(shownPosition, inventorySlideDuration).SetEase(Ease.OutCubic));
+            panelSequence.Join(panelCanvasGroup.DOFade(1f, inventorySlideDuration).SetEase(Ease.OutCubic));
             return;
         }
 
         panelCanvasGroup.interactable = false;
         panelCanvasGroup.blocksRaycasts = false;
 
-        if (!panelObject.activeSelf)
-        {
-            panelRect.anchoredPosition = hiddenPosition;
-            panelCanvasGroup.alpha = 0f;
-            return;
-        }
-
-        Sequence hideSequence = DOTween.Sequence().SetLink(panelObject);
-        hideSequence.Join(panelRect.DOAnchorPos(hiddenPosition, inventorySlideDuration).SetEase(Ease.InCubic));
-        hideSequence.Join(panelCanvasGroup.DOFade(0f, inventorySlideDuration).SetEase(Ease.InCubic));
-        hideSequence.OnComplete(() =>
-        {
-            if (panelObject != null)
-            {
-                panelObject.SetActive(false);
-            }
-        });
+        panelSequence = DOTween.Sequence().SetLink(panelObject);
+        panelSequence.Join(panelRect.DOAnchorPos(hiddenPosition, inventorySlideDuration).SetEase(Ease.InCubic));
+        panelSequence.Join(panelCanvasGroup.DOFade(0f, inventorySlideDuration).SetEase(Ease.InCubic));
+        // NOTE: SetActive(false) is intentionally avoided so inventory slots remain discoverable.
     }
 }

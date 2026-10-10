@@ -103,12 +103,10 @@ public class WorkShopManager : MonoBehaviour
             pieceSynthesisButton.interactable = true;
         }
 
-        // 패널 위치 초기화 (화면 위쪽 밖)
         if (workShopPanelRect != null)
         {
-            workShopPanelRect.anchoredPosition = new Vector2(workShopPanelRect.anchoredPosition.x, workShopPanelRect.rect.height);
-            // 패널 애니메이션 (위쪽에서 아래로)
-            workShopPanelRect.DOAnchorPosY(panelOpenY, animDuration).SetEase(openEase);
+            workShopPanelRect.DOKill();
+            workShopPanelRect.anchoredPosition = new Vector2(workShopPanelRect.anchoredPosition.x, panelOpenY);
         }
 
         // 장기판 이동 연출 제거: 패널이 그리드 위로 겹치도록 변경
@@ -124,17 +122,11 @@ public class WorkShopManager : MonoBehaviour
 
         isOpen = false;
 
-        // 패널 애니메이션 (화면 위쪽 밖으로)
         if (workShopPanelRect != null)
         {
-            workShopPanelRect.DOAnchorPosY(workShopPanelRect.rect.height, animDuration)
-                .SetEase(closeEase)
-                .OnComplete(() =>
-                {
-                    if (workShopPanel != null) workShopPanel.SetActive(false);
-                });
+            workShopPanelRect.DOKill();
         }
-        else if (workShopPanel != null)
+        if (workShopPanel != null)
         {
             workShopPanel.SetActive(false);
         }
@@ -208,10 +200,10 @@ public class WorkShopManager : MonoBehaviour
     /// </summary>
     public void OnWorkShopComplete()
     {
-        // 맵으로 돌아가기
+        // 다음 전투로 진행
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.ChangeFlowState(GameFlowState.Map);
+            GameManager.Instance.StartNextStage();
         }
     }
 }

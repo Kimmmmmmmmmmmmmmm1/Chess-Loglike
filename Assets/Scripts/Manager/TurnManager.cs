@@ -18,7 +18,7 @@ public class TurnManager : MonoBehaviour
     [SerializeField] private TurnOwner currentTurn = TurnOwner.Opponent;
 
     public TurnOwner CurrentTurn => currentTurn;
-    public bool IsPlayerTurn => currentTurn == TurnOwner.Player;
+    public bool IsPlayerTurn => currentTurn == TurnOwner.Player && (PiecePromotionManager.Instance == null || !PiecePromotionManager.Instance.IsPromoting);
     [SerializeField] private float waitTime = 0.5f;
     private int consecutiveSkips = 0;
     [SerializeField] private int turnsSinceLastCapture = 0;
@@ -60,6 +60,9 @@ public class TurnManager : MonoBehaviour
         if (newState == GameStateManager.GameState.Prepare)
         {
             currentTurn = TurnOwner.Opponent;
+            ClearPositionHistory();
+            turnsSinceLastCapture = 0;
+            consecutiveSkips = 0;
         }
         else if (newState == GameStateManager.GameState.GamePlay)
         {
@@ -74,9 +77,66 @@ public class TurnManager : MonoBehaviour
         }
     }
 
+    private System.Collections.Generic.Dictionary<string, int> positionHistory = new System.Collections.Generic.Dictionary<string, int>();
+
+    private void ClearPositionHistory()
+    {
+        positionHistory.Clear();
+    }
+
+    private void RecordBoardPosition()
+    {
+        if (PieceManager.Instance == null) return;
+
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+        sb.Append(currentTurn == TurnOwner.Player ? "P:" : "O:");
+
+        var pieces = PieceManager.Instance.Pieces;
+        var sortedPieces = new System.Collections.Generic.List<PieceController>();
+        for (int i = 0; i < pieces.Count; i++)
+        {
+            var p = pieces[i];
+            if (p != null && p.CurrentLocation == PieceLocation.Board && p.GridPosition.HasValue)
+            {
+                sortedPieces.Add(p);
+            }
+        }
+
+        sortedPieces.Sort((a, b) =>
+        {
+            int cmpX = a.GridPosition.Value.x.CompareTo(b.GridPosition.Value.x);
+            if (cmpX != 0) return cmpX;
+            return a.GridPosition.Value.y.CompareTo(b.GridPosition.Value.y);
+        });
+
+        for (int i = 0; i < sortedPieces.Count; i++)
+        {
+            var p = sortedPieces[i];
+            sb.Append($"{p.PieceType}{(p.IsEnemy ? "E" : "A")}_{p.GridPosition.Value.x},{p.GridPosition.Value.y};");
+        }
+
+        string snapshot = sb.ToString();
+        if (positionHistory.TryGetValue(snapshot, out int count))
+        {
+            positionHistory[snapshot] = count + 1;
+            if (positionHistory[snapshot] >= 3)
+            {
+                // 3회 동형반복 무승부/교착 상태 처리 -> 교착 판정으로 GameOver 처리
+                Debug.LogWarning("[TurnManager] Threefold repetition detected (동형반복 3회 감지: 무승부/교착 상태)");
+                GameStateManager.Instance?.ChangeState(GameStateManager.GameState.GameOver);
+                return;
+            }
+        }
+        else
+        {
+            positionHistory[snapshot] = 1;
+        }
+    }
+
     public void OnPieceCaptured()
     {
         turnsSinceLastCapture = -1;
+        ClearPositionHistory(); // 캡처가 일어나면 보드 국면이 비가역적으로 변경되므로 초기화
     }
 
     public void AdvanceTurn(bool moveMade = true)
@@ -84,12 +144,19 @@ public class TurnManager : MonoBehaviour
         if (moveMade)
         {
             consecutiveSkips = 0;
+            RecordBoardPosition();
+            if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameStateManager.GameState.GamePlay)
+            {
+                return;
+            }
         }
         else
         {
             consecutiveSkips++;
             if (consecutiveSkips >= 2)
             {
+                // 양측 모두 이동 불가 (스테일메이트/교착)
+                Debug.LogWarning("[TurnManager] Consecutive skips >= 2 (교착 상태/스테일메이트)");
                 GameStateManager.Instance?.ChangeState(GameStateManager.GameState.GameOver);
                 return;
             }
@@ -106,6 +173,8 @@ public class TurnManager : MonoBehaviour
 
             if (turnsLeft <= 0)
             {
+                // 턴 제한 초과 (교착 상태)
+                Debug.LogWarning("[TurnManager] Max turns without capture reached (턴 제한 교착 상태)");
                 GameStateManager.Instance?.ChangeState(GameStateManager.GameState.GameOver);
                 return;
             }
@@ -131,9 +200,21 @@ public class TurnManager : MonoBehaviour
         // 플레이어 턴 시작 이벤트 발동
         OnPlayerTurnStarted?.Invoke();
         
-        // 플레이어 턴일 때 움직일 수 있는 기물이 없으면 턴 스킵
+        // 플레이어 턴일 때 움직일 수 있는 기물이 없으면 (스테일메이트 가능성)
         if (PieceManager.Instance != null && !PieceManager.Instance.HasAnyPlayerMoves())
         {
+            // 플레이어 기물이 남아있는데 이동이 불가능한 경우 스테일메이트 처리
+            int playerPieceCount = 0;
+            foreach (var p in PieceManager.Instance.PlayerPieces)
+            {
+                if (p != null && p.CurrentLocation == PieceLocation.Board) playerPieceCount++;
+            }
+
+            if (playerPieceCount > 0)
+            {
+                Debug.LogWarning("[TurnManager] Player has pieces but no legal moves (플레이어 스테일메이트)");
+            }
+
             StartCoroutine(SkipPlayerTurn());
         }
     }

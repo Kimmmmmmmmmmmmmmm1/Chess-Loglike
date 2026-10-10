@@ -43,17 +43,6 @@ public static class ArtifactEffectHandlers
     public static int GetTombstoneDestroyCount() => ArtifactEffectRegistry.Tombstone.GetGaugeCurrentCount();
     public static int GetTombstoneDestroyThreshold() => ArtifactEffectRegistry.Tombstone.GetGaugeMaxCount();
 
-    // ========== A006: 용맹의 훈장 ==========
-    public static bool IsMedalPromotionExhausted() => ArtifactEffectRegistry.Medal.IsExhausted();
-    public static bool HasMedalPromotionRemaining() => ArtifactEffectRegistry.Medal.HasRemaining();
-    public static bool TryMedalPromotion(PieceController soldier, PieceType promotedType)
-    {
-        return ArtifactEffectRegistry.Medal.TryPromote(soldier, promotedType);
-    }
-    public static int GetMedalPromotionMaxForLevel(int level) => MedalArtifactEffect.GetMaxForLevel(level);
-    public static int GetMedalPromotionCount() => ArtifactEffectRegistry.Medal.GetGaugeCurrentCount();
-    public static int GetMedalPromotionMax() => ArtifactEffectRegistry.Medal.GetGaugeMaxCount();
-
     // ========== 게이지 통합 접근자 ==========
     public static int GetArtifactGaugeCurrentCount(string artifactId)
     {
@@ -66,7 +55,6 @@ public static class ArtifactEffectHandlers
         {
             "A004" => ArtifactManager.Instance.HasArtifact("A004", out _) ? GetGourdRecoveryCount() : 0,
             "A005" => ArtifactManager.Instance.HasArtifact("A005", out _) ? GetTombstoneDestroyCount() : 0,
-            "A006" => ArtifactManager.Instance.HasArtifact("A006", out _) ? GetMedalPromotionCount() : 0,
             _ => 0
         };
     }
@@ -82,7 +70,6 @@ public static class ArtifactEffectHandlers
         {
             "A004" => ArtifactManager.Instance.HasArtifact("A004", out _) ? GetGourdRecoveryMax() : 0,
             "A005" => ArtifactManager.Instance.HasArtifact("A005", out _) ? GetTombstoneDestroyThreshold() : 0,
-            "A006" => ArtifactManager.Instance.HasArtifact("A006", out _) ? GetMedalPromotionMax() : 0,
             _ => 0
         };
     }

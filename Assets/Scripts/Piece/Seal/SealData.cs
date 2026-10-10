@@ -17,11 +17,12 @@ public enum SealRarity
     Legendary
 }
 
-[CreateAssetMenu(fileName = "NewSealData", menuName = "Janggi/Seal Data")]
+[CreateAssetMenu(fileName = "NewSealData", menuName = "Chess/Seal Data")]
 public class SealData : ScriptableObject
 {
     [Header("Basic Info")]
     public string sealName;       // 이름
+    public string injectionCommand = "inject --vector-hook"; // CLI 출력 시그니처 (호환성 유지)
     public SealRarity rarity;     // 희귀도
     [TextArea]
     public string description;    // 설명

@@ -94,6 +94,12 @@ public class BoardEvaluator : MonoBehaviour
                     score -= threatenedPenalty;
                 }
 
+                // 적 폰 승급(퀸)에 큰 점수 부여
+                if (movedPiece != null && movedPiece.IsEnemy && movedPiece.Type == PieceType.Queen && piece.Type == PieceType.Pawn)
+                {
+                    score += 25f;
+                }
+
                 bool attackerIsEnemy = capturePerspective == CapturePerspective.EnemyCapturesPlayer;
                 bool targetIsEnemy = capturePerspective == CapturePerspective.PlayerCapturesEnemy;
 
@@ -217,6 +223,12 @@ public class BoardEvaluator : MonoBehaviour
                 if (isThreatenedAfter)
                 {
                     score -= threatenedPenalty;
+                }
+
+                // 적 폰 승급(퀸)에 큰 점수 부여
+                if (movedPiece != null && movedPiece.IsEnemy && movedPiece.Type == PieceType.Queen && piece.Type == PieceType.Pawn)
+                {
+                    score += 25f;
                 }
 
                 bool attackerIsEnemy = capturePerspective == CapturePerspective.EnemyCapturesPlayer;
@@ -373,6 +385,7 @@ public class BoardEvaluator : MonoBehaviour
         private readonly Dictionary<int, SimPiece> pieces;
         private readonly Dictionary<int, PieceController> actualPieces;
 
+        private readonly GridManager gridManager;
         private readonly Vector2Int minBounds;
         private readonly int boardWidth;
         private readonly int boardHeight;
@@ -384,6 +397,7 @@ public class BoardEvaluator : MonoBehaviour
             Dictionary<Vector2Int, int> positions,
             Dictionary<int, SimPiece> pieces,
             Dictionary<int, PieceController> actualPieces,
+            GridManager gridManager,
             Vector2Int minBounds,
             int boardWidth,
             int boardHeight,
@@ -393,6 +407,7 @@ public class BoardEvaluator : MonoBehaviour
             this.positions = positions;
             this.pieces = pieces;
             this.actualPieces = actualPieces;
+            this.gridManager = gridManager;
             this.minBounds = minBounds;
             this.boardWidth = boardWidth;
             this.boardHeight = boardHeight;
@@ -447,6 +462,7 @@ public class BoardEvaluator : MonoBehaviour
                 positions,
                 pieces,
                 actualPieces,
+                gridManager,
                 gridManager.gridMinBounds,
                 gridManager.boardWidth,
                 gridManager.boardHeight,
@@ -467,6 +483,7 @@ public class BoardEvaluator : MonoBehaviour
                 newPositions,
                 newPieces,
                 actualPieces,
+                gridManager,
                 minBounds,
                 boardWidth,
                 boardHeight,
@@ -493,25 +510,34 @@ public class BoardEvaluator : MonoBehaviour
                 case PieceType.King:
                     AddStepMoves(moves, piece, kingOffsets);
                     break;
-                case PieceType.Chariot:
+                case PieceType.Queen:
+                    AddRayMoves(moves, piece, Vector2Int.up);
+                    AddRayMoves(moves, piece, Vector2Int.down);
+                    AddRayMoves(moves, piece, Vector2Int.left);
+                    AddRayMoves(moves, piece, Vector2Int.right);
+                    AddRayMoves(moves, piece, new Vector2Int(1, 1));
+                    AddRayMoves(moves, piece, new Vector2Int(1, -1));
+                    AddRayMoves(moves, piece, new Vector2Int(-1, 1));
+                    AddRayMoves(moves, piece, new Vector2Int(-1, -1));
+                    break;
+                case PieceType.Rook:
                     AddRayMoves(moves, piece, Vector2Int.up);
                     AddRayMoves(moves, piece, Vector2Int.down);
                     AddRayMoves(moves, piece, Vector2Int.left);
                     AddRayMoves(moves, piece, Vector2Int.right);
                     break;
-                case PieceType.Horse:
-                    AddHorseMoves(moves, piece);
+                case PieceType.Bishop:
+                    AddRayMoves(moves, piece, new Vector2Int(1, 1));
+                    AddRayMoves(moves, piece, new Vector2Int(1, -1));
+                    AddRayMoves(moves, piece, new Vector2Int(-1, 1));
+                    AddRayMoves(moves, piece, new Vector2Int(-1, -1));
                     break;
-                case PieceType.Elephant:
-                    AddElephantMoves(moves, piece);
+                case PieceType.Knight:
+                    AddStepMoves(moves, piece, knightOffsets);
                     break;
-                case PieceType.Cannon:
-                    AddCannonMoves(moves, piece);
-                    break;
-                case PieceType.Soldier:
+                case PieceType.Pawn:
                 default:
-                    Vector2Int[] currentOffsets = piece.IsEnemy ? enemySoldierOffsets : playerSoldierOffsets;
-                    AddStepMoves(moves, piece, currentOffsets);
+                    AddPawnMoves(moves, piece);
                     break;
             }
 
@@ -548,6 +574,20 @@ public class BoardEvaluator : MonoBehaviour
 
             piece.Position = target;
             positions[target] = id;
+
+            // 폰 승급 시뮬레이션 (퀸으로 승급)
+            if (piece.Type == PieceType.Pawn)
+            {
+                if (piece.IsEnemy && target.y <= minBounds.y)
+                {
+                    piece.Type = PieceType.Queen;
+                }
+                else if (!piece.IsEnemy && target.y >= minBounds.y + boardHeight - 1)
+                {
+                    piece.Type = PieceType.Queen;
+                }
+            }
+
             return captured;
         }
 
@@ -568,6 +608,11 @@ public class BoardEvaluator : MonoBehaviour
             Vector2Int current = piece.Position + direction;
             while (IsInBounds(current))
             {
+                if (IsDestroyedCell(current))
+                {
+                    break;
+                }
+
                 SimPiece pieceAt = GetPieceAt(current);
                 if (pieceAt == null)
                 {
@@ -588,112 +633,63 @@ public class BoardEvaluator : MonoBehaviour
             }
         }
 
-        private void AddCannonMoves(List<Vector2Int> moves, SimPiece piece)
+        private void AddPawnMoves(List<Vector2Int> moves, SimPiece piece)
         {
-            AddCannonRayMoves(moves, piece, Vector2Int.up);
-            AddCannonRayMoves(moves, piece, Vector2Int.down);
-            AddCannonRayMoves(moves, piece, Vector2Int.left);
-            AddCannonRayMoves(moves, piece, Vector2Int.right);
-        }
+            int dirY = piece.IsEnemy ? -1 : 1;
+            Vector2Int forward = new Vector2Int(0, dirY);
 
-        private void AddCannonRayMoves(List<Vector2Int> moves, SimPiece piece, Vector2Int direction)
-        {
-            Vector2Int current = piece.Position + direction;
-            bool hasScreen = false;
-
-            while (IsInBounds(current))
+            // 1. 1칸 전진 (빈 칸일 때만)
+            Vector2Int oneStep = piece.Position + forward;
+            if (IsInBounds(oneStep) && !IsDestroyedCell(oneStep) && !IsOccupied(oneStep))
             {
-                SimPiece pieceAt = GetPieceAt(current);
+                moves.Add(oneStep);
 
-                if (!hasScreen)
+                // 2. 초기 2칸 전진
+                int minY = minBounds.y;
+                int maxY = minY + boardHeight - 1;
+                bool isStartRank = piece.IsEnemy
+                    ? (piece.Position.y >= maxY - 1)
+                    : (piece.Position.y <= minY + 1);
+
+                Vector2Int twoStep = piece.Position + (forward * 2);
+                if (isStartRank && IsInBounds(twoStep) && !IsDestroyedCell(twoStep) && !IsOccupied(twoStep))
                 {
-                    if (pieceAt != null)
-                    {
-                        // [규칙 1] 포는 다른 포를 넘을 수 없다.
-                        if (pieceAt.Type == PieceType.Cannon)
-                        {
-                            break;
-                        }
-
-                        hasScreen = true;
-                    }
-
-                    current += direction;
-                    continue;
+                    moves.Add(twoStep);
                 }
-
-                if (pieceAt != null)
-                {
-                    if (pieceAt.IsEnemy != piece.IsEnemy)
-                    {
-                        // [규칙 2] 포는 다른 포를 잡을 수 없다.
-                        if (pieceAt.Type != PieceType.Cannon && CanMoveTo(piece, current))
-                        {
-                            moves.Add(current);
-                        }
-                    }
-
-                    break;
-                }
-
-                // 파괴된 GridPoint로는 이동 불가
-                if (CanMoveTo(piece, current))
-                {
-                    moves.Add(current);
-                }
-                current += direction;
             }
-        }
 
-        private void AddHorseMoves(List<Vector2Int> moves, SimPiece piece)
-        {
-            for (int i = 0; i < horseOffsets.Length; i++)
+            // 3. 대각선 전방 포획
+            Vector2Int[] captureOffsets =
             {
-                Vector2Int offset = horseOffsets[i];
-                int stepX = offset.x == 0 ? 0 : (int)Mathf.Sign(offset.x);
-                int stepY = offset.y == 0 ? 0 : (int)Mathf.Sign(offset.y);
+                new Vector2Int(-1, dirY),
+                new Vector2Int(1, dirY)
+            };
 
-                Vector2Int block = Mathf.Abs(offset.x) == 2 ?
-                    new Vector2Int(stepX, 0) :
-                    new Vector2Int(0, stepY);
-
-                if (IsOccupied(piece.Position + block))
+            for (int i = 0; i < captureOffsets.Length; i++)
+            {
+                Vector2Int diagTarget = piece.Position + captureOffsets[i];
+                if (!IsInBounds(diagTarget) || IsDestroyedCell(diagTarget))
                 {
                     continue;
                 }
 
-                Vector2Int target = piece.Position + offset;
-                if (CanMoveTo(piece, target))
+                SimPiece pieceAt = GetPieceAt(diagTarget);
+                if (pieceAt != null && pieceAt.IsEnemy != piece.IsEnemy)
                 {
-                    moves.Add(target);
+                    moves.Add(diagTarget);
                 }
             }
         }
 
-        private void AddElephantMoves(List<Vector2Int> moves, SimPiece piece)
+        private bool IsDestroyedCell(Vector2Int target)
         {
-            for (int i = 0; i < elephantOffsets.Length; i++)
+            if (gridManager == null)
             {
-                Vector2Int offset = elephantOffsets[i];
-                int stepX = offset.x == 0 ? 0 : (int)Mathf.Sign(offset.x);
-                int stepY = offset.y == 0 ? 0 : (int)Mathf.Sign(offset.y);
-
-                Vector2Int step1 = Mathf.Abs(offset.x) == 3 ?
-                    new Vector2Int(stepX, 0) :
-                    new Vector2Int(0, stepY);
-                Vector2Int step2 = step1 + new Vector2Int(stepX, stepY);
-
-                if (IsOccupied(piece.Position + step1) || IsOccupied(piece.Position + step2))
-                {
-                    continue;
-                }
-
-                Vector2Int target = piece.Position + offset;
-                if (CanMoveTo(piece, target))
-                {
-                    moves.Add(target);
-                }
+                return false;
             }
+
+            GridCell cell = gridManager.GetGridCell(target);
+            return cell != null && cell.isDestroyed;
         }
 
         private bool IsInBounds(Vector2Int position)
@@ -704,20 +700,9 @@ public class BoardEvaluator : MonoBehaviour
 
         private bool CanMoveTo(SimPiece piece, Vector2Int target)
         {
-            if (!IsInBounds(target))
+            if (!IsInBounds(target) || IsDestroyedCell(target))
             {
                 return false;
-            }
-
-            // 파괴된 GridPoint로는 이동 불가
-            GridManager gridManager = FindFirstObjectByType<GridManager>();
-            if (gridManager != null)
-            {
-                GridPoint gridPoint = gridManager.GetGridPoint(target);
-                if (gridPoint != null && gridPoint.isDestroyed)
-                {
-                    return false;
-                }
             }
 
             SimPiece pieceAt = GetPieceAt(target);
@@ -756,21 +741,7 @@ public class BoardEvaluator : MonoBehaviour
             new Vector2Int(-1, -1)
         };
 
-        private static readonly Vector2Int[] playerSoldierOffsets =
-        {
-            Vector2Int.up,
-            Vector2Int.left,
-            Vector2Int.right
-        };
-
-        private static readonly Vector2Int[] enemySoldierOffsets =
-        {
-            Vector2Int.down,
-            Vector2Int.left,
-            Vector2Int.right
-        };
-
-        private static readonly Vector2Int[] horseOffsets =
+        private static readonly Vector2Int[] knightOffsets =
         {
             new Vector2Int(2, 1),
             new Vector2Int(2, -1),
@@ -781,24 +752,12 @@ public class BoardEvaluator : MonoBehaviour
             new Vector2Int(-1, 2),
             new Vector2Int(-1, -2)
         };
-
-        private static readonly Vector2Int[] elephantOffsets =
-        {
-            new Vector2Int(3, 2),
-            new Vector2Int(3, -2),
-            new Vector2Int(-3, 2),
-            new Vector2Int(-3, -2),
-            new Vector2Int(2, 3),
-            new Vector2Int(2, -3),
-            new Vector2Int(-2, 3),
-            new Vector2Int(-2, -3)
-        };
     }
 
     private sealed class SimPiece
     {
         public int Id { get; }
-        public PieceType Type { get; }
+        public PieceType Type { get; set; }
         public bool IsEnemy { get; }
         public Vector2Int Position { get; set; }
 

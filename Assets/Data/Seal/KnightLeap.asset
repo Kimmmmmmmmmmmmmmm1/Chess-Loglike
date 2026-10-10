@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
+  m_Name: KnightLeap
+  m_EditorClassIdentifier: Assembly-CSharp::SealData
+  sealName: "도약의 인장"
+  injectionCommand: ""
+  rarity: 2
+  description: "기물이 나이트처럼 장애물을 뛰어넘어 L자로 이동할 수 있게 됩니다."
+  flavorText: "도약하는 자에게 장애물은 없다."
+  icon: {fileID: 3944343766228188813, guid: 95980ea79e9734fbc9fe2d2728f381c0, type: 3}
+  isSoldInShop: 1
+  sealPrefab: {fileID: 2006435481796697725, guid: 1d210ea26fd34c12b0609771e7fba6d0, type: 3}
+  compatiblePieces: []
+  effectType: 1
+  effectValue: 0
+

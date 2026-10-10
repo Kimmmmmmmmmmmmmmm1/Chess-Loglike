@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-[CreateAssetMenu(fileName = "NewBossData", menuName = "Janggi/Boss Data")]
+[CreateAssetMenu(fileName = "NewBossData", menuName = "Chess/Boss Data")]
 public class BossData : ScriptableObject
 {
     [Tooltip("보스 난이도")]
@@ -16,9 +16,9 @@ public class BossData : ScriptableObject
     public Sprite bossSprite;
 
     [Header("Map Settings")]
-    [Tooltip("맵의 가로 크기")]
+    [Tooltip("맵의 가로 크기 (기본 5)")]
     public int mapWidth = 5;
-    [Tooltip("맵의 세로 크기")]
+    [Tooltip("맵의 세로 크기 (기본 7)")]
     public int mapHeight = 7;
     
     [Tooltip("그리드 시작 X 좌표 (GridManager의 gridMinBounds.x와 일치시켜주세요)")]

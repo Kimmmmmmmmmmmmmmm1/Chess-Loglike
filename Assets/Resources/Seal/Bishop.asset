@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
   m_Name: Bishop
   m_EditorClassIdentifier: Assembly-CSharp::SealData
-  sealName: "\uBE44\uC20D \uC778\uC7A5"
+  sealName: "[INJ] Vector_Override.sh"
+  injectionCommand: "inject --ray-diagonal --override"
   rarity: 2
-  description: "<color=#FF111111>\uC0C1</color>\"\uC5D0\uAC8C\uB9CC \uC7A5\uCC29\uB41C\uB2E4.\n\uC0C1\uC774
-    \uBAA8\uB4E0 \uB300\uAC01\uC120 \uBC29\uD5A5\uC73C\uB85C \uC774\uB3D9\uD55C\uB2E4."
-  flavorText: 
+  description: "<color=#00FF00>ROOK [R], KNIGHT [N], PAWN [P]</color> 노드에 인젝션 가능.\n기물 이동 알고리즘에 무제한 대각선 슬라이딩 라우팅을 추가합니다."
+  flavorText: "// Reroutes movement packets across all 4 diagonal axes."
   icon: {fileID: 310542206, guid: 95980ea79e9734fbc9fe2d2728f381c0, type: 3}
   isSoldInShop: 1
   sealPrefab: {fileID: 2006435481796697723, guid: 89b74c4e506074ecebbb626467672420, type: 3}
-  compatiblePieces: 03000000
+  compatiblePieces: 010000000200000005000000
   effectType: 2
   effectValue: 0

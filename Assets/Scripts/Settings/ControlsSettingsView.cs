@@ -47,6 +47,8 @@ public class KeySettingsView : MonoBehaviour
         SettingsManager.EnsureInstance();
         if (restoreDefaultsButton != null) restoreDefaultsButton.onClick.AddListener(OnRestoreDefaultsClicked);
 
+        if (keyOpenMapSelector != null) keyOpenMapSelector.gameObject.SetActive(false);
+
         BindSelectors();
         UpdateSelectionVisuals();
     }

@@ -250,9 +250,7 @@ public class ArtifactManager : MonoBehaviour
                 slot.Initialize(ownedArtifacts[i]);
 
                 bool isGourd = ownedArtifacts[i] != null && ownedArtifacts[i].id == "A004";
-                bool isMedal = ownedArtifacts[i] != null && ownedArtifacts[i].id == "A006";
-                bool isExhausted = (isGourd && ArtifactEffectHandlers.IsGourdRecoveryExhausted()) ||
-                                   (isMedal && ArtifactEffectHandlers.IsMedalPromotionExhausted());
+                bool isExhausted = isGourd && ArtifactEffectHandlers.IsGourdRecoveryExhausted();
                 slot.SetDimmed(isExhausted);
             }
             else

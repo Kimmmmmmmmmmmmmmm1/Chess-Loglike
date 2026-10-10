@@ -19,6 +19,7 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     public Image pieceIconImage;
     public Image sealIconImage;
 
+    private TextMeshProUGUI asciiPieceLabel;
     private bool isSoldOut = false;
     private SealData attachedSeal;
     public SealData AttachedSeal => attachedSeal;
@@ -38,32 +39,34 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     {
         if (isSoldOut)
         {
-            if (costText != null) 
+            if (costText != null)
             {
                 costText.text = "";
-                costText.GetComponentInParent<Image>().enabled = false; // 코스트 텍스트 배경 이미지 숨김
+                Image parentImg = costText.GetComponentInParent<Image>();
+                if (parentImg != null) parentImg.enabled = false;
             }
             if (buyButton != null) buyButton.interactable = false;
             if (pieceIconImage != null)
             {
                 pieceIconImage.sprite = null;
                 Color c = pieceIconImage.color;
-                c.a = 0.5f; // 반투명하게 처리
+                c.a = 0.5f;
                 pieceIconImage.color = c;
             }
             if (sealIconImage != null)
             {
                 sealIconImage.enabled = false;
             }
-            if (GetComponent<Image>() != null)
+            Image rootImg = GetComponent<Image>();
+            if (rootImg != null)
             {
-                GetComponent<Image>().enabled = false;;
+                rootImg.enabled = false;
             }
             return;
         }
 
         if (costText != null) costText.text = $"{cost}";
-        
+
         if (pieceIconImage != null && PieceManager.Instance != null)
         {
             pieceIconImage.sprite = PieceManager.Instance.GetSpriteFor(pieceType);
@@ -78,12 +81,11 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
             {
                 sealIconImage.sprite = attachedSeal.icon;
                 sealIconImage.enabled = true;
-                
-                // 인장 아이콘에 툴팁 핸들러 추가
+
                 var handler = sealIconImage.GetComponent<SealTooltipHandler>();
                 if (handler == null) handler = sealIconImage.gameObject.AddComponent<SealTooltipHandler>();
                 handler.Initialize(attachedSeal);
-                sealIconImage.raycastTarget = true; // 이벤트 수신을 위해 true로 설정
+                sealIconImage.raycastTarget = true;
             }
             else
             {
@@ -99,7 +101,6 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
         if (GameManager.Instance == null) return;
 
-        // 돈이 부족한 경우
         if (GameManager.Instance.Coin < cost)
         {
             if (buyButton != null)
@@ -109,7 +110,6 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
             return;
         }
 
-        // 인벤토리의 빈 슬롯 찾기
         InventorySlot emptySlot = FindEmptyInventorySlot();
         if (emptySlot == null)
         {
@@ -120,7 +120,6 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
             return;
         }
 
-        // 구매 진행
         if (GameManager.Instance.UseCoin(cost))
         {
             GameManager.Instance.RecordPurchase();
@@ -131,23 +130,19 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     private void ShakeUI()
     {
-        // 이전 트윈을 완료하여 상태를 복구 (OnComplete 실행됨)
         buyButton.transform.DOKill(true);
 
-        // LayoutElement 컴포넌트 확인 및 추가
         LayoutElement layoutElement = buyButton.GetComponent<LayoutElement>();
         if (layoutElement == null) layoutElement = buyButton.gameObject.AddComponent<LayoutElement>();
 
-        // 플레이스홀더 생성 (레이아웃 공간 확보용)
         GameObject placeholder = new GameObject("LayoutPlaceholder");
         placeholder.transform.SetParent(buyButton.transform.parent, false);
         placeholder.transform.SetSiblingIndex(buyButton.transform.GetSiblingIndex());
-        
+
         RectTransform placeholderRect = placeholder.AddComponent<RectTransform>();
         RectTransform buttonRect = buyButton.GetComponent<RectTransform>();
         placeholderRect.sizeDelta = buttonRect.sizeDelta;
-        
-        // LayoutElement 속성 복사
+
         LayoutElement placeholderLE = placeholder.AddComponent<LayoutElement>();
         placeholderLE.preferredWidth = layoutElement.preferredWidth;
         placeholderLE.preferredHeight = layoutElement.preferredHeight;
@@ -156,12 +151,10 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         placeholderLE.minWidth = layoutElement.minWidth;
         placeholderLE.minHeight = layoutElement.minHeight;
 
-        // 흔들리는 동안 레이아웃 그룹의 영향을 받지 않도록 설정
         layoutElement.ignoreLayout = true;
 
-        // 좌우(X축) 흔들림 적용
         buyButton.transform.DOShakePosition(0.5f, new Vector3(10f, 0, 0), 20, 90, false, true)
-            .OnComplete(() => 
+            .OnComplete(() =>
             {
                 layoutElement.ignoreLayout = false;
                 Destroy(placeholder);
@@ -170,7 +163,6 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     private InventorySlot FindEmptyInventorySlot()
     {
-        // 씬의 모든 인벤토리 슬롯을 찾아서 순서대로 정렬 후 비어있는 첫 번째 슬롯 반환
         var slots = FindObjectsByType<InventorySlot>(FindObjectsSortMode.None);
         var sortedSlots = slots.OrderBy(s => s.transform.GetSiblingIndex()).ToArray();
 
@@ -194,6 +186,11 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         cost = itemCost;
         attachedSeal = seal;
         isSoldOut = false;
+        CollectionManager.EnsureInstance()?.RecordPieceSeen(pieceType);
+        if (seal != null)
+        {
+            CollectionManager.EnsureInstance()?.RecordSealSeen(seal);
+        }
         UpdateUI();
     }
 
@@ -207,10 +204,17 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     {
         if (sealIconImage == null) return;
 
-        // 초기화
         sealIconImage.transform.DOKill();
         sealIconImage.transform.localScale = Vector3.one;
         sealIconImage.color = Color.white;
+
+        if (EffectManager.Instance != null)
+        {
+            string cmd = attachedSeal != null && !string.IsNullOrEmpty(attachedSeal.injectionCommand)
+                ? $"[{attachedSeal.injectionCommand.ToUpperInvariant()}]"
+                : "[CODE INJECTION DETECTED]";
+            EffectManager.Instance.PlayCliInjectionEffect(sealIconImage.transform.position, cmd);
+        }
 
         switch (rarity)
         {
@@ -219,53 +223,57 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
                 break;
             case SealRarity.Rare:
                 sealIconImage.transform.DOPunchScale(Vector3.one * 0.4f, 0.6f, 10, 1);
-                SpawnParticles(6, new Color(0f, 0.5f, 1f), 60f, 0.6f);
+                SpawnGlitchBits(4, new Color(0f, 1f, 0f, 1f), 45f, 0.5f);
                 break;
             case SealRarity.Epic:
                 sealIconImage.transform.DOPunchScale(Vector3.one * 0.5f, 0.8f, 10, 1);
                 sealIconImage.transform.DOShakeRotation(0.8f, 30f, 10, 90);
-                SpawnParticles(12, new Color(0.8f, 0f, 1f), 90f, 0.8f);
+                SpawnGlitchBits(6, new Color(0f, 1f, 0.6f, 1f), 65f, 0.6f);
                 break;
             case SealRarity.Legendary:
                 Sequence seq = DOTween.Sequence();
                 seq.Append(sealIconImage.transform.DOPunchScale(Vector3.one * 0.7f, 1.0f, 10, 1));
                 seq.Join(sealIconImage.transform.DOShakeRotation(1.0f, 45f, 10, 90));
-                seq.Join(sealIconImage.DOColor(new Color(1f, 0.8f, 0f), 0.2f).SetLoops(6, LoopType.Yoyo));
+                seq.Join(sealIconImage.DOColor(new Color(0f, 1f, 0f, 1f), 0.2f).SetLoops(6, LoopType.Yoyo));
                 seq.OnComplete(() => sealIconImage.color = Color.white);
-                SpawnParticles(20, new Color(1f, 0.9f, 0.2f), 130f, 1.2f);
+                SpawnGlitchBits(8, new Color(0f, 1f, 0f, 1f), 85f, 0.8f);
                 break;
         }
     }
 
-    private void SpawnParticles(int count, Color color, float distance, float duration)
+    private void SpawnGlitchBits(int count, Color color, float distance, float duration)
     {
+        string[] tokens = { "0x1", "INJ", "PATCH", ">>" };
         for (int i = 0; i < count; i++)
         {
-            GameObject p = new GameObject("SealParticle");
-            p.transform.SetParent(transform, true); // 슬롯을 부모로 설정
+            GameObject p = new GameObject("InjectionGlitchBit", typeof(RectTransform));
+            p.transform.SetParent(transform, true);
             p.transform.position = sealIconImage.transform.position;
-            
-            Image img = p.AddComponent<Image>();
-            if (sealIconImage.sprite != null) img.sprite = sealIconImage.sprite;
-            img.color = color;
-            img.raycastTarget = false;
+            RectTransform rt = p.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(36f, 14f);
 
-            float scale = UnityEngine.Random.Range(0.3f, 0.6f);
-            p.transform.localScale = Vector3.one * scale;
+            TextMeshProUGUI tmp = p.AddComponent<TextMeshProUGUI>();
+            if (TMP_Settings.defaultFontAsset != null)
+            {
+                tmp.font = TMP_Settings.defaultFontAsset;
+            }
+            tmp.text = tokens[i % tokens.Length];
+            tmp.fontSize = 8.5f;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = color;
+            tmp.raycastTarget = false;
 
             float angle = UnityEngine.Random.Range(0f, 360f);
             Vector3 dir = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad), 0);
-            
+
             p.transform.DOMove(p.transform.position + dir * distance, duration).SetEase(Ease.OutQuad);
-            p.transform.DOScale(0f, duration).SetEase(Ease.InQuad);
-            p.transform.DORotate(new Vector3(0, 0, UnityEngine.Random.Range(-180f, 180f)), duration);
-            img.DOFade(0f, duration).OnComplete(() => Destroy(p));
+            tmp.DOFade(0f, duration).OnComplete(() => Destroy(p));
         }
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        // 상점 기물 호버 시 이동범위 패턴 표시 (인장 포함)
         if (TooltipManager.Instance != null && !isSoldOut)
         {
             string movementPattern = PieceController.GenerateMovementPatternForType(pieceType, attachedSeal);

@@ -11,7 +11,7 @@ public class AchievementManager : PersistentManagerBase
 
     [Header("Data")]
     [SerializeField] private List<AchievementData> allAchievements = new List<AchievementData>();
-    [SerializeField] private string editorFolderPath = "Assets/Resources/Achievement";
+    [SerializeField] private string editorFolderPath = "Assets/Data/Achievement";
     [SerializeField] private string runtimeResourcesPath = "Achievement";
 
     [Header("Save")]
@@ -65,10 +65,45 @@ public class AchievementManager : PersistentManagerBase
     }
 
     /// <summary>
-    /// 런타임에 씬에 AchievementManager가 없을 경우 자동으로 생성합니다.
+    /// 런타임에 씬에 AchievementManager가 없을 경우 자동으로 생성하거나 비활성 인스턴스를 찾아 활성화합니다.
     /// </summary>
-    // NOTE: Scene creation/bootstrap responsibilities are handled manually.
-    // Removed automatic EnsureInstance to keep lifecycle explicit per project preferences.
+    public static AchievementManager EnsureInstance()
+    {
+        if (Instance != null)
+        {
+            return Instance;
+        }
+
+        AchievementManager existing = FindFirstObjectByType<AchievementManager>(FindObjectsInactive.Include);
+        if (existing != null)
+        {
+            if (!existing.gameObject.activeSelf)
+            {
+                existing.gameObject.SetActive(true);
+            }
+            return Instance != null ? Instance : existing;
+        }
+
+        GameObject go = new GameObject("AchievementManager");
+        return go.AddComponent<AchievementManager>();
+    }
+
+    private static bool IsTestOrDebugAchievement(AchievementData achievement)
+    {
+        if (achievement == null || string.IsNullOrEmpty(achievement.id))
+        {
+            return true;
+        }
+
+        if (achievement.id.StartsWith("test_", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(achievement.id, "stage_clear_chain", StringComparison.OrdinalIgnoreCase) ||
+            (!string.IsNullOrEmpty(achievement.name) && achievement.name.StartsWith("Test_", StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return false;
+    }
 
     private void LoadAllAchievements()
     {
@@ -81,39 +116,57 @@ public class AchievementManager : PersistentManagerBase
             allAchievements.Clear();
         }
 
-#if UNITY_EDITOR
-        string[] guids = UnityEditor.AssetDatabase.FindAssets("t:AchievementData", new[] { editorFolderPath });
-        foreach (string guid in guids)
+        achievementLookup.Clear();
+
+        void TryAddAchievement(AchievementData achievement)
         {
-            string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-            AchievementData achievement = UnityEditor.AssetDatabase.LoadAssetAtPath<AchievementData>(assetPath);
-            if (achievement != null)
+            if (IsTestOrDebugAchievement(achievement))
             {
-                allAchievements.Add(achievement);
+                return;
             }
+
+            if (achievementLookup.ContainsKey(achievement.id))
+            {
+                return;
+            }
+
+            achievementLookup.Add(achievement.id, achievement);
+            allAchievements.Add(achievement);
         }
 
-        if (allAchievements.Count == 0)
+#if UNITY_EDITOR
+        List<string> searchFolders = new List<string>();
+        if (!string.IsNullOrEmpty(editorFolderPath) && UnityEditor.AssetDatabase.IsValidFolder(editorFolderPath))
         {
-            AchievementData[] loadedAchievements = Resources.LoadAll<AchievementData>(runtimeResourcesPath);
-            allAchievements.AddRange(loadedAchievements);
+            searchFolders.Add(editorFolderPath);
         }
-#else
-        AchievementData[] loadedAchievements = Resources.LoadAll<AchievementData>(runtimeResourcesPath);
-        allAchievements.AddRange(loadedAchievements);
+        if (!searchFolders.Contains("Assets/Data/Achievement") && UnityEditor.AssetDatabase.IsValidFolder("Assets/Data/Achievement"))
+        {
+            searchFolders.Add("Assets/Data/Achievement");
+        }
+        if (!searchFolders.Contains("Assets/Resources/Achievement") && UnityEditor.AssetDatabase.IsValidFolder("Assets/Resources/Achievement"))
+        {
+            searchFolders.Add("Assets/Resources/Achievement");
+        }
+
+        if (searchFolders.Count > 0)
+        {
+            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:AchievementData", searchFolders.ToArray());
+            foreach (string guid in guids)
+            {
+                string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                AchievementData achievement = UnityEditor.AssetDatabase.LoadAssetAtPath<AchievementData>(assetPath);
+                TryAddAchievement(achievement);
+            }
+        }
 #endif
 
-        achievementLookup.Clear();
-        foreach (AchievementData achievement in allAchievements)
+        AchievementData[] loadedAchievements = Resources.LoadAll<AchievementData>(runtimeResourcesPath);
+        if (loadedAchievements != null)
         {
-            if (achievement == null || string.IsNullOrEmpty(achievement.id))
+            for (int i = 0; i < loadedAchievements.Length; i++)
             {
-                continue;
-            }
-
-            if (!achievementLookup.ContainsKey(achievement.id))
-            {
-                achievementLookup.Add(achievement.id, achievement);
+                TryAddAchievement(loadedAchievements[i]);
             }
         }
     }
@@ -249,9 +302,37 @@ public class AchievementManager : PersistentManagerBase
             }
         }
 
-        IEnumerable<AchievementData> visibleAchievements = allAchievements
-            .Where(achievement => achievement != null && !string.IsNullOrEmpty(achievement.id))
-            .Where(achievement => !chainedChildren.Contains(achievement));
+        List<AchievementData> visibleList = new List<AchievementData>();
+        HashSet<string> addedIds = new HashSet<string>();
+
+        foreach (AchievementData root in allAchievements)
+        {
+            if (root == null || string.IsNullOrEmpty(root.id) || chainedChildren.Contains(root))
+            {
+                continue;
+            }
+
+            AchievementData current = root;
+            int safety = 0;
+            while (current != null && safety < 32)
+            {
+                safety++;
+                if (!IsTestOrDebugAchievement(current) && addedIds.Add(current.id))
+                {
+                    visibleList.Add(current);
+                }
+
+                // Show all unlocked steps in a chain plus the first locked (active) step
+                if (!IsUnlocked(current.id))
+                {
+                    break;
+                }
+
+                current = current.nextAchievement;
+            }
+        }
+
+        IEnumerable<AchievementData> visibleAchievements = visibleList;
 
         if (categoryFilter.HasValue)
         {
@@ -262,6 +343,7 @@ public class AchievementManager : PersistentManagerBase
             .OrderBy(achievement => IsUnlocked(achievement.id) ? 0 : 1)
             .ThenBy(achievement => categoryFilter.HasValue ? 0 : (int)achievement.category)
             .ThenBy(achievement => achievement.difficulty)
+            .ThenBy(achievement => achievement.GetFinalTargetCount())
             .ThenBy(achievement => achievement.achievementName)
             .ToList();
     }

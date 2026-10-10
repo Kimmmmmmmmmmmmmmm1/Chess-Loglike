@@ -11,7 +11,6 @@ using JetBrains.Annotations;
 public enum GameFlowState
 {
     None,
-    Map,
     Shop,
     Battle,
     Event,
@@ -21,7 +20,6 @@ public enum GameFlowState
 
 public class GameManager : MonoBehaviour
 {
-    private const string DefaultOpenMapKey = "M";
     private const string DefaultOpenSettingsKey = "F1";
 
     private static class AchievementIds
@@ -57,6 +55,7 @@ public class GameManager : MonoBehaviour
         public const string CollectPurchase5 = "collect_purchase_5";
         public const string CollectPurchase20 = "collect_purchase_20";
         public const string CollectArtifactEnhance = "collect_artifact_enhance";
+        public const string CollectArtifactEnhance5 = "collect_artifact_enhance_5";
 
         public const string OtherTurn50 = "other_turn_50";
         public const string OtherTurn100 = "other_turn_100";
@@ -85,10 +84,7 @@ public class GameManager : MonoBehaviour
     [Header("UI")]
     public TextMeshProUGUI coinText;
     public TextMeshProUGUI stageText;
-    public GameObject mapObject;
-    [SerializeField] private Button openMapButton;
     [SerializeField] private Button openSettingsButton;
-    private MapManager mapManager;
     private Coroutine cleanupFlowCoroutine;
     private void Awake()
     {
@@ -133,10 +129,8 @@ public class GameManager : MonoBehaviour
     {
         TryAddAchievementProgress(AchievementIds.OtherFirstRun);
 
-        InitializeMapReferences();
-
         currentFlowState = GameFlowState.None;
-        StartCoroutine(DelayedMapTransition());
+        StartCoroutine(DelayedBattleStart());
 
         BindShortcutButtons();
         SubscribeToGameStateManager();
@@ -185,31 +179,18 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        openMapButton = null;
         openSettingsButton = null;
 
         BindShortcutButtons();
-        InitializeMapReferences();
 
         if (currentFlowState == GameFlowState.None)
         {
-            StartCoroutine(DelayedMapTransition());
+            StartCoroutine(DelayedBattleStart());
         }
     }
 
     private void BindShortcutButtons()
     {
-        if (openMapButton == null)
-        {
-            openMapButton = FindButtonByName("MapButton");
-        }
-
-        if (openMapButton != null)
-        {
-            openMapButton.onClick.RemoveListener(OpenMap);
-            openMapButton.onClick.AddListener(OpenMap);
-        }
-
         if (openSettingsButton == null)
         {
             openSettingsButton = FindButtonByName("SettingButton");
@@ -220,8 +201,6 @@ public class GameManager : MonoBehaviour
             openSettingsButton.onClick.RemoveListener(OpenSettings);
             openSettingsButton.onClick.AddListener(OpenSettings);
         }
-
-        UpdateMapButtonInteractable();
     }
 
     private Button FindButtonByName(string buttonName)
@@ -236,56 +215,21 @@ public class GameManager : MonoBehaviour
 
     private void UnbindShortcutButtons()
     {
-        if (openMapButton != null)
-        {
-            openMapButton.onClick.RemoveListener(OpenMap);
-        }
-
         if (openSettingsButton != null)
         {
             openSettingsButton.onClick.RemoveListener(OpenSettings);
         }
     }
 
-    private IEnumerator DelayedMapTransition()
+    private IEnumerator DelayedBattleStart()
     {
         yield return null;
-        ChangeFlowState(GameFlowState.Map);
+        StartNextStage();
     }
 
-    private void InitializeMapReferences()
+    public void StartNextStage()
     {
-        if (mapManager == null) mapManager = MapManager.Instance;
-
-        if (mapObject == null)
-        {
-            if (mapManager != null) mapObject = mapManager.gameObject;
-            else mapObject = GameObject.Find("MapObject");
-        }
-
-        if (mapManager == null && mapObject != null) mapManager = mapObject.GetComponent<MapManager>();
-
-        UpdateMapButtonInteractable();
-    }
-
-    private bool IsMapPanelOpen()
-    {
-        if (mapManager != null)
-        {
-            return mapManager.gameObject.activeSelf;
-        }
-
-        return mapObject != null && mapObject.activeSelf;
-    }
-
-    private void UpdateMapButtonInteractable()
-    {
-        if (openMapButton == null)
-        {
-            return;
-        }
-
-        openMapButton.interactable = currentFlowState != GameFlowState.Map;
+        ChangeFlowState(GameFlowState.Battle);
     }
 
     private void Update()
@@ -309,14 +253,6 @@ public class GameManager : MonoBehaviour
                 GameStateManager.Instance.ChangeState(GameStateManager.GameState.Win);
             }
         }
-
-        if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
-        {
-            if (CurrentFlowState == GameFlowState.Map && MapManager.Instance != null)
-            {
-                MapManager.Instance.ReloadMap();
-            }
-        }
 #endif
     }
 
@@ -324,12 +260,6 @@ public class GameManager : MonoBehaviour
     {
         if (ModalManager.IsKeyboardBlocked)
         {
-            return;
-        }
-
-        if (IsConfiguredKeyPressed(GetShortcutKeyName(isSettingsShortcut: false), DefaultOpenMapKey))
-        {
-            OpenMap();
             return;
         }
 
@@ -343,16 +273,11 @@ public class GameManager : MonoBehaviour
     {
         if (SettingsManager.Instance == null || SettingsManager.Instance.Settings == null)
         {
-            return isSettingsShortcut ? DefaultOpenSettingsKey : DefaultOpenMapKey;
+            return DefaultOpenSettingsKey;
         }
 
-        string keyName = isSettingsShortcut
-            ? SettingsManager.Instance.Settings.keyOpenSettings
-            : SettingsManager.Instance.Settings.keyOpenMap;
-
-        return string.IsNullOrWhiteSpace(keyName)
-            ? (isSettingsShortcut ? DefaultOpenSettingsKey : DefaultOpenMapKey)
-            : keyName;
+        string keyName = SettingsManager.Instance.Settings.keyOpenSettings;
+        return string.IsNullOrWhiteSpace(keyName) ? DefaultOpenSettingsKey : keyName;
     }
 
     private static bool IsConfiguredKeyPressed(string keyName, string fallbackKeyName)
@@ -368,36 +293,6 @@ public class GameManager : MonoBehaviour
         }
 
         return Input.GetKeyDown(parsedKey);
-    }
-
-    public void OpenMap()
-    {
-        InitializeMapReferences();
-        if (IsMapPanelOpen() && currentFlowState != GameFlowState.Map)
-        {
-            if (mapManager != null)
-            {
-                mapManager.Close();
-            }
-            else if (mapObject != null)
-            {
-                mapObject.SetActive(false);
-            }
-
-            UpdateMapButtonInteractable();
-            return;
-        }
-
-        if (mapManager != null)
-        {
-            mapManager.Open();
-        }
-        else if (mapObject != null)
-        {
-            mapObject.SetActive(true);
-        }
-
-        UpdateMapButtonInteractable();
     }
 
     public void OpenSettings()
@@ -559,25 +454,6 @@ public class GameManager : MonoBehaviour
             PieceManager.Instance.gridManager.SetBoardPresentation(shouldDimBoard, 0.35f);
         }
 
-        InitializeMapReferences();
-
-        if (currentFlowState == GameFlowState.Map)
-        {
-            if (mapManager != null)
-            {
-                mapManager.Open();
-            }
-            else if (mapObject != null)
-            {
-                if (!mapObject.activeSelf) mapObject.SetActive(true);
-            }
-        }
-        else
-        {
-            if (mapManager != null) mapManager.Close();
-            else if (mapObject != null) mapObject.SetActive(false);
-        }
-
         if (currentFlowState != GameFlowState.Battle)
         {
             if (GameStateManager.Instance != null)
@@ -618,8 +494,6 @@ public class GameManager : MonoBehaviour
             case GameFlowState.Event:
                 break;
         }
-
-            UpdateMapButtonInteractable();
     }
 
     public void RestartGame()
@@ -691,15 +565,10 @@ public class GameManager : MonoBehaviour
     {
         if (stageText != null)
         {
-            int mapProgress = clearedBosses + 1;
-
-            int nodeProgress = 1;
-            if (mapManager != null)
-            {
-                nodeProgress = mapManager.VisitedNodeCount + 1;
-            }
+            int act = (clearedStage / 5) + 1;
+            int subStage = (clearedStage % 5) + 1;
             
-            stageText.text = $"{mapProgress}-{nodeProgress}";
+            stageText.text = $"{act}-{subStage}";
 
             stageText.transform.DOKill();
             stageText.transform.localScale = Vector3.one;
@@ -754,7 +623,7 @@ public class GameManager : MonoBehaviour
         TryAddAchievementProgress(AchievementIds.CombatBoss5);
     }
 
-    public void RecordCapture(bool isEnemyPieceCaptured, PieceType capturedPieceType = PieceType.Soldier)
+    public void RecordCapture(bool isEnemyPieceCaptured, PieceType capturedPieceType = PieceType.Pawn)
     {
         if (isEnemyPieceCaptured)
         {
@@ -767,11 +636,11 @@ public class GameManager : MonoBehaviour
             TryAddAchievementProgress(AchievementIds.CombatCapture100);
             TryAddAchievementProgress(AchievementIds.TestFirstCapture);
 
-            if (capturedPieceType == PieceType.Cannon)
+            if (capturedPieceType == PieceType.Queen)
             {
                 TryAddAchievementProgress(AchievementIds.CombatCaptureCannon);
             }
-            else if (capturedPieceType == PieceType.Chariot)
+            else if (capturedPieceType == PieceType.Rook)
             {
                 TryAddAchievementProgress(AchievementIds.CombatCaptureChariot);
             }
@@ -792,6 +661,7 @@ public class GameManager : MonoBehaviour
     public void RecordArtifactEnhanced()
     {
         TryAddAchievementProgress(AchievementIds.CollectArtifactEnhance);
+        TryAddAchievementProgress(AchievementIds.CollectArtifactEnhance5);
     }
 
     public void RecordSynthesis()
@@ -829,6 +699,9 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        AchievementManager.Instance?.AddProgress(achievementId, amount);
+        AchievementManager manager = AchievementManager.Instance != null
+            ? AchievementManager.Instance
+            : AchievementManager.EnsureInstance();
+        manager?.AddProgress(achievementId, amount);
     }
 }
