@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
+  m_Name: Chameleon
+  m_EditorClassIdentifier: Assembly-CSharp::SealData
+  sealName: "카멜레온의 인장"
+  rarity: 3
+  description: "적 기물을 잡으면 잡은 기물로 변신합니다. 인장은 유지되어 다른 기물을 잡을 때마다 다시 변신합니다."
+  flavorText: "먹이를 닮아가는 자."
+  icon: {fileID: 310542206, guid: 95980ea79e9734fbc9fe2d2728f381c0, type: 3}
+  isSoldInShop: 1
+  sealPrefab: {fileID: 7311002200000000001, guid: d1f2a3b4c5d64e7f8091a2b3c4d5e6f7, type: 3}
+  compatiblePieces: 
+  effectType: 2
+  effectValue: 0
+

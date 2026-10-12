@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4da099f0f7d54b7f9ffd8afa398d3cc7, type: 3}
-  m_Name: King
+  m_Name: Piece_King
   m_EditorClassIdentifier: Assembly-CSharp::PieceData
   id: King
   pieceType: 0
-  pieceName: 킹
-  icon: {fileID: -1370436435891725885, guid: fd633027036cd4c11bed298215d4b898, type: 3}
-  description: "모든 방향으로 1칸씩 이동할 수 있습니다.
-킹이 파괴되면 게임에서 패배합니다."
-  flavorText: "체스 진영의 심장이자 최우선 보호 대상인 왕."
+  pieceName: "\uD0B9"
+  icon: {fileID: 1920434732619831824, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  rarity: 1
+  description: "\uBAA8\uB4E0 \uBC29\uD5A5\uC73C\uB85C 1\uCE78\uC529 \uC774\uB3D9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4. \uD0B9\uC774 \uD30C\uAD34\uB418\uBA74 \uAC8C\uC784\uC5D0\uC11C \uD328\uBC30\uD569\uB2C8\uB2E4."
+  flavorText: "\uCCB4\uC2A4 \uC9C4\uC601\uC758 \uC2EC\uC7A5\uC774\uC790 \uCD5C\uC6B0\uC120 \uBCF4\uD638 \uB300\uC0C1\uC778 \uC655."

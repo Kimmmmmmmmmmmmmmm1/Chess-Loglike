@@ -359,15 +359,15 @@ public class PiecesSynthManager : MonoBehaviour
         {
             if (!hasPreviewResult)
             {
-                previewText.text = "[OUTPUT]: NULL";
+                previewText.text = "미리보기: -";
             }
             else if (isPreviewRandom)
             {
-                previewText.text = "[OUTPUT]: RANDOM_NODE [?]";
+                previewText.text = "미리보기: 랜덤 기물";
             }
             else
             {
-                previewText.text = $"[OUTPUT]: {previewResultType} {PieceController.GetAsciiSymbol(previewResultType)}";
+                previewText.text = $"미리보기: {PieceController.GetPieceNameForType(previewResultType)}";
             }
         }
 

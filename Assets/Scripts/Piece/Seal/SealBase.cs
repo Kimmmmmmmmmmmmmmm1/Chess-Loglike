@@ -74,9 +74,19 @@ public abstract class SealBase : MonoBehaviour
     }
 
     /// <summary>
+    /// Case F: 기물이 이동하기 직전에 호출되는 훅 (경로/웨이포인트 설정 등)
+    /// </summary>
+    public virtual void OnBeforeMove(Vector2Int fromPos, Vector2Int toPos) { }
+
+    /// <summary>
     /// Case C: 이동 완료 후 추가 행동 훅
     /// </summary>
     public virtual void OnAfterMove(Vector2Int prevPos, Vector2Int newPos) { }
+
+    /// <summary>
+    /// Case E: 소유 기물이 적 기물을 잡고 이동을 마친 후 호출되는 훅
+    /// </summary>
+    public virtual void OnAfterCapture(PieceType capturedType) { }
 
     /// <summary>
     /// Case D: 소유 기물 파괴 시 호출되는 훅

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a81c7032dbb2493eaa5c8e1cdc35369, type: 3}
+  m_Name: HourglassOfTime
+  m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
+  id: AC01
+  artifactName: "시간의 모래"
+  description: "사용 시 상대의 다음 턴을 1회 건너뜁니다."
+  flavorText: "잠시 흐르는 시간을 멈추는 모래시계."
+  rarity: 1
+  icon: {fileID: 7039638777802805227, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
+  price: 120
+  isSoldInShop: 1
+  isGaugeRequired: 0
+  artifactType: 1
+  maxLevel: 1
+  level: 1
+

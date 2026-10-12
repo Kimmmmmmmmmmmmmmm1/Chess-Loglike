@@ -382,14 +382,7 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         {
             if (type == RewardType.Piece)
             {
-                string movementPattern = PieceController.GenerateMovementPatternForType(pieceType, attachedSeal);
-                TooltipManager.Instance.ShowTooltip(
-                    $"{pieceType}",
-                    movementPattern,
-                    transform.position,
-                    attachedSeal != null ? $"인장: {attachedSeal.sealName}" : "",
-                    TooltipManager.TooltipPriorityPieceMove,
-                    gameObject);
+                TooltipManager.Instance.ShowPieceTooltip(pieceType, attachedSeal, transform.position, gameObject);
             }
             else if (type == RewardType.Artifact && artifactReward != null)
             {
@@ -542,13 +535,10 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
 
         // 유물 인벤토리 슬롯 찾기
         Vector3 targetPos = transform.position;
-        int targetIndex = ArtifactManager.Instance.OwnedArtifacts.Count;
-        if (ArtifactManager.Instance.artifactSlots != null && targetIndex < ArtifactManager.Instance.artifactSlots.Count)
+        ArtifactSlot incomingSlot = ArtifactManager.Instance.GetIncomingSlot(artifact);
+        if (incomingSlot != null)
         {
-            if (ArtifactManager.Instance.artifactSlots[targetIndex] != null)
-            {
-                targetPos = ArtifactManager.Instance.artifactSlots[targetIndex].transform.position;
-            }
+            targetPos = incomingSlot.transform.position;
         }
 
         Sequence seq = DOTween.Sequence();

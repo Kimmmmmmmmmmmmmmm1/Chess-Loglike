@@ -14,6 +14,7 @@ public class TurnManager : MonoBehaviour
     
     public event Action OnOpponentTurnStarted;
     public event Action OnPlayerTurnStarted;
+    public event Action<TurnOwner> OnTurnAdvanced; // 새 턴의 턴 소유자 전달
 
     [SerializeField] private TurnOwner currentTurn = TurnOwner.Opponent;
 
@@ -23,6 +24,19 @@ public class TurnManager : MonoBehaviour
     private int consecutiveSkips = 0;
     [SerializeField] private int turnsSinceLastCapture = 0;
     private const int MaxTurnsWithoutCapture = 15;
+    private bool skipNextOpponentTurn = false;
+
+    public bool IsOpponentTurnSkipPending => skipNextOpponentTurn;
+
+    /// <summary>
+    /// 상대의 다음 턴을 1회 건너뛰도록 예약합니다. (액티브 유물 등)
+    /// </summary>
+    public bool RequestSkipNextOpponentTurn()
+    {
+        if (skipNextOpponentTurn) return false;
+        skipNextOpponentTurn = true;
+        return true;
+    }
 
     private void Awake()
     {
@@ -63,6 +77,7 @@ public class TurnManager : MonoBehaviour
             ClearPositionHistory();
             turnsSinceLastCapture = 0;
             consecutiveSkips = 0;
+            skipNextOpponentTurn = false;
         }
         else if (newState == GameStateManager.GameState.GamePlay)
         {
@@ -184,9 +199,17 @@ public class TurnManager : MonoBehaviour
         }
 
         currentTurn = currentTurn == TurnOwner.Player ? TurnOwner.Opponent : TurnOwner.Player;
+        OnTurnAdvanced?.Invoke(currentTurn);
 
         if (currentTurn == TurnOwner.Opponent)
         {
+            if (skipNextOpponentTurn)
+            {
+                skipNextOpponentTurn = false;
+                StartCoroutine(SkipOpponentTurnByEffect());
+                return;
+            }
+
             StartCoroutine(StartOpponentTurn());
         }
         else
@@ -195,34 +218,62 @@ public class TurnManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 효과로 상대 턴을 건너뛰고 다시 플레이어 턴으로 돌아옵니다. (교착 판정 카운트에 포함하지 않음)
+    /// </summary>
+    private IEnumerator SkipOpponentTurnByEffect()
+    {
+        yield return new WaitForSeconds(waitTime);
+
+        if (GameManager.Instance != null && GameManager.Instance.CurrentFlowState != GameFlowState.Battle)
+            yield break;
+
+        if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameStateManager.GameState.GamePlay)
+            yield break;
+
+        currentTurn = TurnOwner.Player;
+        CheckPlayerTurn();
+    }
+
     private void CheckPlayerTurn()
     {
         // 플레이어 턴 시작 이벤트 발동
         OnPlayerTurnStarted?.Invoke();
         
-        // 플레이어 턴일 때 움직일 수 있는 기물이 없으면 (스테일메이트 가능성)
+        // 이동 가능 여부 비동기/안전 확인 (붕괴 연출 및 기물 상태 정리 후 체크)
+        StartCoroutine(ValidateAndCheckPlayerMovesRoutine());
+    }
+
+    private IEnumerator ValidateAndCheckPlayerMovesRoutine()
+    {
+        // 보드 상태 및 그리드 파괴 반영을 위해 1프레임 대기
+        yield return null;
+
+        if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameStateManager.GameState.GamePlay)
+        {
+            yield break;
+        }
+
         if (PieceManager.Instance != null && !PieceManager.Instance.HasAnyPlayerMoves())
         {
-            // 플레이어 기물이 남아있는데 이동이 불가능한 경우 스테일메이트 처리
             int playerPieceCount = 0;
             foreach (var p in PieceManager.Instance.PlayerPieces)
             {
-                if (p != null && p.CurrentLocation == PieceLocation.Board) playerPieceCount++;
+                if (p != null && p.CurrentLocation == PieceLocation.Board && p.GridPosition.HasValue) 
+                {
+                    playerPieceCount++;
+                }
             }
 
             if (playerPieceCount > 0)
             {
-                Debug.LogWarning("[TurnManager] Player has pieces but no legal moves (플레이어 스테일메이트)");
+                Debug.LogWarning("[TurnManager] Player has pieces but no legal moves (플레이어 둘 수 있는 수 없음 - 턴 스킵)");
+                TurnLogUIManager.Instance?.AddLog("이동 가능한 수가 없어 턴을 넘깁니다.", false);
             }
 
-            StartCoroutine(SkipPlayerTurn());
+            yield return new WaitForSeconds(0.6f);
+            AdvanceTurn(false);
         }
-    }
-
-    private IEnumerator SkipPlayerTurn()
-    {
-        yield return new WaitForSeconds(0.5f);
-        AdvanceTurn(false);
     }
 
     private IEnumerator StartOpponentTurn()

@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4da099f0f7d54b7f9ffd8afa398d3cc7, type: 3}
+  m_Name: Cannon
+  m_EditorClassIdentifier: Assembly-CSharp::PieceData
+  id: Cannon
+  pieceType: 10
+  pieceName: 캐논
+  icon: {fileID: -2014393228016629789, guid: fd633027036cd4c11bed298215d4b898, type: 3}
+  rarity: 2
+  description: "평상시에는 룩처럼 직선 이동하지만, 적 기물을 잡을 때는 반드시 기물 1개를 뛰어넘어야 합니다."
+  flavorText: "평상시에는 직선 기동을 수행하며, 단일 기물을 도약대로 삼아 포격하는 변형 체스 기물."
+

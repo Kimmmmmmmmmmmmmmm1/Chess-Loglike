@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a81c7032dbb2493eaa5c8e1cdc35369, type: 3}
+  m_Name: ProtectionPotion
+  m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
+  id: AC03
+  artifactName: "보호의 물약"
+  description: "선택한 아군 기물 1개에게 보호 1회를 부여합니다.\n<color=#88CCFF>[보호]</color> 공격받을 때 스택 1을 소모하여 공격과 공격자의 이동을 모두 무효화합니다."
+  flavorText: "몸을 단단한 막으로 감싸 치명적인 공격을 막아내는 비약."
+  rarity: 1
+  icon: {fileID: -1669061208, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
+  price: 150
+  isSoldInShop: 1
+  isGaugeRequired: 0
+  artifactType: 1
+  maxLevel: 1
+  level: 1
+

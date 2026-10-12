@@ -10,11 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4da099f0f7d54b7f9ffd8afa398d3cc7, type: 3}
-  m_Name: Bishop
+  m_Name: Piece_Bishop
   m_EditorClassIdentifier: Assembly-CSharp::PieceData
   id: Bishop
   pieceType: 3
-  pieceName: 비숍
-  icon: {fileID: -1132234818072588592, guid: fd633027036cd4c11bed298215d4b898, type: 3}
-  description: "대각선 방향으로 거리 제한 없이 이동할 수 있습니다."
-  flavorText: "대각선을 가로지르는 성직자."
+  pieceName: "\uBE44\uC20D"
+  icon: {fileID: 5330433185586497934, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  rarity: 1
+  description: "\uB300\uAC01\uC120 \uBC29\uD5A5\uC73C\uB85C \uAC70\uB9AC \uC81C\uD55C \uC5C6\uC774 \uC774\uB3D9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."
+  flavorText: "\uB300\uAC01\uC120\uC744 \uAC00\uB85C\uC9C0\uB974\uB294 \uC131\uC9C1\uC790."

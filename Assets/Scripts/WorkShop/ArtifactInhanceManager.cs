@@ -78,13 +78,14 @@ public class ArtifactInhanceManager : MonoBehaviour
         {
             if (string.IsNullOrEmpty(targetArtifactId))
             {
-                descriptionText.text = "[ROOTKIT COMPILER]\n멀웨어 슬롯에서 대상 데몬을 선택하세요.\n" +
-                    "크레딧(₩)을 소모하여 멀웨어 버전을 업그레이드합니다.";
+                descriptionText.text = "유물 인벤토리에서 유물을 클릭해서\n" +
+                    "강화할 유물을 선택하세요.\n" +
+                    "골드를 소모하고 선택된 유물을 강화합니다.";
             }
             else
             {
-                descriptionText.text = "[AUTO-PATCHER]\n선택된 멀웨어 데몬을 자동 컴파일합니다.\n" +
-                    "실행 버튼을 누르세요.";
+                descriptionText.text = "선택된 유물을 자동 강화합니다.\n" +
+                    "강화 버튼을 누르세요.";
             }
         }
 
@@ -133,12 +134,12 @@ public class ArtifactInhanceManager : MonoBehaviour
             if (selectedArtifactImage != null)
             {
                 selectedArtifactImage.sprite = null;
-                selectedArtifactImage.color = new Color(0f, 1f, 0f, 0.25f);
+                selectedArtifactImage.color = new Color(1, 1, 1, 0.3f);
             }
 
             if (selectedArtifactName != null)
             {
-                selectedArtifactName.text = "[NO_DAEMON_SELECTED]";
+                selectedArtifactName.text = "선택 안 됨";
             }
 
             if (selectedArtifactLevel != null)
@@ -171,13 +172,13 @@ public class ArtifactInhanceManager : MonoBehaviour
 
             if (selectedArtifactLevel != null)
             {
-                selectedArtifactLevel.text = $"v{selectedArtifact.Level}.0 / v{selectedArtifact.MaxLevel}.0";
+                selectedArtifactLevel.text = selectedArtifact.IsActive ? "액티브 유물" : $"Lv.{selectedArtifact.Level}/{selectedArtifact.MaxLevel}";
             }
 
             int cost = selectedArtifact.CanEnhance ? enhanceCostPerLevel * selectedArtifact.Level : 0;
             if (enhanceCostText != null)
             {
-                enhanceCostText.text = selectedArtifact.CanEnhance ? $"{cost} ₩" : "[MAX_BUILD]";
+                enhanceCostText.text = selectedArtifact.IsActive ? "강화 불가" : (selectedArtifact.CanEnhance ? $"{cost} ₩" : "최대 레벨");
             }
 
             // 강화 가능 여부 체크: 최대 레벨이 아니고 골드가 충분해야 함

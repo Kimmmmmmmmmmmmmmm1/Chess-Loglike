@@ -14,45 +14,46 @@ MonoBehaviour:
   m_Name: Boss_Firewall_1
   m_EditorClassIdentifier: Assembly-CSharp::BossData
   difficulty: 1
-  bossTitle: '[SYS_DAEMON // PORT_443]'
-  bossName: FIREWALL_SENTINEL.sys
+  bossTitle: "흑림의 산군"
+  bossName: "맹호"
   bossSprite: {fileID: 0}
   mapWidth: 6
-  mapHeight: 5
+  mapHeight: 6
   minX: -3
   minY: -2
+  hideEnemyTerritoryDuringPrepare: 1
   bossPieces:
   - pieceType: 0
-    gridCoordinate: {x: 0, y: 2}
+    gridCoordinate: {x: 0, y: 3}
     seals: []
   - pieceType: 4
-    gridCoordinate: {x: -1, y: 2}
+    gridCoordinate: {x: -1, y: 3}
     seals: []
   - pieceType: 1
-    gridCoordinate: {x: -3, y: 2}
+    gridCoordinate: {x: -3, y: 3}
     seals: []
   - pieceType: 1
-    gridCoordinate: {x: 2, y: 2}
+    gridCoordinate: {x: 2, y: 3}
     seals: []
   - pieceType: 3
+    gridCoordinate: {x: 1, y: 3}
+    seals: []
+  - pieceType: 5
+    gridCoordinate: {x: -3, y: 2}
+    seals: []
+  - pieceType: 5
+    gridCoordinate: {x: -2, y: 2}
+    seals: []
+  - pieceType: 5
+    gridCoordinate: {x: -1, y: 2}
+    seals: []
+  - pieceType: 5
+    gridCoordinate: {x: 0, y: 2}
+    seals: []
+  - pieceType: 5
     gridCoordinate: {x: 1, y: 2}
     seals: []
   - pieceType: 5
-    gridCoordinate: {x: -3, y: 1}
-    seals: []
-  - pieceType: 5
-    gridCoordinate: {x: -2, y: 1}
-    seals: []
-  - pieceType: 5
-    gridCoordinate: {x: -1, y: 1}
-    seals: []
-  - pieceType: 5
-    gridCoordinate: {x: 0, y: 1}
-    seals: []
-  - pieceType: 5
-    gridCoordinate: {x: 1, y: 1}
-    seals: []
-  - pieceType: 5
-    gridCoordinate: {x: 2, y: 1}
+    gridCoordinate: {x: 2, y: 2}
     seals: []
   skills: []

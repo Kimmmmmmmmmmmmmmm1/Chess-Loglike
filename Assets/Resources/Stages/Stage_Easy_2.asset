@@ -13,8 +13,9 @@ MonoBehaviour:
   m_Name: Stage_Easy_2
   m_EditorClassIdentifier: Assembly-CSharp::StageData
   difficulty: 0
-  mapWidth: 6
-  mapHeight: 5
+  boardSize:
+  - 5
+  - 5
   minX: -3
   minY: -2
   enemyPieces:
@@ -27,4 +28,3 @@ MonoBehaviour:
   - pieceType: 5
     gridCoordinate: {x: 0, y: 1}
     seals: []
-

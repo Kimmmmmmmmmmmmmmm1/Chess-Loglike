@@ -8,15 +8,15 @@ public class StageData : ScriptableObject
     public int difficulty;
 
     [Header("Map Settings")]
-    [Tooltip("맵의 가로 크기 (기본 6)")]
-    public int mapWidth = 6;
-    [Tooltip("맵의 세로 크기 (기본 5)")]
-    public int mapHeight = 5;
+    [Tooltip("맵의 크기 [가로, 세로] (기본 6x5)")]
+    public int[] boardSize = { 6, 5 };
     
     [Tooltip("그리드 시작 X 좌표 (GridManager의 gridMinBounds.x와 일치시켜주세요)")]
     public int minX = -3;
     [Tooltip("그리드 시작 Y 좌표 (GridManager의 gridMinBounds.y와 일치시켜주세요)")]
     public int minY = -2;
+    [Tooltip("참이면 내 기물 배치 중 적 진영을 숨깁니다")]
+    public bool hideEnemyTerritoryDuringPrepare;
 
     [Tooltip("적 기물 배치 정보")]
     public List<PieceSpawner.PieceSpawnInfo> enemyPieces;
@@ -24,14 +24,19 @@ public class StageData : ScriptableObject
     private void OnValidate()
     {
         // 맵 크기 최소값 보정
-        if (mapWidth < 1) mapWidth = 1;
-        if (mapHeight < 1) mapHeight = 1;
+        if (boardSize == null || boardSize.Length != 2)
+        {
+            boardSize = new[] { 6, 5 };
+        }
+
+        boardSize[0] = Mathf.Max(1, boardSize[0]);
+        boardSize[1] = Mathf.Max(1, boardSize[1]);
 
         // 적 기물 위치 유효성 검사
         if (enemyPieces != null)
         {
-            int maxX = minX + mapWidth - 1;
-            int maxY = minY + mapHeight - 1;
+            int maxX = minX + boardSize[0] - 1;
+            int maxY = minY + boardSize[1] - 1;
 
             foreach (var piece in enemyPieces)
             {

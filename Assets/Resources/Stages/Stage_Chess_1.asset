@@ -13,29 +13,30 @@ MonoBehaviour:
   m_Name: Stage_Chess_1
   m_EditorClassIdentifier: Assembly-CSharp::StageData
   difficulty: 3
-  mapWidth: 6
-  mapHeight: 5
+  boardSize:
+  - 6
+  - 6
   minX: -3
   minY: -2
   enemyPieces:
   - pieceType: 0
-    gridCoordinate: {x: 0, y: 2}
+    gridCoordinate: {x: 0, y: 3}
     seals: []
   - pieceType: 2
-    gridCoordinate: {x: -2, y: 2}
+    gridCoordinate: {x: -2, y: 3}
     seals: []
   - pieceType: 3
+    gridCoordinate: {x: 1, y: 3}
+    seals: []
+  - pieceType: 5
+    gridCoordinate: {x: -2, y: 2}
+    seals: []
+  - pieceType: 5
+    gridCoordinate: {x: -1, y: 2}
+    seals: []
+  - pieceType: 5
+    gridCoordinate: {x: 0, y: 2}
+    seals: []
+  - pieceType: 5
     gridCoordinate: {x: 1, y: 2}
-    seals: []
-  - pieceType: 5
-    gridCoordinate: {x: -2, y: 1}
-    seals: []
-  - pieceType: 5
-    gridCoordinate: {x: -1, y: 1}
-    seals: []
-  - pieceType: 5
-    gridCoordinate: {x: 0, y: 1}
-    seals: []
-  - pieceType: 5
-    gridCoordinate: {x: 1, y: 1}
     seals: []

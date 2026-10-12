@@ -204,17 +204,10 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     {
         if (sealIconImage == null) return;
 
+        // 초기화
         sealIconImage.transform.DOKill();
         sealIconImage.transform.localScale = Vector3.one;
         sealIconImage.color = Color.white;
-
-        if (EffectManager.Instance != null)
-        {
-            string cmd = attachedSeal != null && !string.IsNullOrEmpty(attachedSeal.injectionCommand)
-                ? $"[{attachedSeal.injectionCommand.ToUpperInvariant()}]"
-                : "[CODE INJECTION DETECTED]";
-            EffectManager.Instance.PlayCliInjectionEffect(sealIconImage.transform.position, cmd);
-        }
 
         switch (rarity)
         {
@@ -223,52 +216,47 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
                 break;
             case SealRarity.Rare:
                 sealIconImage.transform.DOPunchScale(Vector3.one * 0.4f, 0.6f, 10, 1);
-                SpawnGlitchBits(4, new Color(0f, 1f, 0f, 1f), 45f, 0.5f);
+                SpawnParticles(6, new Color(0f, 0.5f, 1f), 60f, 0.6f);
                 break;
             case SealRarity.Epic:
                 sealIconImage.transform.DOPunchScale(Vector3.one * 0.5f, 0.8f, 10, 1);
                 sealIconImage.transform.DOShakeRotation(0.8f, 30f, 10, 90);
-                SpawnGlitchBits(6, new Color(0f, 1f, 0.6f, 1f), 65f, 0.6f);
+                SpawnParticles(12, new Color(0.8f, 0f, 1f), 90f, 0.8f);
                 break;
             case SealRarity.Legendary:
                 Sequence seq = DOTween.Sequence();
                 seq.Append(sealIconImage.transform.DOPunchScale(Vector3.one * 0.7f, 1.0f, 10, 1));
                 seq.Join(sealIconImage.transform.DOShakeRotation(1.0f, 45f, 10, 90));
-                seq.Join(sealIconImage.DOColor(new Color(0f, 1f, 0f, 1f), 0.2f).SetLoops(6, LoopType.Yoyo));
+                seq.Join(sealIconImage.DOColor(new Color(1f, 0.8f, 0f), 0.2f).SetLoops(6, LoopType.Yoyo));
                 seq.OnComplete(() => sealIconImage.color = Color.white);
-                SpawnGlitchBits(8, new Color(0f, 1f, 0f, 1f), 85f, 0.8f);
+                SpawnParticles(20, new Color(1f, 0.9f, 0.2f), 130f, 1.2f);
                 break;
         }
     }
 
-    private void SpawnGlitchBits(int count, Color color, float distance, float duration)
+    private void SpawnParticles(int count, Color color, float distance, float duration)
     {
-        string[] tokens = { "0x1", "INJ", "PATCH", ">>" };
         for (int i = 0; i < count; i++)
         {
-            GameObject p = new GameObject("InjectionGlitchBit", typeof(RectTransform));
-            p.transform.SetParent(transform, true);
+            GameObject p = new GameObject("SealParticle");
+            p.transform.SetParent(transform, true); // 슬롯을 부모로 설정
             p.transform.position = sealIconImage.transform.position;
-            RectTransform rt = p.GetComponent<RectTransform>();
-            rt.sizeDelta = new Vector2(36f, 14f);
+            
+            Image img = p.AddComponent<Image>();
+            if (sealIconImage.sprite != null) img.sprite = sealIconImage.sprite;
+            img.color = color;
+            img.raycastTarget = false;
 
-            TextMeshProUGUI tmp = p.AddComponent<TextMeshProUGUI>();
-            if (TMP_Settings.defaultFontAsset != null)
-            {
-                tmp.font = TMP_Settings.defaultFontAsset;
-            }
-            tmp.text = tokens[i % tokens.Length];
-            tmp.fontSize = 8.5f;
-            tmp.fontStyle = FontStyles.Bold;
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.color = color;
-            tmp.raycastTarget = false;
+            float scale = UnityEngine.Random.Range(0.3f, 0.6f);
+            p.transform.localScale = Vector3.one * scale;
 
             float angle = UnityEngine.Random.Range(0f, 360f);
             Vector3 dir = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad), 0);
-
+            
             p.transform.DOMove(p.transform.position + dir * distance, duration).SetEase(Ease.OutQuad);
-            tmp.DOFade(0f, duration).OnComplete(() => Destroy(p));
+            p.transform.DOScale(0f, duration).SetEase(Ease.InQuad);
+            p.transform.DORotate(new Vector3(0, 0, UnityEngine.Random.Range(-180f, 180f)), duration);
+            img.DOFade(0f, duration).OnComplete(() => Destroy(p));
         }
     }
 
@@ -276,14 +264,7 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     {
         if (TooltipManager.Instance != null && !isSoldOut)
         {
-            string movementPattern = PieceController.GenerateMovementPatternForType(pieceType, attachedSeal);
-            TooltipManager.Instance.ShowTooltip(
-                string.Empty,
-                movementPattern,
-                transform.position,
-                string.Empty,
-                TooltipManager.TooltipPriorityPieceMove,
-                gameObject);
+            TooltipManager.Instance.ShowPieceTooltip(pieceType, attachedSeal, transform.position, gameObject);
         }
     }
 

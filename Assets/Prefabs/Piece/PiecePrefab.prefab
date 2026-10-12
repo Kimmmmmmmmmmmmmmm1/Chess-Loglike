@@ -206,7 +206,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -303,12 +303,14 @@ MonoBehaviour:
   startleDuration: 0.5
   threatenedShakeStrength: 0.3
   shakeFrameInterval: 8
-  allyColor: {r: 1, g: 0, b: 0, a: 1}
-  enemyColor: {r: 0, g: 0, b: 1, a: 1}
+  allyColor: {r: 0.8867924, g: 0.8867924, b: 0.8867924, a: 1}
+  enemyColor: {r: 0.1792453, g: 0.1792453, b: 0.1792453, a: 1}
   invalidZoneTint: {r: 1, g: 0.3, b: 0.3, a: 0.7}
   sealIconSize: 20
   sealIconPrefab: {fileID: 8140036974945737951, guid: b4f1d5478d9f6426ebe83144669620ca, type: 3}
   sealIconSpacing: 10
+  duplicateSealCycleInterval: 1.2
+  duplicateSealSwitchDuration: 0.18
   equippedSeals: []
 --- !u!1 &6359718690639581808
 GameObject:

@@ -244,6 +244,12 @@ public class SellPieceButton : MonoBehaviour, IPointerExitHandler, IPointerEnter
             case PieceType.Rook: return 90;
             case PieceType.Queen: return 130;
             case PieceType.King: return 100;
+            case PieceType.Centaur: return 120;
+            case PieceType.Cannon: return 90;
+            case PieceType.Chancellor: return 160;
+            case PieceType.Archbishop: return 150;
+            case PieceType.Grasshopper: return 140;
+            case PieceType.Amazon: return 200;
             default: return 20;
         }
     }

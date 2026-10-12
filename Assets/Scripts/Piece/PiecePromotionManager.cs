@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -55,6 +56,7 @@ public class PiecePromotionManager : MonoBehaviour
     private PieceController pendingSoldier;        // 승급 대기 중인 졸
     private bool isOpen = false;
     private bool isEnemyPromoting = false;
+    private bool isPlayerPromotingEffectRunning = false;
 
     private void Awake()
     {
@@ -67,10 +69,12 @@ public class PiecePromotionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 프로모션 패널이 열려있거나 적군 프로모션이 진행 중인지 확인
+    /// 프로모션 패널이 열려있거나 프로모션 연출이 진행 중인지 확인
     /// </summary>
-    public bool IsPromotionPanelOpen() => isOpen || isEnemyPromoting;
-    public bool IsPromoting => isOpen || isEnemyPromoting;
+    public bool IsPromotionPanelOpen() => IsPromoting;
+    public bool IsPromoting => IsEnemyPromoting || IsPlayerPromoting;
+    public bool IsEnemyPromoting => isEnemyPromoting;
+    public bool IsPlayerPromoting => isOpen || pendingSoldier != null || isPlayerPromotingEffectRunning;
 
     private void Start()
     {
@@ -95,6 +99,39 @@ public class PiecePromotionManager : MonoBehaviour
         
         if (cannonButton != null)
             cannonButton.onClick.AddListener(() => OnPromotionSelected(PieceType.Queen));
+
+        UpdateButtonSprites();
+    }
+
+    private void UpdateButtonSprites()
+    {
+        PieceSpriteData data = PieceSpriteData.Instance;
+        if (data == null) return;
+
+        SetButtonSprite(horseButton, data.GetSprite(PieceType.Knight, false));
+        SetButtonSprite(elephantButton, data.GetSprite(PieceType.Bishop, false));
+        SetButtonSprite(chariotButton, data.GetSprite(PieceType.Rook, false));
+        SetButtonSprite(cannonButton, data.GetSprite(PieceType.Queen, false));
+    }
+
+    private void SetButtonSprite(Button button, Sprite sprite)
+    {
+        if (button == null || sprite == null) return;
+        Image[] images = button.GetComponentsInChildren<Image>(true);
+        bool foundChild = false;
+        foreach (var img in images)
+        {
+            if (img.gameObject != button.gameObject)
+            {
+                img.sprite = sprite;
+                foundChild = true;
+            }
+        }
+        if (!foundChild)
+        {
+            Image btnImg = button.GetComponent<Image>();
+            if (btnImg != null) btnImg.sprite = sprite;
+        }
     }
 
     /// <summary>
@@ -143,11 +180,12 @@ public class PiecePromotionManager : MonoBehaviour
         }
 
         if (titleText != null)
-            titleText.text = "[ROOTKIT::PRIVILEGE ESCALATION]";
+            titleText.text = "기물 승급";
 
         if (descriptionText != null)
-            descriptionText.text = "권한 상승 대상 프로세스(KNIGHT / BISHOP / ROOK / QUEEN)를 선택하세요.";
+            descriptionText.text = "승급할 기물을 선택하세요.";
 
+        UpdateButtonSprites();
     }
 
     private void OnPromotionSelected(PieceType promotedType)
@@ -200,6 +238,10 @@ public class PiecePromotionManager : MonoBehaviour
         if (enemyPawn == null)
         {
             isEnemyPromoting = false;
+            if (PieceManager.Instance != null)
+            {
+                PieceManager.Instance.CheckPieceCounts();
+            }
             yield break;
         }
 
@@ -211,6 +253,10 @@ public class PiecePromotionManager : MonoBehaviour
         if (enemyPawn == null)
         {
             isEnemyPromoting = false;
+            if (PieceManager.Instance != null)
+            {
+                PieceManager.Instance.CheckPieceCounts();
+            }
             yield break;
         }
 
@@ -220,6 +266,10 @@ public class PiecePromotionManager : MonoBehaviour
         if (enemyPawn == null)
         {
             isEnemyPromoting = false;
+            if (PieceManager.Instance != null)
+            {
+                PieceManager.Instance.CheckPieceCounts();
+            }
             yield break;
         }
 
@@ -231,10 +281,6 @@ public class PiecePromotionManager : MonoBehaviour
             SoundManager.Instance.PlaySFX(SFXType.OpenPanel);
         }
 
-        if (EffectManager.Instance != null)
-        {
-            EffectManager.Instance.PlayCliInjectionEffect(enemyPawn.transform.position, "[ALERT // ENEMY_PROMOTION]");
-        }
 
         if (uiCanvasRect == null)
         {
@@ -289,6 +335,10 @@ public class PiecePromotionManager : MonoBehaviour
         {
             if (effectGo != null) Destroy(effectGo);
             isEnemyPromoting = false;
+            if (PieceManager.Instance != null)
+            {
+                PieceManager.Instance.CheckPieceCounts();
+            }
             yield break;
         }
 
@@ -329,6 +379,10 @@ public class PiecePromotionManager : MonoBehaviour
         // 4단계: 적 승급 종료 및 턴 진행
         // ========================================================
         isEnemyPromoting = false;
+        if (PieceManager.Instance != null)
+        {
+            PieceManager.Instance.CheckPieceCounts();
+        }
         if (TurnManager.Instance != null)
         {
             TurnManager.Instance.AdvanceTurn();
@@ -340,8 +394,11 @@ public class PiecePromotionManager : MonoBehaviour
         if (soldier == null)
         {
             isEnemyPromoting = false;
+            isPlayerPromotingEffectRunning = false;
             return;
         }
+
+        isPlayerPromotingEffectRunning = true;
 
         // Create UI image under the provided UI canvas
         if (uiCanvasRect == null)
@@ -407,6 +464,11 @@ public class PiecePromotionManager : MonoBehaviour
                 // Close panel and advance turn after effect finished
                 ClosePanel();
                 isEnemyPromoting = false;
+                isPlayerPromotingEffectRunning = false;
+                if (PieceManager.Instance != null)
+                {
+                    PieceManager.Instance.CheckPieceCounts();
+                }
                 if (TurnManager.Instance != null) TurnManager.Instance.AdvanceTurn();
             });
         }
@@ -416,6 +478,11 @@ public class PiecePromotionManager : MonoBehaviour
             PerformPromotion(soldier, promotedType);
             ClosePanel();
             isEnemyPromoting = false;
+            isPlayerPromotingEffectRunning = false;
+            if (PieceManager.Instance != null)
+            {
+                PieceManager.Instance.CheckPieceCounts();
+            }
             if (TurnManager.Instance != null) TurnManager.Instance.AdvanceTurn();
         }
     }
@@ -430,6 +497,19 @@ public class PiecePromotionManager : MonoBehaviour
         Vector2Int pos = soldier.gridPosition.Value;
         Vector3 spawnPos = soldier.transform.position;
         bool isEnemy = soldier.IsEnemy;
+
+        // 기존 기물이 장착하고 있던 인장들 백업 (예: 카멜레온의 인장 등)
+        List<SealData> existingSeals = new List<SealData>();
+        if (soldier.EquippedSeals != null)
+        {
+            foreach (var seal in soldier.EquippedSeals)
+            {
+                if (seal != null && seal.Data != null)
+                {
+                    existingSeals.Add(seal.Data);
+                }
+            }
+        }
 
         // 기존 기물 제거 (파괴 루트 사용 금지: 호리병 트리거 방지)
         if (PieceManager.Instance != null)
@@ -461,6 +541,15 @@ public class PiecePromotionManager : MonoBehaviour
                     newPiece.Initialize(promotedType, isEnemy);
                     newPiece.MoveToGrid(pos);
 
+                    // 기존 기물이 보유하고 있던 인장 계승 (카멜레온 인장 등)
+                    foreach (var sData in existingSeals)
+                    {
+                        if (sData != null)
+                        {
+                            newPiece.EquipSeal(sData);
+                        }
+                    }
+
                     // 아군 기물인 경우에만 승급의 인장 부착 (적군은 인장 부착 생략)
                     if (!isEnemy)
                     {
@@ -471,6 +560,14 @@ public class PiecePromotionManager : MonoBehaviour
                         }
 
                         newPiece.MarkPromotedByMedalThisStage();
+
+                        string promoSymbol = PieceManager.GetPieceAlgebraicSymbol(promotedType);
+                        string promoKorName = PieceManager.GetPieceTypeKoreanName(promotedType);
+                        bool useSimpleTurnLog = SettingsManager.Instance != null
+                            && SettingsManager.Instance.Settings != null
+                            && SettingsManager.Instance.Settings.simpleTurnLog;
+                        string promoLog = useSimpleTurnLog ? $"={promoSymbol}" : $"[승급] ={promoSymbol} ({promoKorName})";
+                        TurnLogUIManager.Instance?.AddLog(promoLog, isEnemy);
                     }
                     else
                     {
@@ -500,36 +597,34 @@ public class PiecePromotionManager : MonoBehaviour
         }
 
 #if UNITY_EDITOR
-        string[] guids = UnityEditor.AssetDatabase.FindAssets("t:SealData", new[] { "Assets/Data/Seal" });
+        string[] guids = UnityEditor.AssetDatabase.FindAssets("t:SealData", new[] { "Assets/Resources/Seal" });
         foreach (string guid in guids)
         {
             string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
             SealData candidate = UnityEditor.AssetDatabase.LoadAssetAtPath<SealData>(path);
             if (candidate != null &&
                 (candidate.sealName == "승급의 인장" ||
-                 candidate.sealName == "승급자의 인장" ||
-                 candidate.sealName.Contains("Privilege_Escalation") ||
-                 candidate.sealName.Contains("권한 상승")))
-            {
-                promotionSealData = candidate;
-                break;
-            }
-        }
-#else
-        SealData[] seals = Resources.LoadAll<SealData>("Seal");
-        foreach (SealData candidate in seals)
-        {
-            if (candidate != null &&
-                (candidate.sealName == "승급의 인장" ||
-                 candidate.sealName == "승급자의 인장" ||
-                 candidate.sealName.Contains("Privilege_Escalation") ||
-                 candidate.sealName.Contains("권한 상승")))
+                 candidate.sealName == "승급자의 인장"))
             {
                 promotionSealData = candidate;
                 break;
             }
         }
 #endif
+        if (promotionSealData == null)
+        {
+            SealData[] seals = Resources.LoadAll<SealData>("Seal");
+            foreach (SealData candidate in seals)
+            {
+                if (candidate != null &&
+                    (candidate.sealName == "승급의 인장" ||
+                     candidate.sealName == "승급자의 인장"))
+                {
+                    promotionSealData = candidate;
+                    break;
+                }
+            }
+        }
 
         if (promotionSealData == null)
         {

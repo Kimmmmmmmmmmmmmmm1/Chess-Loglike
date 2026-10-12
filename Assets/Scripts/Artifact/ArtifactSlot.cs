@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
+using DG.Tweening;
 
 public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
@@ -46,7 +47,9 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
                 iconImage.sprite = artifact.icon;
                 iconImage.rectTransform.sizeDelta = new Vector2(24, 24);
                 iconImage.color = Color.white;
-                nameText.text = artifact.Level.ToString();
+                nameText.text = artifact.IsActive
+                    ? (artifact.StackCount > 1 ? $"({artifact.StackCount})" : string.Empty)
+                    : artifact.Level.ToString();
             }
             else
             {
@@ -174,7 +177,7 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             string title = data.GetTooltipTitle();
             string description = data.GetTooltipDescription();
 
-            TooltipManager.Instance.ShowTooltip(title, description, transform.position, data.flavorText);
+            TooltipManager.Instance.ShowTooltip(title, description, transform.position, data.flavorText, TooltipManager.TooltipPriorityDefault, gameObject);
         }
     }
 
@@ -182,7 +185,7 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
     {
         if (TooltipManager.Instance != null)
         {
-            TooltipManager.Instance.HideTooltip();
+            TooltipManager.Instance.HideTooltip(gameObject);
         }
     }
 
@@ -191,7 +194,7 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
     public void OnPointerExit(PointerEventData eventData) => HideTooltip();
 
     /// <summary>
-    /// 유물 클릭 시 강화 패널에 선택
+    /// 유물 클릭 시 강화 패널에 선택 / 액티브 유물이면 사용
     /// </summary>
     public void OnPointerClick(PointerEventData eventData)
     {
@@ -203,6 +206,48 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             ArtifactInhanceManager.Instance.inhancePanel.activeInHierarchy)
         {
             ArtifactInhanceManager.Instance.SetSelectedArtifact(data);
+            return;
+        }
+
+        // 액티브 유물 사용 (좌클릭만)
+        if (data.IsActive && eventData.button == PointerEventData.InputButton.Left)
+        {
+            ActiveArtifactController.EnsureInstance().TryActivate(data, this);
+        }
+    }
+
+    /// <summary>
+    /// 지금 사용할 수 없을 때 흔들림 피드백
+    /// </summary>
+    public void PlayDeniedFeedback()
+    {
+        transform.DOComplete();
+        transform.DOShakePosition(0.3f, new Vector3(5f, 0f, 0f), 20, 90, false, true);
+    }
+
+    /// <summary>
+    /// 사용 성공 피드백
+    /// </summary>
+    public void PlayUseFeedback()
+    {
+        transform.DOComplete();
+        transform.DOPunchScale(Vector3.one * 0.3f, 0.3f, 10, 1);
+    }
+
+    /// <summary>
+    /// 대상 선택 모드 중 슬롯 강조
+    /// </summary>
+    public void SetTargetingVisual(bool isTargeting)
+    {
+        if (iconImage == null) return;
+
+        Transform t = iconImage.transform;
+        t.DOKill();
+        t.localScale = Vector3.one;
+
+        if (isTargeting)
+        {
+            t.DOScale(1.25f, 0.35f).SetLoops(-1, LoopType.Yoyo).SetEase(Ease.InOutSine);
         }
     }
     

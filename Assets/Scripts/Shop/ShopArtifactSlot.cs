@@ -138,13 +138,10 @@ public class ShopArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExi
         // 2. Find target position
         Vector3 targetPos = transform.position; 
         
-        int targetIndex = ArtifactManager.Instance.OwnedArtifacts.Count;
-        if (ArtifactManager.Instance.artifactSlots != null && targetIndex < ArtifactManager.Instance.artifactSlots.Count)
+        ArtifactSlot incomingSlot = ArtifactManager.Instance.GetIncomingSlot(artifactData);
+        if (incomingSlot != null)
         {
-            if (ArtifactManager.Instance.artifactSlots[targetIndex] != null)
-            {
-                targetPos = ArtifactManager.Instance.artifactSlots[targetIndex].transform.position;
-            }
+            targetPos = incomingSlot.transform.position;
         }
 
         // 3. Animate

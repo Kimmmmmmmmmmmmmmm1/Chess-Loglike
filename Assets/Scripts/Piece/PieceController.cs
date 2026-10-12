@@ -13,13 +13,29 @@ public enum PieceType
     [InspectorName("나이트 (Knight)")] Knight = 2,
     [InspectorName("비숍 (Bishop)")] Bishop = 3,
     [InspectorName("퀸 (Queen)")] Queen = 4,
-    [InspectorName("폰 (Pawn)")] Pawn = 5
+    [InspectorName("폰 (Pawn)")] Pawn = 5,
+    [InspectorName("아마존 (Amazon)")] Amazon = 6,
+    [InspectorName("챈슬러 (Chancellor)")] Chancellor = 7,
+    [InspectorName("아치비숍 (Archbishop)")] Archbishop = 8,
+    [InspectorName("켄타우로스 (Centaur)")] Centaur = 9,
+    [InspectorName("캐논 (Cannon)")] Cannon = 10,
+    [InspectorName("그래스호퍼 (Grasshopper)")] Grasshopper = 11
 }
 
 public enum PieceLocation
 {
     Board,
     Inventory
+}
+
+public enum PieceBuffType
+{
+    [InspectorName("보호")]
+    Protection,
+    [InspectorName("회피")]
+    Evasion,
+    [InspectorName("역공")]
+    Counterattack
 }
 
 public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler, IPointerClickHandler, ISealDropTarget
@@ -36,6 +52,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     [SerializeField] private Image pieceImage;
     [SerializeField] private Image shadowImage;
     [SerializeField] private bool isEnemy;
+    private CanvasGroup prepareVisibilityGroup;
         // PieceSpawner에서 호출할 초기화 함수
         public void Initialize(PieceType pieceType, bool isEnemy)
         {
@@ -62,18 +79,48 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             UpdateUiPosition(); // 초기화 시 위치 설정
             isInitialized = true;
             RegisterSelf();
+            if (PieceManager.Instance != null)
+            {
+                SetHiddenDuringPrepare(isEnemy && PieceManager.Instance.IsEnemyTerritoryHiddenDuringPrepare);
+            }
         }
 
     public PieceType Type => pieceType;
     public PieceType PieceType => pieceType;
+    public int Rarity => GetRarityForType(pieceType);
     public Vector2Int? GridPosition => gridPosition;
     public bool IsEnemy => isEnemy;
     public Image PieceImage => pieceImage;
 
+    public void SetHiddenDuringPrepare(bool hidden)
+    {
+        if (prepareVisibilityGroup == null)
+        {
+            prepareVisibilityGroup = GetComponent<CanvasGroup>();
+            if (prepareVisibilityGroup == null)
+            {
+                prepareVisibilityGroup = gameObject.AddComponent<CanvasGroup>();
+            }
+        }
+
+        prepareVisibilityGroup.alpha = hidden ? 0f : 1f;
+        prepareVisibilityGroup.interactable = !hidden;
+        prepareVisibilityGroup.blocksRaycasts = !hidden;
+    }
+
     [Header("State")]
     [SerializeField] private PieceLocation currentLocation = PieceLocation.Board;
     [SerializeField] private bool promotedByMedalThisStage = false;
+    [Header("Buff Stacks")]
+    [SerializeField] private int protectionStacks;
+    [SerializeField] private int evasionStacks;
+    [SerializeField] private int counterattackStacks;
+    private readonly Image[] buffAuraImages = new Image[3];
+    private static Sprite buffAuraSprite;
     public PieceLocation CurrentLocation => currentLocation;
+    public int ProtectionStacks => protectionStacks;
+    public int EvasionStacks => evasionStacks;
+    public int CounterattackStacks => counterattackStacks;
 
     [Header("Drag Wobble Settings")]
     [SerializeField] private float maxTiltAngle = 30f;
@@ -119,6 +166,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     [SerializeField] private float duplicateSealSwitchDuration = 0.18f;
     [SerializeField] private List<SealBase> equippedSeals = new List<SealBase>();
     public List<SealBase> EquippedSeals => equippedSeals;
+    public SealData PrimarySealData => (equippedSeals != null && equippedSeals.Count > 0 && equippedSeals[0] != null) ? equippedSeals[0].Data : null;
     private Coroutine duplicateSealCycleCoroutine;
 
     private RectTransform rectTransform;
@@ -250,6 +298,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
         }
 
+        CreateBuffAuraVisuals();
+        RefreshBuffAuraVisuals();
+
         if (GetComponent<EnemyPieceController>() != null)
         {
             isEnemy = true;
@@ -376,6 +427,12 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceType.Bishop => "[B]",
             PieceType.Knight => "[N]",
             PieceType.Pawn => "[P]",
+            PieceType.Amazon => "[A]",
+            PieceType.Chancellor => "[C]",
+            PieceType.Archbishop => "[H]",
+            PieceType.Centaur => "[T]",
+            PieceType.Cannon => "[X]",
+            PieceType.Grasshopper => "[G]",
             _ => "[?]"
         };
     }
@@ -390,6 +447,12 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceType.Bishop => enemy ? "<B!>" : "<B>",
             PieceType.Knight => enemy ? "/N!\\" : "/N\\",
             PieceType.Pawn => enemy ? "(P!)" : "(P)",
+            PieceType.Amazon => enemy ? "{A!}" : "{A}",
+            PieceType.Chancellor => enemy ? "[C!]" : "[C]",
+            PieceType.Archbishop => enemy ? "<H!>" : "<H>",
+            PieceType.Centaur => enemy ? "{T!}" : "{T}",
+            PieceType.Cannon => enemy ? "[X!]" : "[X]",
+            PieceType.Grasshopper => enemy ? "<G!>" : "<G>",
             _ => "[?]"
         };
     }
@@ -405,6 +468,12 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceType.Bishop => "BSHP",
             PieceType.Knight => "KNGT",
             PieceType.Pawn => "PAWN",
+            PieceType.Amazon => "AMZN",
+            PieceType.Chancellor => "CHNC",
+            PieceType.Archbishop => "ARCH",
+            PieceType.Centaur => "CNTR",
+            PieceType.Cannon => "CANN",
+            PieceType.Grasshopper => "GRAS",
             _ => "PROC"
         };
         return $"{sym}\n{tag}";
@@ -511,6 +580,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             {
                 PieceManager.Instance.SelectPiece(this);
             }
+            if (TooltipManager.Instance != null)
+            {
+                TooltipManager.Instance.ShowPieceTooltip(pieceType, PrimarySealData, transform.position, gameObject, true);
+            }
             return;
         }
 
@@ -519,22 +592,18 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         {
             if (TooltipManager.Instance != null)
             {
-                string movementPattern = GenerateMovementPatternText();
-                TooltipManager.Instance.ShowTooltip(
-                    string.Empty,
-                    movementPattern,
-                    transform.position,
-                    string.Empty,
-                    TooltipManager.TooltipPriorityPieceMove,
-                    gameObject);
+                TooltipManager.Instance.ShowPieceTooltip(pieceType, PrimarySealData, transform.position, gameObject, false);
             }
             return;
         }
 
         if (PieceManager.Instance != null && currentLocation == PieceLocation.Board)
         {
-            // 필드에서는 툴팁 대신 기존 경로 미리보기를 유지
             PieceManager.Instance.SelectPiece(this);
+            if (TooltipManager.Instance != null)
+            {
+                TooltipManager.Instance.ShowPieceTooltip(pieceType, PrimarySealData, transform.position, gameObject, false);
+            }
             return;
         }
     }
@@ -617,12 +686,28 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     public void OnPointerClick(PointerEventData eventData)
     {
+        // 액티브 유물 대상 선택 중이면 클릭을 유물 대상 지정으로 사용 (우클릭은 취소용)
+        if (ActiveArtifactController.IsTargeting)
+        {
+            if (eventData.button == PointerEventData.InputButton.Left)
+            {
+                ActiveArtifactController.TryHandlePieceClick(this);
+            }
+            return;
+        }
+
         if (!isDragging && !isAnyDragging) SelectSelf();
     }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
         if (isEnemy)
+        {
+            return;
+        }
+
+        // 액티브 유물 대상 선택 중에는 드래그 불가
+        if (ActiveArtifactController.IsTargeting)
         {
             return;
         }
@@ -712,18 +797,19 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             canvasGroup.blocksRaycasts = false;
         }
 
-        // Prepare 상태에서는 흔들림으로 인해 현재 위치가 정확하지 않을 수 있으므로 계산된 위치를 사용
-        if (isPrepare && !isEnemy)
+        // 원래 위치 계산 (흔들림이나 호버 등 오프셋을 배제하고 그리드 또는 슬롯의 정확한 위치 사용)
+        if (currentLocation == PieceLocation.Board && PieceManager.Instance != null && PieceManager.Instance.gridManager != null && gridPosition.HasValue)
         {
-            if (currentLocation == PieceLocation.Board && PieceManager.Instance != null && PieceManager.Instance.gridManager != null && gridPosition.HasValue)
-            {
-                originalAnchoredPosition = PieceManager.Instance.gridManager.GridToUiPosition(gridPosition.Value);
-            }
-            else if (currentLocation == PieceLocation.Inventory)
-            {
-                // 인벤토리에서는 부모가 바뀌므로 시작 위치를 0으로 간주
-                originalAnchoredPosition = Vector2.zero;
-            }
+            originalAnchoredPosition = PieceManager.Instance.gridManager.GridToUiPosition(gridPosition.Value);
+        }
+        else if (currentLocation == PieceLocation.Inventory || (originalParent != null && originalParent.GetComponent<InventorySlot>() != null))
+        {
+            // 인벤토리에서는 부모가 바뀌므로 슬롯 기준 시작 위치를 0으로 간주
+            originalAnchoredPosition = Vector2.zero;
+        }
+        else
+        {
+            originalAnchoredPosition = rectTransform.anchoredPosition;
         }
 
         previousDragPosition = eventData.position;
@@ -935,7 +1021,11 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 MoveMarker targetMarker = PieceManager.Instance.GetMarkerAtPosition(eventData.position);
                 if (targetMarker != null)
                 {
-                    PieceManager.Instance.MoveSelectedTo(targetMarker.GridPosition);
+                    if (!PieceManager.Instance.MoveSelectedTo(targetMarker.GridPosition))
+                    {
+                        ReturnToOriginalPosition();
+                        PieceManager.Instance.SelectPiece(this);
+                    }
                 }
                 else
                 {
@@ -1019,9 +1109,24 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         transform.SetAsLastSibling();
 
         // 원래 부모로 복귀
-        transform.SetParent(originalParent, true);
+        if (originalParent != null && transform.parent != originalParent)
+        {
+            transform.SetParent(originalParent, true);
+        }
 
-        rectTransform.DOAnchorPos(originalAnchoredPosition, returnDuration)
+        Vector2 targetPosition = originalAnchoredPosition;
+        if (currentLocation == PieceLocation.Board && PieceManager.Instance != null && PieceManager.Instance.gridManager != null && gridPosition.HasValue)
+        {
+            targetPosition = PieceManager.Instance.gridManager.GridToUiPosition(gridPosition.Value);
+            originalAnchoredPosition = targetPosition;
+        }
+        else if (currentLocation == PieceLocation.Inventory || (originalParent != null && originalParent.GetComponent<InventorySlot>() != null))
+        {
+            targetPosition = Vector2.zero;
+            originalAnchoredPosition = targetPosition;
+        }
+
+        rectTransform.DOAnchorPos(targetPosition, returnDuration)
             .SetEase(returnEase)
             .OnComplete(() =>
             {
@@ -1169,6 +1274,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
     }
 
+    public Vector2Int? moveWaypoint = null;
+
     private void AnimatePlacement()
     {
         if (rectTransform == null || PieceManager.Instance == null || PieceManager.Instance.gridManager == null)
@@ -1179,19 +1286,48 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         Vector2 targetPosition = PieceManager.Instance.gridManager.GridToUiPosition(gridPosition.Value);
         Vector2 currentPosition = rectTransform.anchoredPosition;
         float liftHeight = PieceManager.Instance.gridManager.cellSize.y * placeLiftHeightMultiplier;
-        Vector2 midPoint = (currentPosition + targetPosition) / 2f + Vector2.up * liftHeight;
 
         positionTween?.Kill();
         scaleTween?.Kill();
 
         Sequence placeSequence = DOTween.Sequence();
 
-        // 위로 올라갈 때 약간 늘어남
-        placeSequence.Append(rectTransform.DOAnchorPos(midPoint, placeDuration * 0.3f).SetEase(Ease.OutQuad));
-        placeSequence.Join(rectTransform.DOScale(new Vector3(stretchScale.x, stretchScale.y, 1f), placeDuration * 0.3f).SetEase(Ease.OutQuad));
+        if (moveWaypoint.HasValue)
+        {
+            Vector2 waypointUi = PieceManager.Instance.gridManager.GridToUiPosition(moveWaypoint.Value);
+            moveWaypoint = null; // 소비
 
-        // 아래로 내려올 때
-        placeSequence.Append(rectTransform.DOAnchorPos(targetPosition, placeDuration * 0.5f).SetEase(placeEase));
+            // 1구간 (현재 -> 반사 지점)
+            Vector2 mid1 = (currentPosition + waypointUi) / 2f + Vector2.up * (liftHeight * 0.7f);
+            placeSequence.Append(rectTransform.DOAnchorPos(mid1, placeDuration * 0.2f).SetEase(Ease.OutQuad));
+            placeSequence.Join(rectTransform.DOScale(new Vector3(stretchScale.x, stretchScale.y, 1f), placeDuration * 0.2f).SetEase(Ease.OutQuad));
+            placeSequence.Append(rectTransform.DOAnchorPos(waypointUi, placeDuration * 0.25f).SetEase(Ease.Linear));
+
+            // 반사 시 가벼운 임팩트 효과음
+            placeSequence.AppendCallback(() =>
+            {
+                if (SoundManager.Instance != null)
+                {
+                    SoundManager.Instance.PlaySFX(SFXType.Click);
+                }
+            });
+
+            // 2구간 (반사 지점 -> 최종 목표지점)
+            Vector2 mid2 = (waypointUi + targetPosition) / 2f + Vector2.up * liftHeight;
+            placeSequence.Append(rectTransform.DOAnchorPos(mid2, placeDuration * 0.25f).SetEase(Ease.OutQuad));
+            placeSequence.Append(rectTransform.DOAnchorPos(targetPosition, placeDuration * 0.3f).SetEase(placeEase));
+        }
+        else
+        {
+            Vector2 midPoint = (currentPosition + targetPosition) / 2f + Vector2.up * liftHeight;
+
+            // 위로 올라갈 때 약간 늘어남
+            placeSequence.Append(rectTransform.DOAnchorPos(midPoint, placeDuration * 0.3f).SetEase(Ease.OutQuad));
+            placeSequence.Join(rectTransform.DOScale(new Vector3(stretchScale.x, stretchScale.y, 1f), placeDuration * 0.3f).SetEase(Ease.OutQuad));
+
+            // 아래로 내려올 때
+            placeSequence.Append(rectTransform.DOAnchorPos(targetPosition, placeDuration * 0.5f).SetEase(placeEase));
+        }
 
         // 착지 시 찌그러짐
         placeSequence.Append(rectTransform.DOScale(new Vector3(squashScale.x, squashScale.y, 1f), squashDuration).SetEase(Ease.OutQuad));
@@ -1359,6 +1495,24 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             case PieceType.Knight:
                 moves = GetKnightMoves();
                 break;
+            case PieceType.Amazon:
+                moves = GetAmazonMoves();
+                break;
+            case PieceType.Chancellor:
+                moves = GetChancellorMoves();
+                break;
+            case PieceType.Archbishop:
+                moves = GetArchbishopMoves();
+                break;
+            case PieceType.Centaur:
+                moves = GetCentaurMoves();
+                break;
+            case PieceType.Cannon:
+                moves = GetCannonMoves();
+                break;
+            case PieceType.Grasshopper:
+                moves = GetGrasshopperMoves();
+                break;
             case PieceType.Pawn:
             default:
                 moves = GetPawnMoves();
@@ -1456,6 +1610,194 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
 
         return moves;
+    }
+
+    private List<Vector2Int> GetAmazonMoves()
+    {
+        // 아마존: 퀸의 행마(8방향 슬라이딩) + 나이트의 행마(8방향 L자 점프)
+        List<Vector2Int> moves = GetQueenMoves();
+        List<Vector2Int> knightMoves = GetKnightMoves();
+        foreach (var move in knightMoves)
+        {
+            if (!moves.Contains(move))
+            {
+                moves.Add(move);
+            }
+        }
+        return moves;
+    }
+
+    private List<Vector2Int> GetChancellorMoves()
+    {
+        // 챈슬러: 룩의 행마(직선 4방향 슬라이딩) + 나이트의 행마(8방향 L자 점프)
+        List<Vector2Int> moves = GetRookMoves();
+        List<Vector2Int> knightMoves = GetKnightMoves();
+        foreach (var move in knightMoves)
+        {
+            if (!moves.Contains(move))
+            {
+                moves.Add(move);
+            }
+        }
+        return moves;
+    }
+
+    private List<Vector2Int> GetArchbishopMoves()
+    {
+        // 아치비숍: 비숍의 행마(대각선 4방향 슬라이딩) + 나이트의 행마(8방향 L자 점프)
+        List<Vector2Int> moves = GetBishopMoves();
+        List<Vector2Int> knightMoves = GetKnightMoves();
+        foreach (var move in knightMoves)
+        {
+            if (!moves.Contains(move))
+            {
+                moves.Add(move);
+            }
+        }
+        return moves;
+    }
+
+    private List<Vector2Int> GetCentaurMoves()
+    {
+        // 켄타우로스: 킹의 행마(8방향 1칸) + 나이트의 행마(8방향 L자 점프)
+        List<Vector2Int> moves = GetKingMoves();
+        List<Vector2Int> knightMoves = GetKnightMoves();
+        foreach (var move in knightMoves)
+        {
+            if (!moves.Contains(move))
+            {
+                moves.Add(move);
+            }
+        }
+        return moves;
+    }
+
+    private List<Vector2Int> GetCannonMoves()
+    {
+        // 캐논: 평상시에는 룩과 같이 빈 칸을 직선 슬라이딩 이동 (잡기는 불가)
+        // 적을 잡을 때는 반드시 중간에 기물 1개(아군/적군 무관)를 뛰어넘어야 함 (뛰어넘을 기물이 없으면 포획 불가)
+        List<Vector2Int> moves = new List<Vector2Int>();
+        AddCannonRayMoves(moves, Vector2Int.up);
+        AddCannonRayMoves(moves, Vector2Int.down);
+        AddCannonRayMoves(moves, Vector2Int.left);
+        AddCannonRayMoves(moves, Vector2Int.right);
+        return moves;
+    }
+
+    private void AddCannonRayMoves(List<Vector2Int> moves, Vector2Int direction)
+    {
+        if (PieceManager.Instance == null || !gridPosition.HasValue)
+            return;
+
+        Vector2Int current = gridPosition.Value + direction;
+        bool jumped = false;
+
+        while (IsInBounds(current))
+        {
+            if (IsDestroyedCell(current))
+                break;
+
+            PieceController pieceAt = PieceManager.Instance.GetPieceAt(current);
+
+            if (!jumped)
+            {
+                if (pieceAt == null)
+                {
+                    // 첫 번째 기물을 만나기 전: 빈 칸으로 일반 이동 가능 (잡기 아님)
+                    if (CanMoveTo(current))
+                    {
+                        moves.Add(current);
+                    }
+                    current += direction;
+                }
+                else
+                {
+                    // 첫 번째 기물을 만남 -> 이 기물을 '발판(도약대)'으로 삼고 뛰어넘음
+                    jumped = true;
+                    current += direction;
+                }
+            }
+            else
+            {
+                // 기물 1개를 뛰어넘은 상태
+                if (pieceAt == null)
+                {
+                    // 뛰어넘은 뒤 빈 칸으로는 이동 불가 (캐논은 잡을 때만 뛰어넘음)
+                    current += direction;
+                }
+                else
+                {
+                    // 뛰어넘은 후 만난 첫 번째 기물이 적군이면 포획 가능!
+                    if (pieceAt.IsEnemy != isEnemy && CanMoveTo(current))
+                    {
+                        moves.Add(current);
+                    }
+                    // 두 번째 기물을 만났으므로 이 방향 탐색 종료
+                    break;
+                }
+            }
+        }
+    }
+
+    private List<Vector2Int> GetGrasshopperMoves()
+    {
+        // 그래스호퍼: 퀸의 8방향으로 이동하되, 반드시 기물 1개를 뛰어넘어야 하며, 뛰어넘은 기물의 바로 다음 칸에만 착지(이동 또는 포획) 가능
+        List<Vector2Int> moves = new List<Vector2Int>();
+        AddGrasshopperRayMoves(moves, Vector2Int.up);
+        AddGrasshopperRayMoves(moves, Vector2Int.down);
+        AddGrasshopperRayMoves(moves, Vector2Int.left);
+        AddGrasshopperRayMoves(moves, Vector2Int.right);
+        AddGrasshopperRayMoves(moves, new Vector2Int(1, 1));
+        AddGrasshopperRayMoves(moves, new Vector2Int(1, -1));
+        AddGrasshopperRayMoves(moves, new Vector2Int(-1, 1));
+        AddGrasshopperRayMoves(moves, new Vector2Int(-1, -1));
+        return moves;
+    }
+
+    private void AddGrasshopperRayMoves(List<Vector2Int> moves, Vector2Int direction)
+    {
+        if (PieceManager.Instance == null || !gridPosition.HasValue)
+            return;
+
+        Vector2Int current = gridPosition.Value + direction;
+
+        // 첫 번째 장애물(기물)을 만날 때까지 전진
+        while (IsInBounds(current))
+        {
+            if (IsDestroyedCell(current))
+                break;
+
+            PieceController pieceAt = PieceManager.Instance.GetPieceAt(current);
+            if (pieceAt != null)
+            {
+                // 기물을 발견함 (이 기물을 발판으로 뛰어넘음)
+                Vector2Int landingPos = current + direction;
+                if (IsInBounds(landingPos) && !IsDestroyedCell(landingPos))
+                {
+                    PieceController landingPiece = PieceManager.Instance.GetPieceAt(landingPos);
+                    if (landingPiece == null)
+                    {
+                        // 바로 다음 칸이 빈 칸이면 착지 이동 가능
+                        if (CanMoveTo(landingPos))
+                        {
+                            moves.Add(landingPos);
+                        }
+                    }
+                    else if (landingPiece.IsEnemy != isEnemy)
+                    {
+                        // 바로 다음 칸이 적 기물이면 포획 가능
+                        if (CanMoveTo(landingPos))
+                        {
+                            moves.Add(landingPos);
+                        }
+                    }
+                }
+                // 기물 1개를 만났으므로 이 방향 탐색 종료
+                break;
+            }
+
+            current += direction;
+        }
     }
 
     private List<Vector2Int> GetPawnMoves()
@@ -1965,12 +2307,16 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         Image img = sealObj.AddComponent<Image>();
         img.raycastTarget = true;
-        img.sprite = (sealData != null && sealData.icon != null)
-            ? sealData.icon
-            : Resources.GetBuiltinResource<Sprite>("UI/Skin/UISprite.psd");
-        img.color = (sealData != null && sealData.icon != null)
-            ? Color.white
-            : new Color(1f, 0.85f, 0.2f, 1f);
+        if (sealData != null && sealData.icon != null)
+        {
+            img.sprite = sealData.icon;
+            img.color = Color.white;
+        }
+        else
+        {
+            // 폴백: 투명 단색 사각 블록으로 노란빛 표시
+            img.color = new Color(1f, 0.85f, 0.2f, 1f);
+        }
 
         RectTransform rt = sealObj.GetComponent<RectTransform>();
         rt.sizeDelta = new Vector2(sealIconSize, sealIconSize);
@@ -1993,6 +2339,31 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         MarkPromotedThisStage();
     }
 
+    /// <summary>
+    /// 프로모션 상태(메달 플래그 및 승급의 인장)를 제거합니다.
+    /// 다른 기물을 잡아 새로운 기물로 변신했을 때 호출됩니다.
+    /// </summary>
+    public void RemovePromotionSeal()
+    {
+        promotedByMedalThisStage = false;
+
+        SealBase promoSeal = null;
+        foreach (var seal in equippedSeals)
+        {
+            if (seal != null && seal.Data != null &&
+                (seal.Data.sealName == "승급의 인장" || seal.Data.sealName == "승급자의 인장"))
+            {
+                promoSeal = seal;
+                break;
+            }
+        }
+
+        if (promoSeal != null)
+        {
+            UnEquipSeal(promoSeal.Data);
+        }
+    }
+
     public bool HasPromotionSeal()
     {
         if (promotedByMedalThisStage)
@@ -2009,9 +2380,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
             if (seal.Data != null &&
                 (seal.Data.sealName == "승급의 인장" ||
-                 seal.Data.sealName == "승급자의 인장" ||
-                 seal.Data.sealName.Contains("Privilege_Escalation") ||
-                 seal.Data.sealName.Contains("권한 상승")))
+                 seal.Data.sealName == "승급자의 인장"))
             {
                 return true;
             }
@@ -2030,6 +2399,18 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         return true;
     }
 
+    // 📌 Case F Hook: 이동 시작 전 알림
+    public void OnStartMove(Vector2Int fromPos, Vector2Int toPos)
+    {
+        foreach (var seal in equippedSeals)
+        {
+            if (seal != null)
+            {
+                seal.OnBeforeMove(fromPos, toPos);
+            }
+        }
+    }
+
     // 📌 Case C Hook: 이동 후 알림
     public void OnMoveFinished(Vector2Int prevPos, Vector2Int newPos)
     {
@@ -2037,6 +2418,32 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         {
             seal.OnAfterMove(prevPos, newPos);
         }
+    }
+
+    // 📌 Case E Hook: 적 기물 포획 후 알림
+    public void OnCapturedPiece(PieceType capturedType)
+    {
+        foreach (var seal in new List<SealBase>(equippedSeals))
+        {
+            if (seal == null) continue;
+            seal.OnAfterCapture(capturedType);
+        }
+    }
+
+    /// <summary>
+    /// 인장 등은 유지한 채 기물 종류만 즉시 변경합니다.
+    /// </summary>
+    public void ChangeType(PieceType newType)
+    {
+        if (pieceType == newType) return;
+
+        pieceType = newType;
+        if (CollectionManager.Instance != null && !isEnemy)
+        {
+            CollectionManager.Instance.RecordPiece(newType);
+        }
+        ApplySprite();
+        UpdateUiPosition();
     }
 
     public void OnDestroyed(PieceController killer, Vector2Int ownerPosition)
@@ -2050,6 +2457,187 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
             seal.OnOwnerDestroyed(killer, ownerPosition);
         }
+    }
+
+    public int GetBuffStacks(PieceBuffType buffType)
+    {
+        return buffType switch
+        {
+            PieceBuffType.Protection => protectionStacks,
+            PieceBuffType.Evasion => evasionStacks,
+            PieceBuffType.Counterattack => counterattackStacks,
+            _ => 0
+        };
+    }
+
+    public void AddBuff(PieceBuffType buffType, int stacks = 1)
+    {
+        if (stacks <= 0) return;
+
+        switch (buffType)
+        {
+            case PieceBuffType.Protection:
+                protectionStacks += stacks;
+                break;
+            case PieceBuffType.Evasion:
+                evasionStacks += stacks;
+                break;
+            case PieceBuffType.Counterattack:
+                counterattackStacks += stacks;
+                break;
+        }
+
+        RefreshBuffAuraVisuals();
+    }
+
+    public bool ConsumeBuff(PieceBuffType buffType)
+    {
+        if (GetBuffStacks(buffType) <= 0) return false;
+
+        switch (buffType)
+        {
+            case PieceBuffType.Protection:
+                protectionStacks--;
+                break;
+            case PieceBuffType.Evasion:
+                evasionStacks--;
+                break;
+            case PieceBuffType.Counterattack:
+                counterattackStacks--;
+                break;
+            default:
+                return false;
+        }
+
+        RefreshBuffAuraVisuals();
+        return true;
+    }
+
+    public void PlayBuffActivationEffect(PieceBuffType buffType)
+    {
+        if (pieceImage == null)
+        {
+            return;
+        }
+
+        // 버프 발동 순간 기물 이미지에 보여줄 플래시 색상입니다.
+        // 보호/회피/역공의 발동 연출을 바꾸려면 이 색상만 수정하면 됩니다.
+        Color effectColor = buffType switch
+        {
+            PieceBuffType.Protection => new Color(0.35f, 0.75f, 1f),
+            PieceBuffType.Evasion => new Color(0.75f, 0.45f, 1f),
+            PieceBuffType.Counterattack => new Color(1f, 0.35f, 0.2f),
+            _ => Color.white
+        };
+
+        // 플래시가 끝난 뒤 현재 기물 색상으로 복귀합니다.
+        Color returnColor = pieceImage.color;
+        pieceImage.DOKill();
+        pieceImage.color = effectColor;
+        pieceImage.DOColor(returnColor, 0.35f).SetEase(Ease.OutQuad);
+    }
+
+    public void SetBuffStacks(PieceBuffType buffType, int stacks)
+    {
+        stacks = Mathf.Max(0, stacks);
+        switch (buffType)
+        {
+            case PieceBuffType.Protection:
+                protectionStacks = stacks;
+                break;
+            case PieceBuffType.Evasion:
+                evasionStacks = stacks;
+                break;
+            case PieceBuffType.Counterattack:
+                counterattackStacks = stacks;
+                break;
+        }
+
+        RefreshBuffAuraVisuals();
+    }
+
+    private void CreateBuffAuraVisuals()
+    {
+        if (buffAuraImages[0] != null)
+        {
+            return;
+        }
+
+        if (buffAuraSprite == null)
+        {
+            // 모든 기물이 공유하는 링 텍스처입니다.
+            // outerRadius/innerRadius 차이로 링 두께를 조절할 수 있습니다.
+            const int textureSize = 64;
+            const float outerRadius = 30f;
+            const float innerRadius = 24f;
+            Texture2D texture = new Texture2D(textureSize, textureSize, TextureFormat.RGBA32, false);
+            texture.name = "BuffAuraRingTexture";
+            texture.filterMode = FilterMode.Bilinear;
+
+            Color[] pixels = new Color[textureSize * textureSize];
+            Vector2 center = new Vector2((textureSize - 1) * 0.5f, (textureSize - 1) * 0.5f);
+            for (int y = 0; y < textureSize; y++)
+            {
+                for (int x = 0; x < textureSize; x++)
+                {
+                    float distance = Vector2.Distance(new Vector2(x, y), center);
+                    pixels[y * textureSize + x] = distance >= innerRadius && distance <= outerRadius
+                        ? Color.white
+                        : Color.clear;
+                }
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+            buffAuraSprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, textureSize, textureSize),
+                new Vector2(0.5f, 0.5f),
+                textureSize);
+        }
+
+        // 배열 순서와 PieceBuffType 순서가 일치합니다.
+        // 보호=노랑, 회피=파랑, 역공=빨강입니다.
+        Color[] auraColors =
+        {
+            new Color(1f, 0.85f, 0.1f, 0.9f),
+            new Color(0.2f, 0.55f, 1f, 0.9f),
+            new Color(1f, 0.2f, 0.15f, 0.9f)
+        };
+
+        for (int i = 0; i < buffAuraImages.Length; i++)
+        {
+            GameObject auraObject = new GameObject($"BuffAura_{(PieceBuffType)i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            auraObject.transform.SetParent(transform, false);
+            auraObject.transform.SetAsFirstSibling();
+
+            Image auraImage = auraObject.GetComponent<Image>();
+            auraImage.sprite = buffAuraSprite;
+            auraImage.color = auraColors[i];
+            auraImage.raycastTarget = false;
+            auraImage.preserveAspect = true;
+
+            RectTransform auraRect = auraImage.rectTransform;
+            auraRect.anchorMin = new Vector2(0.5f, 0.5f);
+            auraRect.anchorMax = new Vector2(0.5f, 0.5f);
+            auraRect.pivot = new Vector2(0.5f, 0.5f);
+            auraRect.anchoredPosition = Vector2.zero;
+            // 여러 버프가 동시에 있을 때 링이 겹치지 않도록 버프별 크기를 다르게 합니다.
+            auraRect.sizeDelta = new Vector2(92f + (i * 12f), 92f + (i * 12f));
+            buffAuraImages[i] = auraImage;
+        }
+    }
+
+    private void RefreshBuffAuraVisuals()
+    {
+        if (buffAuraImages[0] == null)
+        {
+            return;
+        }
+
+        buffAuraImages[0].gameObject.SetActive(protectionStacks > 0);
+        buffAuraImages[1].gameObject.SetActive(evasionStacks > 0);
+        buffAuraImages[2].gameObject.SetActive(counterattackStacks > 0);
     }
 
     // -------------------
@@ -2123,7 +2711,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
         }
 
-        // 코드 인젝션 추가 이동범위: 시안/핑크 □ (S = Seal/Injection)
+        // 인장 추가 이동범위: 핑크 □ (S = Seal)
         foreach (var offset in additionalOffsets)
         {
             int gridX = center + offset.x;
@@ -2136,9 +2724,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
         }
 
-        // 텍스트로 변환 (터미널 색상 코드 적용)
+        // 텍스트로 변환 (색상 코드 적용)
         System.Text.StringBuilder sb = new System.Text.StringBuilder();
-        sb.Append($"<color=#00FF00>[PROC::{GetPieceNameForType(pieceType)}]</color>\n");
+        sb.Append($"[{GetPieceNameForType(pieceType)}]\n");
 
         for (int y = 0; y < gridSize; y++)
         {
@@ -2148,17 +2736,17 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 string symbol;
 
                 if (c == ' ')
-                    symbol = FormatTooltipCell("#1F4D1F", "·"); // 어두운 터미널 빈칸
+                    symbol = FormatTooltipCell("#FFFFFF", "□"); // 하얀색 빈칸
                 else if (c == 'W')
-                    symbol = FormatTooltipCell("#FFFFFF", "■"); // 현재 기물 코어
+                    symbol = FormatTooltipCell("#FFFFFF", "■"); // 현재 기물
                 else if (c == 'B')
-                    symbol = FormatTooltipCell("#00FF00", "□"); // 터미널 그린 이동 가능
+                    symbol = FormatTooltipCell("#80FF00", "□"); // 연두색 이동 가능
                 else if (c == 'C')
-                    symbol = FormatTooltipCell("#FF5555", "×"); // 대각선 포획(Capture) 전용
+                    symbol = FormatTooltipCell("#FF5555", "×"); // 대각선 포획 전용
                 else if (c == 'S')
-                    symbol = FormatTooltipCell("#00FFFF", "▣"); // 코드 인젝션 변조 경로
+                    symbol = FormatTooltipCell("#FF80FF", "□"); // 핑크색 인장 추가
                 else if (c == 'G')
-                    symbol = FormatTooltipCell("#00CC00", "■");
+                    symbol = FormatTooltipCell("#00CC00", "■"); // 초록색 다른 기물
                 else
                     symbol = c.ToString();
 
@@ -2175,6 +2763,30 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         else if (pieceType == PieceType.Knight)
         {
             sb.Append("\n<size=85%><color=#88FF88>※ 장애물 점프(Jump) 이동 가능</color></size>");
+        }
+        else if (pieceType == PieceType.Amazon)
+        {
+            sb.Append("\n<size=85%><color=#FFD700>※ 퀸의 8방향 슬라이딩 + 나이트 점프(Jump)</color></size>");
+        }
+        else if (pieceType == PieceType.Chancellor)
+        {
+            sb.Append("\n<size=85%><color=#00FFFF>※ 룩의 4방향 직선 슬라이딩 + 나이트 점프(Jump)</color></size>");
+        }
+        else if (pieceType == PieceType.Archbishop)
+        {
+            sb.Append("\n<size=85%><color=#DA70D6>※ 비숍의 4방향 대각선 슬라이딩 + 나이트 점프(Jump)</color></size>");
+        }
+        else if (pieceType == PieceType.Centaur)
+        {
+            sb.Append("\n<size=85%><color=#FFA500>※ 킹의 8방향 1칸 이동 + 나이트 점프(Jump)</color></size>");
+        }
+        else if (pieceType == PieceType.Cannon)
+        {
+            sb.Append("\n<size=85%><color=#FF69B4>※ 룩의 4방향 이동 / 적 포획 시 기물 1개를 뛰어넘어야 함</color></size>");
+        }
+        else if (pieceType == PieceType.Grasshopper)
+        {
+            sb.Append("\n<size=85%><color=#98FB98>※ 퀸의 8방향 도약 / 기물 1개를 뛰어넘어 바로 뒤 칸으로만 이동 및 포획</color></size>");
         }
 
         return sb.ToString();
@@ -2248,6 +2860,93 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                     new(2, 1), new(2, -1), new(-2, 1), new(-2, -1),
                     new(1, 2), new(1, -2), new(-1, 2), new(-1, -2)
                 });
+                break;
+
+            case PieceType.Amazon:
+                // 아마존: 퀸(직선+대각선 8방향 슬라이딩) + 나이트(L자 점프 8칸)
+                for (int i = 1; i <= 3; i++)
+                {
+                    offsets.Add(new Vector2Int(0, i));
+                    offsets.Add(new Vector2Int(0, -i));
+                    offsets.Add(new Vector2Int(-i, 0));
+                    offsets.Add(new Vector2Int(i, 0));
+                    offsets.Add(new Vector2Int(i, i));
+                    offsets.Add(new Vector2Int(i, -i));
+                    offsets.Add(new Vector2Int(-i, i));
+                    offsets.Add(new Vector2Int(-i, -i));
+                }
+                offsets.AddRange(new Vector2Int[] {
+                    new(2, 1), new(2, -1), new(-2, 1), new(-2, -1),
+                    new(1, 2), new(1, -2), new(-1, 2), new(-1, -2)
+                });
+                break;
+
+            case PieceType.Chancellor:
+                // 챈슬러: 룩(직선 4방향 슬라이딩) + 나이트(L자 점프 8칸)
+                for (int i = 1; i <= 3; i++)
+                {
+                    offsets.Add(new Vector2Int(0, i));
+                    offsets.Add(new Vector2Int(0, -i));
+                    offsets.Add(new Vector2Int(-i, 0));
+                    offsets.Add(new Vector2Int(i, 0));
+                }
+                offsets.AddRange(new Vector2Int[] {
+                    new(2, 1), new(2, -1), new(-2, 1), new(-2, -1),
+                    new(1, 2), new(1, -2), new(-1, 2), new(-1, -2)
+                });
+                break;
+
+            case PieceType.Archbishop:
+                // 아치비숍: 비숍(대각선 4방향 슬라이딩) + 나이트(L자 점프 8칸)
+                for (int i = 1; i <= 3; i++)
+                {
+                    offsets.Add(new Vector2Int(i, i));
+                    offsets.Add(new Vector2Int(i, -i));
+                    offsets.Add(new Vector2Int(-i, i));
+                    offsets.Add(new Vector2Int(-i, -i));
+                }
+                offsets.AddRange(new Vector2Int[] {
+                    new(2, 1), new(2, -1), new(-2, 1), new(-2, -1),
+                    new(1, 2), new(1, -2), new(-1, 2), new(-1, -2)
+                });
+                break;
+
+            case PieceType.Centaur:
+                // 켄타우로스: 킹(8방향 1칸) + 나이트(L자 점프 8칸)
+                offsets.AddRange(new[] {
+                    Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right,
+                    new Vector2Int(1, 1), new Vector2Int(1, -1), new Vector2Int(-1, 1), new Vector2Int(-1, -1)
+                });
+                offsets.AddRange(new Vector2Int[] {
+                    new(2, 1), new(2, -1), new(-2, 1), new(-2, -1),
+                    new(1, 2), new(1, -2), new(-1, 2), new(-1, -2)
+                });
+                break;
+
+            case PieceType.Cannon:
+                // 캐논: 평상시 룩과 동일한 4방향 직선 이동
+                for (int i = 1; i <= 3; i++)
+                {
+                    offsets.Add(new Vector2Int(0, i));
+                    offsets.Add(new Vector2Int(0, -i));
+                    offsets.Add(new Vector2Int(-i, 0));
+                    offsets.Add(new Vector2Int(i, 0));
+                }
+                break;
+
+            case PieceType.Grasshopper:
+                // 그래스호퍼: 퀸의 8방향 도약 이동
+                for (int i = 1; i <= 3; i++)
+                {
+                    offsets.Add(new Vector2Int(0, i));
+                    offsets.Add(new Vector2Int(0, -i));
+                    offsets.Add(new Vector2Int(-i, 0));
+                    offsets.Add(new Vector2Int(i, 0));
+                    offsets.Add(new Vector2Int(i, i));
+                    offsets.Add(new Vector2Int(i, -i));
+                    offsets.Add(new Vector2Int(-i, i));
+                    offsets.Add(new Vector2Int(-i, -i));
+                }
                 break;
 
             case PieceType.Pawn:
@@ -2353,17 +3052,17 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 string symbol;
 
                 if (c == ' ')
-                    symbol = FormatTooltipCell("#1F4D1F", "·");
+                    symbol = FormatTooltipCell("#FFFFFF", "□"); // 하얀색 빈칸
                 else if (c == 'W')
-                    symbol = FormatTooltipCell("#FFFFFF", "■");
+                    symbol = FormatTooltipCell("#FFFFFF", "■"); // 현재 기물
                 else if (c == 'B')
-                    symbol = FormatTooltipCell("#00FF00", "□");
+                    symbol = FormatTooltipCell("#80FF00", "□"); // 연두색 이동 가능
                 else if (c == 'C')
-                    symbol = FormatTooltipCell("#FF5555", "×");
+                    symbol = FormatTooltipCell("#FF5555", "×"); // 대각선 포획 전용
                 else if (c == 'S')
-                    symbol = FormatTooltipCell("#00FFFF", "▣");
+                    symbol = FormatTooltipCell("#FF80FF", "□"); // 핑크색 인장 추가
                 else if (c == 'G')
-                    symbol = FormatTooltipCell("#00CC00", "■");
+                    symbol = FormatTooltipCell("#00CC00", "■"); // 초록색 다른 기물
                 else
                     symbol = c.ToString();
 
@@ -2380,6 +3079,30 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         else if (pieceType == PieceType.Knight)
         {
             sb.Append("\n<size=85%><color=#88FF88>※ 장애물 점프(Jump) 이동 가능</color></size>");
+        }
+        else if (pieceType == PieceType.Amazon)
+        {
+            sb.Append("\n<size=85%><color=#FFD700>※ 퀸의 8방향 슬라이딩 + 나이트 점프(Jump)</color></size>");
+        }
+        else if (pieceType == PieceType.Chancellor)
+        {
+            sb.Append("\n<size=85%><color=#00FFFF>※ 룩의 4방향 직선 슬라이딩 + 나이트 점프(Jump)</color></size>");
+        }
+        else if (pieceType == PieceType.Archbishop)
+        {
+            sb.Append("\n<size=85%><color=#DA70D6>※ 비숍의 4방향 대각선 슬라이딩 + 나이트 점프(Jump)</color></size>");
+        }
+        else if (pieceType == PieceType.Centaur)
+        {
+            sb.Append("\n<size=85%><color=#FFA500>※ 킹의 8방향 1칸 이동 + 나이트 점프(Jump)</color></size>");
+        }
+        else if (pieceType == PieceType.Cannon)
+        {
+            sb.Append("\n<size=85%><color=#FF69B4>※ 룩의 4방향 이동 / 적 포획 시 기물 1개를 뛰어넘어야 함</color></size>");
+        }
+        else if (pieceType == PieceType.Grasshopper)
+        {
+            sb.Append("\n<size=85%><color=#98FB98>※ 퀸의 8방향 도약 / 기물 1개를 뛰어넘어 바로 뒤 칸으로만 이동 및 포획</color></size>");
         }
 
         return sb.ToString();
@@ -2450,11 +3173,77 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceType.Bishop => "비숍 (Bishop)",
             PieceType.Knight => "나이트 (Knight)",
             PieceType.Pawn => "폰 (Pawn)",
+            PieceType.Amazon => "아마존 (Amazon)",
+            PieceType.Chancellor => "챈슬러 (Chancellor)",
+            PieceType.Archbishop => "아치비숍 (Archbishop)",
+            PieceType.Centaur => "켄타우로스 (Centaur)",
+            PieceType.Cannon => "캐논 (Cannon)",
+            PieceType.Grasshopper => "그래스호퍼 (Grasshopper)",
             _ => "기물"
         };
     }
 
-    private static List<Vector2Int> GetTooltipAdditionalOffsetsForType(PieceType pieceType, SealData seal, out bool replacesMovement)
+    /// <summary>
+    /// 기물의 레어도를 반환합니다 (폰, 킹, 마이너 피스: 1 / 메이저 피스(룩, 퀸), 켄타우로스, 캐논: 2 / 챈슬러, 아치비숍, 그래스호퍼: 3 / 변형 체스 전설 기물(아마존 등): 5).
+    /// </summary>
+    public static int GetRarityForType(PieceType type)
+    {
+        return type switch
+        {
+            PieceType.Amazon => 5,
+            PieceType.Chancellor or PieceType.Archbishop or PieceType.Grasshopper => 3,
+            PieceType.Queen or PieceType.Rook or PieceType.Centaur or PieceType.Cannon => 2,
+            _ => 1
+        };
+    }
+
+    /// <summary>
+    /// 체스 기물의 가치 점수를 반환합니다 (폰: 1, 나이트/비숍: 3, 룩: 5, 퀸: 9, 킹: 0(★), 변형 기물: 4~12)
+    /// </summary>
+    public static int GetChessValueForType(PieceType type)
+    {
+        return type switch
+        {
+            PieceType.Pawn => 1,
+            PieceType.Knight => 3,
+            PieceType.Bishop => 3,
+            PieceType.Rook => 5,
+            PieceType.Queen => 9,
+            PieceType.King => 0, // 표기 시 '★'
+            PieceType.Centaur => 4,
+            PieceType.Cannon => 4,
+            PieceType.Archbishop => 7,
+            PieceType.Chancellor => 8,
+            PieceType.Grasshopper => 7,
+            PieceType.Amazon => 12,
+            _ => 1
+        };
+    }
+
+    /// <summary>
+    /// 체스 기물의 핵심 특수 룰 요약 텍스트를 반환합니다
+    /// </summary>
+    public static string GetSpecialRuleTextForType(PieceType type)
+    {
+        return type switch
+        {
+            PieceType.Pawn => "※ 전방 1칸 이동(첫 이동 시 2칸) / 대각선 1칸 적 포획",
+            PieceType.Knight => "※ 장애물 무시 L자 도약 (8방향 점프)",
+            PieceType.Bishop => "※ 대각선 4방향 원거리 슬라이딩",
+            PieceType.Rook => "※ 상하좌우 4방향 직선 원거리 슬라이딩",
+            PieceType.Queen => "※ 가로·세로·대각선 8방향 전방위 슬라이딩",
+            PieceType.King => "※ 모든 방향 1칸 이동 (체크메이트 보호 대상)",
+            PieceType.Amazon => "※ 퀸의 전방위 슬라이딩 + 나이트의 L자 도약",
+            PieceType.Chancellor => "※ 룩의 직선 슬라이딩 + 나이트의 L자 도약",
+            PieceType.Archbishop => "※ 비숍의 대각선 슬라이딩 + 나이트의 L자 도약",
+            PieceType.Centaur => "※ 킹의 8방향 1칸 이동 + 나이트의 L자 도약",
+            PieceType.Cannon => "※ 룩처럼 직선 이동 / 적 포획 시 기물 1개를 뛰어넘어야 함",
+            PieceType.Grasshopper => "※ 퀸 방향 도약 / 기물 1개를 뛰어넘어 바로 뒤 칸에 착지",
+            _ => ""
+        };
+    }
+
+    public static List<Vector2Int> GetTooltipAdditionalOffsetsForType(PieceType pieceType, SealData seal, out bool replacesMovement)
     {
         replacesMovement = false;
 

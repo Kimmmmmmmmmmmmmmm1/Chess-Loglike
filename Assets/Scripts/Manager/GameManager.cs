@@ -99,6 +99,11 @@ public class GameManager : MonoBehaviour
 
         Time.timeScale = 1f;
         SettingsManager.Instance?.ApplyRuntimeSettings();
+
+        if (GetComponent<CheatManager>() == null)
+        {
+            gameObject.AddComponent<CheatManager>();
+        }
     }
 
     public void ResetRunData()

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a81c7032dbb2493eaa5c8e1cdc35369, type: 3}
+  m_Name: EvasionPotion
+  m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
+  id: AC04
+  artifactName: "회피의 물약"
+  description: "선택한 아군 기물 1개에게 회피 1회를 부여합니다.\n<color=#88FF88>[회피]</color> 공격받을 때 주변 8칸 중 빈 칸으로 이동하여 공격을 피합니다."
+  flavorText: "순간적으로 바람처럼 몸을 날려 공격을 흘려보내는 물약."
+  rarity: 2
+  icon: {fileID: 862281467, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
+  price: 220
+  isSoldInShop: 1
+  isGaugeRequired: 0
+  artifactType: 1
+  maxLevel: 1
+  level: 1
+

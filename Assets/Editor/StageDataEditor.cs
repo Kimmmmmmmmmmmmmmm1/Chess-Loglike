@@ -30,18 +30,19 @@ public class StageDataEditor : Editor
             SyncWithGridManager();
         }
 
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("mapWidth"));
-        EditorGUILayout.PropertyField(serializedObject.FindProperty("mapHeight"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("boardSize"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("minX"));
         EditorGUILayout.PropertyField(serializedObject.FindProperty("minY"));
 
         // 맵 크기 제한
-        if (stageData.mapWidth < 1) stageData.mapWidth = 1;
-        if (stageData.mapHeight < 1) stageData.mapHeight = 1;
+        if (stageData.boardSize == null || stageData.boardSize.Length != 2)
+            stageData.boardSize = new[] { 6, 5 };
+        stageData.boardSize[0] = Mathf.Max(1, stageData.boardSize[0]);
+        stageData.boardSize[1] = Mathf.Max(1, stageData.boardSize[1]);
 
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Enemy Placement (Visual Editor)", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox($"Grid Range: X[{stageData.minX} ~ {stageData.minX + stageData.mapWidth - 1}], Y[{stageData.minY} ~ {stageData.minY + stageData.mapHeight - 1}]\nLeft Click: Cycle Piece\nRight Click: Clear Piece", MessageType.Info);
+        EditorGUILayout.HelpBox($"Grid Range: X[{stageData.minX} ~ {stageData.minX + stageData.boardSize[0] - 1}], Y[{stageData.minY} ~ {stageData.minY + stageData.boardSize[1] - 1}]\nLeft Click: Cycle Piece\nRight Click: Clear Piece", MessageType.Info);
 
         // 2. 그리드 그리기
         DrawGrid();
@@ -75,12 +76,12 @@ public class StageDataEditor : Editor
         
         // y축을 위에서 아래로 그리기 (Visual: Top -> Bottom)
         // 실제 좌표는 minY + y
-        for (int y = stageData.mapHeight - 1; y >= 0; y--)
+        for (int y = stageData.boardSize[1] - 1; y >= 0; y--)
         {
             EditorGUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
 
-            for (int x = 0; x < stageData.mapWidth; x++)
+            for (int x = 0; x < stageData.boardSize[0]; x++)
             {
                 // 실제 게임 내 좌표 계산 (Offset 적용)
                 int realX = stageData.minX + x;
@@ -142,8 +143,7 @@ public class StageDataEditor : Editor
         {
             Undo.RecordObject(stageData, "Sync Grid Settings");
             
-            stageData.mapWidth = gridManager.boardWidth;
-            stageData.mapHeight = gridManager.boardHeight;
+            stageData.boardSize = new[] { gridManager.boardWidth, gridManager.boardHeight };
             stageData.minX = gridManager.gridMinBounds.x;
             stageData.minY = gridManager.gridMinBounds.y;
             

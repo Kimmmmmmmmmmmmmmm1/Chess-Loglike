@@ -25,6 +25,8 @@ public class BossData : ScriptableObject
     public int minX = -2;
     [Tooltip("그리드 시작 Y 좌표 (GridManager의 gridMinBounds.y와 일치시켜주세요)")]
     public int minY = -3;
+    [Tooltip("참이면 내 기물 배치 중 적 진영을 숨깁니다")]
+    public bool hideEnemyTerritoryDuringPrepare;
 
     [Tooltip("보스 기물 배치 정보")]
     public List<PieceSpawner.PieceSpawnInfo> bossPieces;

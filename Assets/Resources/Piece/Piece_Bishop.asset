@@ -16,6 +16,7 @@ MonoBehaviour:
   pieceType: 3
   pieceName: 비숍
   icon: {fileID: -1132234818072588592, guid: fd633027036cd4c11bed298215d4b898, type: 3}
+  rarity: 1
   description: "대각선 방향으로 거리 제한 없이 이동할 수 있습니다."
-  flavorText: "[SYSTEM // DIAGONAL_THREAD]
-대각선 격자 메모리를 고속 순회하는 정밀 연산 프로세스."
+  flavorText: "대각선을 가로지르는 성직자."
+

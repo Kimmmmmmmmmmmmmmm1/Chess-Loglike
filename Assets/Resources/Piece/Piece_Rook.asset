@@ -16,6 +16,7 @@ MonoBehaviour:
   pieceType: 1
   pieceName: 룩
   icon: {fileID: -2014393228016629789, guid: fd633027036cd4c11bed298215d4b898, type: 3}
+  rarity: 2
   description: "가로와 세로 방향으로 거리 제한 없이 이동할 수 있습니다."
-  flavorText: "[SYSTEM // LINEAR_OVERDRIVE]
-수평과 수직의 데이터 버스를 관통하는 직선형 중장갑 프로세스."
+  flavorText: "직선 경로를 장악하는 웅장한 성채."
+

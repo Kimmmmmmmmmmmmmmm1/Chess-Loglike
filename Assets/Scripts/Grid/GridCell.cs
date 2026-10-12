@@ -12,6 +12,9 @@ public class GridCell : MonoBehaviour
     private Image cellImage;
     private Color originalColor;
     
+    public Image CellImage => cellImage;
+    public Color OriginalColor => originalColor;
+    
     private Coroutine shakeCoroutine;
 
     public void Initialize(Vector2Int position, RectTransform rect, Vector2 anchoredPos, Vector2 size, Color tileColor)
@@ -31,11 +34,41 @@ public class GridCell : MonoBehaviour
         }
     }
 
+    private bool isLastMoveHighlighted = false;
+
     public void SetGray(bool isGray, Color grayColor)
     {
         if (cellImage != null)
         {
+            cellImage.DOKill();
             cellImage.color = isGray ? grayColor : originalColor;
+        }
+    }
+
+    public void SetLastMoveHighlight(bool highlight, Color highlightColor)
+    {
+        isLastMoveHighlighted = highlight;
+        if (cellImage != null)
+        {
+            cellImage.DOKill();
+            if (highlight)
+            {
+                cellImage.DOColor(highlightColor, 0.2f).SetEase(Ease.OutQuad);
+            }
+            else
+            {
+                cellImage.DOColor(originalColor, 0.2f).SetEase(Ease.OutQuad);
+            }
+        }
+    }
+
+    public void ResetHighlight()
+    {
+        if (cellImage != null)
+        {
+            cellImage.DOKill();
+            isLastMoveHighlighted = false;
+            cellImage.color = originalColor;
         }
     }
 
@@ -43,6 +76,7 @@ public class GridCell : MonoBehaviour
     {
         if (cellImage != null)
         {
+            cellImage.DOKill();
             cellImage.color = color;
             originalColor = color;
         }
@@ -97,10 +131,10 @@ public class GridCell : MonoBehaviour
         if (isDestroyed) return;
         isDestroyed = true;
 
-        // 이 셀에 있던 기물 제거
+        // 이 셀에 있던 기물 제거 (붕괴 연출 적용)
         if (PieceManager.Instance != null)
         {
-            PieceManager.Instance.RemovePieceAtPosition(gridPosition);
+            PieceManager.Instance.RemovePieceAtPositionByCollapse(gridPosition);
         }
 
         // 사라지는 애니메이션

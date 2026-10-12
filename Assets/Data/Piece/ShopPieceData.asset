@@ -31,3 +31,22 @@ MonoBehaviour:
   - pieceType: 5
     Price: 20
     weight: 6
+  - pieceType: 6
+    Price: 200
+    weight: 1
+  - pieceType: 7
+    Price: 160
+    weight: 2
+  - pieceType: 8
+    Price: 150
+    weight: 2
+  - pieceType: 9
+    Price: 120
+    weight: 2
+  - pieceType: 10
+    Price: 90
+    weight: 2
+  - pieceType: 11
+    Price: 140
+    weight: 2
+

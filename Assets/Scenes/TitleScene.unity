@@ -431,7 +431,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -719,7 +719,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -1103,7 +1103,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -1441,7 +1441,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -2111,10 +2111,10 @@ Camera:
   m_LensShift: {x: 0, y: 0}
   m_NormalizedViewPortRect:
     serializedVersion: 2
-    x: 0.034895834
+    x: -0.45000002
     y: 0
     width: 1
-    height: 1.1694444
+    height: 0.13333334
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60
@@ -3416,6 +3416,11 @@ MonoBehaviour:
   overallProgressFillImage: {fileID: 1265868019}
   selectedTabSprite: {fileID: -6198672512790503378, guid: 3f7f76361e9cb4a9c995ac78ecc669f0, type: 3}
   unselectedTabSprite: {fileID: 1194123345, guid: 3f7f76361e9cb4a9c995ac78ecc669f0, type: 3}
+  panelAnimator: {fileID: 0}
+  animateEntriesOnRefresh: 1
+  entryFadeDuration: 0.2
+  entryStaggerInterval: 0.03
+  entryStartScale: 0.94
 --- !u!114 &517830734
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3428,13 +3433,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 008871cf122504f8cb16e21fa912c550, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PanelAnimator
-  moveDuration: 0.4
-  widthDuration: 0.4
-  collapsedActualWidth: 72
-  useFullHeightOffset: 1
-  customSlideOffsetY: 240
-  moveEase: 6
-  widthEase: 6
 --- !u!114 &517830735
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3825,7 +3823,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -4850,13 +4848,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 008871cf122504f8cb16e21fa912c550, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PanelAnimator
-  moveDuration: 0.4
-  widthDuration: 0.4
-  collapsedActualWidth: 72
-  useFullHeightOffset: 1
-  customSlideOffsetY: 240
-  moveEase: 6
-  widthEase: 6
 --- !u!114 &752235454
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5800,7 +5791,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -6179,7 +6170,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -6640,7 +6631,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -7667,7 +7658,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -7774,6 +7765,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
+  m_UseReflectionProbes: 0
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
@@ -8387,7 +8379,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -9010,9 +9002,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1b552f12f31b54da49b3cb3182e87e98, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TooltipManager
   tooltipView: {fileID: 4783932960342455339, guid: 6e6ded0386e964a268cb6f9574db5e5e, type: 3}
+  pieceCardTooltipView: {fileID: 0}
+  pieceCardTooltipPrefab: {fileID: 985966646924255966, guid: 9088b993aa3a345bf83f7fd8a8ef5fe2, type: 3}
+  pieceCardHoverDelay: 1
   tooltipOffset: {x: 0, y: -24, z: 0}
 --- !u!4 &1317799782
 Transform:
@@ -9136,7 +9129,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -10100,13 +10093,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 008871cf122504f8cb16e21fa912c550, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PanelAnimator
-  moveDuration: 0.4
-  widthDuration: 0.4
-  collapsedActualWidth: 72
-  useFullHeightOffset: 1
-  customSlideOffsetY: 240
-  moveEase: 6
-  widthEase: 6
 --- !u!114 &1462038710
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10188,8 +10174,11 @@ MonoBehaviour:
   allToggle: {fileID: 1904951562}
   artifactToggle: {fileID: 1062681355}
   sealToggle: {fileID: 1176748977}
+  pieceToggle: {fileID: 0}
   overallProgressText: {fileID: 2034191547}
   overallProgressFillImage: {fileID: 425090255}
+  selectedTabSprite: {fileID: 0}
+  unselectedTabSprite: {fileID: 0}
   selectedTabColor: {r: 1, g: 1, b: 1, a: 1}
   unselectedTabColor: {r: 0.9, g: 0.86, b: 0.8, a: 1}
 --- !u!1 &1476595168
@@ -10299,7 +10288,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -11093,7 +11082,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -11366,10 +11355,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CollectionManager
   allArtifacts: []
   allSeals: []
+  allPieces: []
   artifactEditorFolderPath: Assets/Data/Artifact
   sealEditorFolderPath: Assets/Data/Seal
+  pieceEditorFolderPath: Assets/Data/Piece
   artifactRuntimeResourcesPath: Artifact
   sealRuntimeResourcesPath: Seal
+  pieceRuntimeResourcesPath: Piece
   saveFileName: collection_save.json
 --- !u!4 &1693600828
 Transform:
@@ -12124,7 +12116,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0
-  m_ActiveFontFeatures: 6e72656b
+  m_ActiveFontFeatures: 6e72656bu
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1

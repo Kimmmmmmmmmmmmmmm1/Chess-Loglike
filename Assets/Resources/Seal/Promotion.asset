@@ -12,11 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
   m_Name: Promotion
   m_EditorClassIdentifier: Assembly-CSharp::SealData
-  sealName: "[INJ] Privilege_Escalation.sys"
-  injectionCommand: "sudo chmod +x --temp-root"
+  sealName: "승급의 인장"
   rarity: 0
-  description: "권한 상승(Promotion)된 PAWN [P] 프로세스에 주입된 임시 루트 토큰입니다. 스테이지 세션 종료 시 PAWN [P] 권한으로 복귀합니다."
-  flavorText: "// Temporary root privilege granted for current combat session."
+  description: "승급한 폰에게 붙는 인장이다.\n이번 라운드 종료시 폰으로 돌아간다."
+  flavorText: ""
   icon: {fileID: 1820931049, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
   isSoldInShop: 0
   sealPrefab: {fileID: 2006435481796697723, guid: f7ee0fe3bcff4472b9fe2fea990096b5, type: 3}

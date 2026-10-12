@@ -535,6 +535,51 @@ public class BoardEvaluator : MonoBehaviour
                 case PieceType.Knight:
                     AddStepMoves(moves, piece, knightOffsets);
                     break;
+                case PieceType.Amazon:
+                    AddRayMoves(moves, piece, Vector2Int.up);
+                    AddRayMoves(moves, piece, Vector2Int.down);
+                    AddRayMoves(moves, piece, Vector2Int.left);
+                    AddRayMoves(moves, piece, Vector2Int.right);
+                    AddRayMoves(moves, piece, new Vector2Int(1, 1));
+                    AddRayMoves(moves, piece, new Vector2Int(1, -1));
+                    AddRayMoves(moves, piece, new Vector2Int(-1, 1));
+                    AddRayMoves(moves, piece, new Vector2Int(-1, -1));
+                    AddStepMoves(moves, piece, knightOffsets);
+                    break;
+                case PieceType.Chancellor:
+                    AddRayMoves(moves, piece, Vector2Int.up);
+                    AddRayMoves(moves, piece, Vector2Int.down);
+                    AddRayMoves(moves, piece, Vector2Int.left);
+                    AddRayMoves(moves, piece, Vector2Int.right);
+                    AddStepMoves(moves, piece, knightOffsets);
+                    break;
+                case PieceType.Archbishop:
+                    AddRayMoves(moves, piece, new Vector2Int(1, 1));
+                    AddRayMoves(moves, piece, new Vector2Int(1, -1));
+                    AddRayMoves(moves, piece, new Vector2Int(-1, 1));
+                    AddRayMoves(moves, piece, new Vector2Int(-1, -1));
+                    AddStepMoves(moves, piece, knightOffsets);
+                    break;
+                case PieceType.Centaur:
+                    AddStepMoves(moves, piece, kingOffsets);
+                    AddStepMoves(moves, piece, knightOffsets);
+                    break;
+                case PieceType.Cannon:
+                    AddCannonRayMoves(moves, piece, Vector2Int.up);
+                    AddCannonRayMoves(moves, piece, Vector2Int.down);
+                    AddCannonRayMoves(moves, piece, Vector2Int.left);
+                    AddCannonRayMoves(moves, piece, Vector2Int.right);
+                    break;
+                case PieceType.Grasshopper:
+                    AddGrasshopperRayMoves(moves, piece, Vector2Int.up);
+                    AddGrasshopperRayMoves(moves, piece, Vector2Int.down);
+                    AddGrasshopperRayMoves(moves, piece, Vector2Int.left);
+                    AddGrasshopperRayMoves(moves, piece, Vector2Int.right);
+                    AddGrasshopperRayMoves(moves, piece, new Vector2Int(1, 1));
+                    AddGrasshopperRayMoves(moves, piece, new Vector2Int(1, -1));
+                    AddGrasshopperRayMoves(moves, piece, new Vector2Int(-1, 1));
+                    AddGrasshopperRayMoves(moves, piece, new Vector2Int(-1, -1));
+                    break;
                 case PieceType.Pawn:
                 default:
                     AddPawnMoves(moves, piece);
@@ -630,6 +675,94 @@ public class BoardEvaluator : MonoBehaviour
                 }
 
                 break;
+            }
+        }
+
+        private void AddCannonRayMoves(List<Vector2Int> moves, SimPiece piece, Vector2Int direction)
+        {
+            Vector2Int current = piece.Position + direction;
+            bool jumped = false;
+
+            while (IsInBounds(current))
+            {
+                if (IsDestroyedCell(current))
+                {
+                    break;
+                }
+
+                SimPiece pieceAt = GetPieceAt(current);
+
+                if (!jumped)
+                {
+                    if (pieceAt == null)
+                    {
+                        if (CanMoveTo(piece, current))
+                        {
+                            moves.Add(current);
+                        }
+                        current += direction;
+                    }
+                    else
+                    {
+                        jumped = true;
+                        current += direction;
+                    }
+                }
+                else
+                {
+                    if (pieceAt == null)
+                    {
+                        current += direction;
+                    }
+                    else
+                    {
+                        if (pieceAt.IsEnemy != piece.IsEnemy && CanMoveTo(piece, current))
+                        {
+                            moves.Add(current);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void AddGrasshopperRayMoves(List<Vector2Int> moves, SimPiece piece, Vector2Int direction)
+        {
+            Vector2Int current = piece.Position + direction;
+
+            while (IsInBounds(current))
+            {
+                if (IsDestroyedCell(current))
+                {
+                    break;
+                }
+
+                SimPiece pieceAt = GetPieceAt(current);
+                if (pieceAt != null)
+                {
+                    Vector2Int landingPos = current + direction;
+                    if (IsInBounds(landingPos) && !IsDestroyedCell(landingPos))
+                    {
+                        SimPiece landingPiece = GetPieceAt(landingPos);
+                        if (landingPiece == null)
+                        {
+                            if (CanMoveTo(piece, landingPos))
+                            {
+                                moves.Add(landingPos);
+                            }
+                        }
+                        else if (landingPiece.IsEnemy != piece.IsEnemy)
+                        {
+                            if (CanMoveTo(piece, landingPos))
+                            {
+                                moves.Add(landingPos);
+                            }
+                        }
+                    }
+                    break;
+                }
+
+                current += direction;
             }
         }
 

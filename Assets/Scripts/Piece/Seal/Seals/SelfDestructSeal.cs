@@ -19,8 +19,6 @@ public class SelfDestructSeal : SealBase
             return;
         }
 
-        TurnLogUIManager.Instance?.AddLog("[INJECTION TRIGGERED] Logic_Bomb.exe :: PAYLOAD DETONATED", owner.IsEnemy);
-
         List<PieceController> targets = new List<PieceController>();
 
         PieceController leftPiece = PieceManager.Instance.GetPieceAt(ownerPosition + Vector2Int.left);

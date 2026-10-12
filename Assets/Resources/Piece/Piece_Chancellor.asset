@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4da099f0f7d54b7f9ffd8afa398d3cc7, type: 3}
+  m_Name: Chancellor
+  m_EditorClassIdentifier: Assembly-CSharp::PieceData
+  id: Chancellor
+  pieceType: 7
+  pieceName: 챈슬러
+  icon: {fileID: -2014393228016629789, guid: fd633027036cd4c11bed298215d4b898, type: 3}
+  rarity: 3
+  description: "룩의 행마(상하좌우 직선 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다."
+  flavorText: "성채의 중장갑 직선 관통력과 기사의 지형 무시 도약 기동을 결합한 하이브리드 변형 체스 기물."
+

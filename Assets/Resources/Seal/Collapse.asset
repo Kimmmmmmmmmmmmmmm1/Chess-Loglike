@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
+  m_Name: Collapse
+  m_EditorClassIdentifier: Assembly-CSharp::SealData
+  sealName: "붕괴의 인장"
+  rarity: 2
+  description: "장착한 기물이 이동했을 때, 전에 위치해 있던 그리드가 1턴 뒤에 붕괴합니다."
+  flavorText: "지나간 자리에 남는 것은 끝없는 심연뿐이다."
+  icon: {fileID: 7187665122349066479, guid: 70627a357a9fb4df0a285ca145a27dea, type: 3}
+  isSoldInShop: 1
+  sealPrefab: {fileID: 7411002200000000001, guid: 226859de879443f294281af0c2af0aa2, type: 3}
+  compatiblePieces: 
+  effectType: 3
+  effectValue: 0
+

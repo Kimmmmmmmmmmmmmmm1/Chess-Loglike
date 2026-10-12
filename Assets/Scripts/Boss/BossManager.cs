@@ -181,6 +181,24 @@ public class BossManager : MonoBehaviour
             }
         }
 
+        GridManager gridManager = PieceManager.Instance != null
+            ? PieceManager.Instance.gridManager
+            : FindFirstObjectByType<GridManager>();
+        if (gridManager == null)
+        {
+            gridManager = FindFirstObjectByType<GridManager>();
+        }
+
+        if (gridManager != null)
+        {
+            gridManager.SetBoardSize(
+                new[] { currentBossData.mapWidth, currentBossData.mapHeight },
+                new Vector2Int(currentBossData.minX, currentBossData.minY));
+        }
+
+        PieceManager.Instance?.SetHideEnemyTerritoryDuringPrepare(
+            currentBossData.hideEnemyTerritoryDuringPrepare);
+
         activeSkills.Clear();
         
         // 스킬 가져오기 및 초기화
@@ -204,7 +222,6 @@ public class BossManager : MonoBehaviour
         }
 
         // 스킬 실행 컨텍스트 설정
-        GridManager gridManager = FindFirstObjectByType<GridManager>();
         PieceManager pieceManager = PieceManager.Instance;
 
         if (gridManager == null)
@@ -283,4 +300,3 @@ public class BossManager : MonoBehaviour
         return opponentTurnCount;
     }
 }
-

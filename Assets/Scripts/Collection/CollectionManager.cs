@@ -530,6 +530,12 @@ public class CollectionManager : PersistentManagerBase
             PieceType.Bishop => 3,
             PieceType.Knight => 4,
             PieceType.Pawn => 5,
+            PieceType.Centaur => 6,
+            PieceType.Cannon => 7,
+            PieceType.Archbishop => 8,
+            PieceType.Chancellor => 9,
+            PieceType.Grasshopper => 10,
+            PieceType.Amazon => 11,
             _ => 99
         };
     }
@@ -723,7 +729,13 @@ public class CollectionManager : PersistentManagerBase
             PieceType.Rook,
             PieceType.Bishop,
             PieceType.Knight,
-            PieceType.Pawn
+            PieceType.Pawn,
+            PieceType.Centaur,
+            PieceType.Cannon,
+            PieceType.Archbishop,
+            PieceType.Chancellor,
+            PieceType.Grasshopper,
+            PieceType.Amazon
         };
 
         foreach (PieceType type in standardTypes)
@@ -735,6 +747,7 @@ public class CollectionManager : PersistentManagerBase
                 PieceData piece = ScriptableObject.CreateInstance<PieceData>();
                 piece.id = id;
                 piece.pieceType = type;
+                piece.rarity = PieceController.GetRarityForType(type);
                 piece.pieceName = type switch
                 {
                     PieceType.King => "킹",
@@ -743,6 +756,12 @@ public class CollectionManager : PersistentManagerBase
                     PieceType.Bishop => "비숍",
                     PieceType.Knight => "나이트",
                     PieceType.Pawn => "폰",
+                    PieceType.Amazon => "아마존",
+                    PieceType.Chancellor => "챈슬러",
+                    PieceType.Archbishop => "아치비숍",
+                    PieceType.Centaur => "켄타우로스",
+                    PieceType.Cannon => "캐논",
+                    PieceType.Grasshopper => "그래스호퍼",
                     _ => type.ToString()
                 };
                 piece.description = type switch
@@ -753,6 +772,12 @@ public class CollectionManager : PersistentManagerBase
                     PieceType.Bishop => "대각선 방향으로 거리 제한 없이 이동할 수 있습니다.",
                     PieceType.Knight => "L자 모양으로 이동합니다(2칸 직진 후 1칸 옆).\n경로상의 장애물을 무시하고 뛰어넘을 수 있습니다.",
                     PieceType.Pawn => "앞으로 1칸 전진(첫 이동 시 2칸 가능)하며, 대각선 앞 1칸의 적을 포획합니다.\n적진 끝에 도달하면 승급합니다.",
+                    PieceType.Amazon => "퀸의 행마(8방향 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다.",
+                    PieceType.Chancellor => "룩의 행마(상하좌우 직선 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다.",
+                    PieceType.Archbishop => "비숍의 행마(대각선 4방향 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다.",
+                    PieceType.Centaur => "킹의 행마(모든 방향 1칸)와 나이트의 행마(L자 점프)를 동시에 가집니다.",
+                    PieceType.Cannon => "평상시에는 룩처럼 직선 이동하지만, 적 기물을 잡을 때는 반드시 기물 1개를 뛰어넘어야 합니다.",
+                    PieceType.Grasshopper => "퀸과 같이 모든 방향으로 이동할 수 있으나, 이동할 때 반드시 다른 기물 하나를 뛰어넘어 바로 뒤 칸에 착지합니다.",
                     _ => string.Empty
                 };
                 piece.flavorText = type switch
@@ -763,43 +788,80 @@ public class CollectionManager : PersistentManagerBase
                     PieceType.Bishop => "대각선을 가로지르는 성직자.",
                     PieceType.Knight => "장애물을 뛰어넘는 기동력의 기사.",
                     PieceType.Pawn => "가장 앞장서 전진하며, 끝에 도달하면 승급을 이뤄내는 보병.",
+                    PieceType.Amazon => "퀸의 전방위 공격력과 나이트의 지형 무시 도약력을 결합한 최강의 전설 기물.",
+                    PieceType.Chancellor => "성채의 중장갑 직선 관통력과 기사의 도약 기동을 결합한 하이브리드 변형 체스 기물.",
+                    PieceType.Archbishop => "대각선 기동과 변칙 도약 능력을 결합하여 사각지대를 완전히 타격하는 고위 성기사 기물.",
+                    PieceType.Centaur => "전방위 1칸 방어 기동과 기사의 점프 기동력을 합친 복합 반인반마 기물.",
+                    PieceType.Cannon => "평상시에는 직선 기동을 수행하며, 단일 기물을 도약대로 삼아 포격하는 변형 체스 기물.",
+                    PieceType.Grasshopper => "퀸의 8방향 경로상 단일 장애물을 경유하여 바로 뒤 칸으로 도약 기동하는 고기동 메뚜기 기물.",
                     _ => string.Empty
                 };
                 piece.icon = GetPieceSprite(type);
                 allPieces.Add(piece);
             }
-            else if (existing.icon == null)
+            else
             {
-                existing.icon = GetPieceSprite(type);
+                if (existing.rarity <= 0)
+                {
+                    existing.rarity = PieceController.GetRarityForType(type);
+                }
+                Sprite sprite = GetPieceSprite(type);
+                if (sprite != null)
+                {
+                    existing.icon = sprite;
+                }
+            }
+        }
+
+        foreach (PieceData piece in allPieces)
+        {
+            if (piece != null)
+            {
+                Sprite sprite = GetPieceSprite(piece.pieceType);
+                if (sprite != null)
+                {
+                    piece.icon = sprite;
+                }
             }
         }
     }
 
     private Sprite GetPieceSprite(PieceType type)
     {
+        if (PieceSpriteData.Instance != null)
+        {
+            Sprite s = PieceSpriteData.Instance.GetSprite(type, false);
+            if (s != null) return s;
+        }
+
         if (PieceManager.Instance != null)
         {
             return PieceManager.Instance.GetSpriteFor(type);
         }
 
 #if UNITY_EDITOR
-        Sprite[] sprites = UnityEditor.AssetDatabase.LoadAllAssetsAtPath("Assets/Sprites/Game/Piece-Sheet.png").OfType<Sprite>().ToArray();
-        string targetSpriteName = type switch
+        string assetPath = type switch
         {
-            PieceType.King => "Piece-Sheet_1",
-            PieceType.Queen => "Piece-Sheet_3",
-            PieceType.Rook => "Piece-Sheet_2",
-            PieceType.Bishop => "Piece-Sheet_5",
-            PieceType.Knight => "Piece-Sheet_4",
-            PieceType.Pawn => "Piece-Sheet_6",
+            PieceType.King => "Assets/Data/Piece/Piece_King.asset",
+            PieceType.Queen => "Assets/Data/Piece/Piece_Queen.asset",
+            PieceType.Rook => "Assets/Data/Piece/Piece_Rook.asset",
+            PieceType.Bishop => "Assets/Data/Piece/Piece_Bishop.asset",
+            PieceType.Knight => "Assets/Data/Piece/Piece_Knight.asset",
+            PieceType.Pawn => "Assets/Data/Piece/Piece_Pawn.asset",
+            PieceType.Amazon => "Assets/Data/Piece/Piece_Amazon.asset",
+            PieceType.Chancellor => "Assets/Data/Piece/Piece_Chancellor.asset",
+            PieceType.Archbishop => "Assets/Data/Piece/Piece_Archbishop.asset",
+            PieceType.Centaur => "Assets/Data/Piece/Piece_Centaur.asset",
+            PieceType.Cannon => "Assets/Data/Piece/Piece_Cannon.asset",
+            PieceType.Grasshopper => "Assets/Data/Piece/Piece_Grasshopper.asset",
             _ => null
         };
-        if (targetSpriteName != null)
+        if (assetPath != null)
         {
-            Sprite found = sprites.FirstOrDefault(s => s.name == targetSpriteName);
-            if (found != null)
+            PieceData pieceData = UnityEditor.AssetDatabase.LoadAssetAtPath<PieceData>(assetPath);
+            if (pieceData != null && pieceData.icon != null)
             {
-                return found;
+                return pieceData.icon;
             }
         }
 #endif

@@ -10,11 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4da099f0f7d54b7f9ffd8afa398d3cc7, type: 3}
-  m_Name: Rook
+  m_Name: Piece_Rook
   m_EditorClassIdentifier: Assembly-CSharp::PieceData
   id: Rook
   pieceType: 1
-  pieceName: 룩
-  icon: {fileID: -2014393228016629789, guid: fd633027036cd4c11bed298215d4b898, type: 3}
-  description: "가로와 세로 방향으로 거리 제한 없이 이동할 수 있습니다."
-  flavorText: "직선 경로를 장악하는 웅장한 성채."
+  pieceName: "\uB8E9"
+  icon: {fileID: 664592559566245308, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  rarity: 2
+  description: "\uAC00\uB85C\uC640 \uC138\uB85C \uBC29\uD5A5\uC73C\uB85C \uAC70\uB9AC \uC81C\uD55C \uC5C6\uC774 \uC774\uB3D9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."
+  flavorText: "\uC9C1\uC120 \uACBD\uB85C\uB97C \uC7A5\uC545\uD558\uB294 \uC6C5\uC7A5\uD55C \uC131\uCC44."

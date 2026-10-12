@@ -15,6 +15,7 @@ public class ArtifactManager : MonoBehaviour
 
     public event Action<ArtifactData> OnArtifactAdded;
     public event Action<ArtifactData> OnArtifactEnhanced;
+    public event Action<ArtifactData> OnArtifactConsumed;
 
     [Header("UI References")]
     public List<ArtifactSlot> artifactSlots; // 미리 생성된 슬롯들을 여기에 할당하세요
@@ -73,15 +74,24 @@ public class ArtifactManager : MonoBehaviour
     {
         if (artifact == null) return;
         
-        // 중복 획득 방지 (필요에 따라 정책 변경 가능)
-        if (ownedArtifacts.Any(a => a != null && a.id == artifact.id))
+        ArtifactData existing = ownedArtifacts.FirstOrDefault(a => a != null && a.id == artifact.id);
+        if (existing != null)
         {
+            // 액티브 유물은 같은 칸에 개수만 증가
+            if (existing.IsActive)
+            {
+                existing.AddStack(1);
+                UpdateInventoryUI();
+                OnArtifactAdded?.Invoke(existing);
+            }
+            // 패시브 유물은 중복 획득 방지
             return;
         }
 
         ArtifactData runtimeArtifact = Instantiate(artifact);
         runtimeArtifact.name = artifact.name;
         runtimeArtifact.ResetLevel();
+        runtimeArtifact.ResetStack();
 
         ownedArtifacts.Add(runtimeArtifact);
         UpdateInventoryUI();
@@ -89,16 +99,64 @@ public class ArtifactManager : MonoBehaviour
         OnArtifactAdded?.Invoke(runtimeArtifact);
     }
 
+    /// <summary>
+    /// 유물을 제거합니다. 여러 개 보유한 액티브 유물은 1개만 감소합니다.
+    /// </summary>
     public void RemoveArtifact(ArtifactData artifact)
     {
+        if (artifact == null || !ownedArtifacts.Contains(artifact)) return;
+
+        if (artifact.IsActive && artifact.RemoveStack())
+        {
+            UpdateInventoryUI();
+            return;
+        }
+
         if (ownedArtifacts.Remove(artifact))
         {
             UpdateInventoryUI();
         }
     }
 
+    /// <summary>
+    /// 액티브 유물 1개를 사용(소모)합니다.
+    /// </summary>
+    public void ConsumeArtifact(ArtifactData artifact)
+    {
+        if (artifact == null || !artifact.IsActive) return;
+
+        RemoveArtifact(artifact);
+        OnArtifactConsumed?.Invoke(artifact);
+    }
+
+    /// <summary>
+    /// 새로 획득할 유물이 들어갈 인벤토리 슬롯을 반환합니다. (이미 보유한 액티브 유물이면 기존 칸)
+    /// </summary>
+    public ArtifactSlot GetIncomingSlot(ArtifactData artifact)
+    {
+        if (artifactSlots == null) return null;
+
+        int targetIndex = ownedArtifacts.Count;
+        if (artifact != null && artifact.IsActive)
+        {
+            int existingIndex = ownedArtifacts.FindIndex(a => a != null && a.id == artifact.id);
+            if (existingIndex >= 0) targetIndex = existingIndex;
+        }
+
+        return targetIndex < artifactSlots.Count ? artifactSlots[targetIndex] : null;
+    }
+
+    public ArtifactSlot GetSlotOf(ArtifactData artifact)
+    {
+        if (artifactSlots == null || artifact == null) return null;
+
+        int index = ownedArtifacts.IndexOf(artifact);
+        return index >= 0 && index < artifactSlots.Count ? artifactSlots[index] : null;
+    }
+
     public void ClearArtifacts()
     {
+        ActiveArtifactController.CancelIfTargeting();
         ownedArtifacts.Clear();
         UpdateInventoryUI();
     }
@@ -203,13 +261,23 @@ public class ArtifactManager : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// 획득 후보 여부: 패시브는 미보유일 때만, 액티브는 중복 보유 가능하므로 항상 후보.
+    /// </summary>
+    private bool IsObtainable(ArtifactData candidate)
+    {
+        if (candidate == null) return false;
+        if (candidate.IsActive) return true;
+        return !ownedArtifacts.Any(owned => owned != null && owned.id == candidate.id);
+    }
+
     public ArtifactData GetRandomArtifact()
     {
         if (allArtifacts == null || allArtifacts.Count == 0) return null;
 
-        // 소유하지 않은 아티팩트 중에서 랜덤 선택
+        // 획득 가능한 아티팩트 중에서 랜덤 선택
         var availableArtifacts = allArtifacts
-            .Where(candidate => candidate != null && !ownedArtifacts.Any(owned => owned != null && owned.id == candidate.id))
+            .Where(IsObtainable)
             .ToList();
         
         if (availableArtifacts.Count == 0) return null; // 모든 아티팩트 획득함
@@ -228,7 +296,7 @@ public class ArtifactManager : MonoBehaviour
         var shopAvailableArtifacts = allArtifacts
             .Where(candidate => candidate != null && 
                    candidate.isSoldInShop && 
-                   !ownedArtifacts.Any(owned => owned != null && owned.id == candidate.id))
+                   IsObtainable(candidate))
             .ToList();
         
         if (shopAvailableArtifacts.Count == 0) return null;

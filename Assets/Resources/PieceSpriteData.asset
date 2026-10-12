@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e1a47b8c2d9e4a3f8b5c6d7e8f9a0b1c, type: 3}
+  m_Name: PieceSpriteData
+  m_EditorClassIdentifier: Assembly-CSharp::PieceSpriteData
+  kingSprite: {fileID: 1920434732619831824, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  queenSprite: {fileID: -5830367446604607832, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  rookSprite: {fileID: 664592559566245308, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  bishopSprite: {fileID: 5330433185586497934, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  knightSprite: {fileID: 5720223073860930455, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  pawnSprite: {fileID: -1645784633617896932, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  amazonSprite: {fileID: 6609155630932180064, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  chancellorSprite: {fileID: 1137423516442640242, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  archbishopSprite: {fileID: -1243003948888484408, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  centaurSprite: {fileID: 6807693416965623632, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  cannonSprite: {fileID: 8761142422384720759, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  grasshopperSprite: {fileID: 2300904481167334120, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  enemyKingSprite: {fileID: -5284901910649022661, guid: d8175430952b144c0a07b74d809fdd0b, type: 3}
+  enemyQueenSprite: {fileID: 343359130452720428, guid: d8175430952b144c0a07b74d809fdd0b, type: 3}
+  enemyRookSprite: {fileID: -3766039524005780386, guid: d8175430952b144c0a07b74d809fdd0b, type: 3}
+  enemyBishopSprite: {fileID: -648336255651514419, guid: d8175430952b144c0a07b74d809fdd0b, type: 3}
+  enemyKnightSprite: {fileID: -8661067586430081374, guid: d8175430952b144c0a07b74d809fdd0b, type: 3}
+  enemyPawnSprite: {fileID: -5510685063536688158, guid: d8175430952b144c0a07b74d809fdd0b, type: 3}
+  enemyAmazonSprite: {fileID: 4647882352860329537, guid: d8175430952b144c0a07b74d809fdd0b, type: 3}
+  enemyChancellorSprite: {fileID: 5661404319098739464, guid: d8175430952b144c0a07b74d809fdd0b, type: 3}
+  enemyArchbishopSprite: {fileID: -7961080302271608105, guid: d8175430952b144c0a07b74d809fdd0b, type: 3}
+  enemyCentaurSprite: {fileID: -6912208185079577506, guid: d8175430952b144c0a07b74d809fdd0b, type: 3}
+  enemyCannonSprite: {fileID: -8106602774163235404, guid: d8175430952b144c0a07b74d809fdd0b, type: 3}
+  enemyGrasshopperSprite: {fileID: 8503547923660420046, guid: d8175430952b144c0a07b74d809fdd0b, type: 3}

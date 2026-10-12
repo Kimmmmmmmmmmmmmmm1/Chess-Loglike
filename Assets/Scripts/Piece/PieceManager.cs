@@ -19,22 +19,59 @@ public class PieceManager : MonoBehaviour
     public GameObject destructionEffectPrefab;
 
 
-    [Header("Piece Sprites")]
-    public Sprite kingSprite;
-    public Sprite chariotSprite;
-    public Sprite horseSprite;
-    public Sprite elephantSprite;
-    public Sprite cannonSprite;
-    public Sprite soldierSprite;
+    [Header("Piece Sprite Database")]
+    public PieceSpriteData spriteData;
 
+    public PieceSpriteData SpriteData
+    {
+        get
+        {
+            if (spriteData == null)
+            {
+                spriteData = PieceSpriteData.Instance;
+            }
+            return spriteData;
+        }
+    }
 
-    [Header("Enemy Piece Sprites")]
-    public Sprite enemykingSprite;
-    public Sprite enemychariotSprite;
-    public Sprite enemyhorseSprite;
-    public Sprite enemyelephantSprite;
-    public Sprite enemycannonSprite;
-    public Sprite enemysoldierSprite;
+    // Properties for backwards compatibility and easy access
+    public Sprite kingSprite => GetSpriteFor(PieceType.King);
+    public Sprite queenSprite => GetSpriteFor(PieceType.Queen);
+    public Sprite rookSprite => GetSpriteFor(PieceType.Rook);
+    public Sprite bishopSprite => GetSpriteFor(PieceType.Bishop);
+    public Sprite knightSprite => GetSpriteFor(PieceType.Knight);
+    public Sprite pawnSprite => GetSpriteFor(PieceType.Pawn);
+
+    public Sprite enemyKingSprite => GetEnemySpriteFor(PieceType.King);
+    public Sprite enemyQueenSprite => GetEnemySpriteFor(PieceType.Queen);
+    public Sprite enemyRookSprite => GetEnemySpriteFor(PieceType.Rook);
+    public Sprite enemyBishopSprite => GetEnemySpriteFor(PieceType.Bishop);
+    public Sprite enemyKnightSprite => GetEnemySpriteFor(PieceType.Knight);
+    public Sprite enemyPawnSprite => GetEnemySpriteFor(PieceType.Pawn);
+
+    // Backwards compatibility properties (deprecated Janggi names)
+    [System.Obsolete("Use queenSprite instead.")]
+    public Sprite cannonSprite => queenSprite;
+    [System.Obsolete("Use rookSprite instead.")]
+    public Sprite chariotSprite => rookSprite;
+    [System.Obsolete("Use bishopSprite instead.")]
+    public Sprite elephantSprite => bishopSprite;
+    [System.Obsolete("Use knightSprite instead.")]
+    public Sprite horseSprite => knightSprite;
+    [System.Obsolete("Use pawnSprite instead.")]
+    public Sprite soldierSprite => pawnSprite;
+    [System.Obsolete("Use enemyKingSprite instead.")]
+    public Sprite enemykingSprite => enemyKingSprite;
+    [System.Obsolete("Use enemyQueenSprite instead.")]
+    public Sprite enemycannonSprite => enemyQueenSprite;
+    [System.Obsolete("Use enemyRookSprite instead.")]
+    public Sprite enemychariotSprite => enemyRookSprite;
+    [System.Obsolete("Use enemyBishopSprite instead.")]
+    public Sprite enemyelephantSprite => enemyBishopSprite;
+    [System.Obsolete("Use enemyKnightSprite instead.")]
+    public Sprite enemyhorseSprite => enemyKnightSprite;
+    [System.Obsolete("Use enemyPawnSprite instead.")]
+    public Sprite enemysoldierSprite => enemyPawnSprite;
 
     [Header("Settings")]
     [SerializeField] private float captureDestroyDelay = 0.25f;
@@ -43,6 +80,10 @@ public class PieceManager : MonoBehaviour
     public int PlayerPrepareMaxY => playerPrepareMaxY;
     public int MaxPlayerPiecesOnBoard => maxPlayerPiecesOnBoard;
     public const int AbsoluteMaxPlayerPieces = 10;
+    private bool hideEnemyTerritoryDuringPrepare;
+    public bool IsEnemyTerritoryHiddenDuringPrepare => hideEnemyTerritoryDuringPrepare &&
+        GameStateManager.Instance != null &&
+        GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare;
 
     [Header("UI")]
     [SerializeField] private TextMeshProUGUI pieceCountText;
@@ -59,6 +100,9 @@ public class PieceManager : MonoBehaviour
     private bool threatenedUpdateQueued = false;
     private bool threatenedUpdateRunning = false;
     private const int ThreatenedBatchSize = 6;
+    private int currentTurnNumber = 1;
+    private bool whiteMovedInTurn = false;
+    private bool blackMovedInTurn = false;
 
     public PieceController SelectedPiece => selectedPiece;
     public IReadOnlyList<PieceController> Pieces => pieces;
@@ -121,11 +165,18 @@ public class PieceManager : MonoBehaviour
     {
         if (newState == GameStateManager.GameState.Prepare)
         {
+            ResetTurnNumber();
+            TurnLogUIManager.Instance?.ClearAllLogs();
+
             if (!hasPlacementSnapshot)
             {
                 CapturePlacementSnapshot();
             }
             MovePlayerPiecesToSafety();
+        }
+        else if (newState == GameStateManager.GameState.GamePlay)
+        {
+            ResetTurnNumber();
         }
 
         foreach (var piece in pieces)
@@ -133,6 +184,24 @@ public class PieceManager : MonoBehaviour
             if (piece != null)
             {
                 piece.RefreshThreatenedVisuals();
+                piece.SetHiddenDuringPrepare(newState == GameStateManager.GameState.Prepare &&
+                                             hideEnemyTerritoryDuringPrepare &&
+                                             piece.IsEnemy);
+            }
+        }
+    }
+
+    public void SetHideEnemyTerritoryDuringPrepare(bool hide)
+    {
+        hideEnemyTerritoryDuringPrepare = hide;
+        bool isPrepare = GameStateManager.Instance != null &&
+                         GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare;
+
+        foreach (var piece in pieces)
+        {
+            if (piece != null && piece.IsEnemy)
+            {
+                piece.SetHiddenDuringPrepare(isPrepare && hide);
             }
         }
     }
@@ -346,6 +415,20 @@ public class PieceManager : MonoBehaviour
             return;
         }
 
+        // 승급의 인장을 제외한 기존 인장들(카멜레온의 인장 등) 보존
+        List<SealData> retainedSeals = new List<SealData>();
+        if (piece.EquippedSeals != null)
+        {
+            foreach (var seal in piece.EquippedSeals)
+            {
+                if (seal != null && seal.Data != null &&
+                    seal.Data.sealName != "승급의 인장" && seal.Data.sealName != "승급자의 인장")
+                {
+                    retainedSeals.Add(seal.Data);
+                }
+            }
+        }
+
         Vector3 spawnPos = piece.transform.position;
         UnregisterPiece(piece);
         piece.gridPosition = null;
@@ -365,6 +448,14 @@ public class PieceManager : MonoBehaviour
         {
             newPiece.Initialize(PieceType.Pawn, false);
             newPiece.MoveToGrid(position);
+
+            foreach (var sData in retainedSeals)
+            {
+                if (sData != null)
+                {
+                    newPiece.EquipSeal(sData);
+                }
+            }
         }
     }
 
@@ -381,6 +472,20 @@ public class PieceManager : MonoBehaviour
             return;
         }
 
+        // 승급의 인장을 제외한 기존 인장들 보존
+        List<SealData> retainedSeals = new List<SealData>();
+        if (piece.EquippedSeals != null)
+        {
+            foreach (var seal in piece.EquippedSeals)
+            {
+                if (seal != null && seal.Data != null &&
+                    seal.Data.sealName != "승급의 인장" && seal.Data.sealName != "승급자의 인장")
+                {
+                    retainedSeals.Add(seal.Data);
+                }
+            }
+        }
+
         if (PieceInventory.Instance != null)
         {
             PieceInventory.Instance.RemovePiece(piece.Type);
@@ -395,6 +500,14 @@ public class PieceManager : MonoBehaviour
         {
             newPiece.Initialize(PieceType.Pawn, false);
             newPiece.MoveToInventory(slotTransform);
+
+            foreach (var sData in retainedSeals)
+            {
+                if (sData != null)
+                {
+                    newPiece.EquipSeal(sData);
+                }
+            }
         }
     }
 
@@ -546,13 +659,19 @@ public class PieceManager : MonoBehaviour
 
         if (EffectManager.Instance != null)
         {
-            Color targetColor = piece.IsEnemy ? new Color(1f, 0.2f, 0.33f, 1f) : new Color(0f, 1f, 0f, 1f);
+            Color targetColor = piece.PieceImage != null ? piece.PieceImage.color : Color.white;
 
             float scale = 1f;
             switch (piece.Type)
             {
                 case PieceType.King:
                 case PieceType.Queen:
+                case PieceType.Amazon:
+                case PieceType.Chancellor:
+                case PieceType.Archbishop:
+                case PieceType.Centaur:
+                case PieceType.Cannon:
+                case PieceType.Grasshopper:
                     scale = 1.2f;
                     break;
                 case PieceType.Pawn:
@@ -582,42 +701,20 @@ public class PieceManager : MonoBehaviour
 
     public Sprite GetSpriteFor(PieceType pieceType)
     {
-        switch (pieceType)
+        if (SpriteData != null)
         {
-            case PieceType.King:
-                return kingSprite;
-            case PieceType.Rook:
-                return chariotSprite;
-            case PieceType.Knight:
-                return horseSprite;
-            case PieceType.Bishop:
-                return elephantSprite;
-            case PieceType.Queen:
-                return cannonSprite;
-            case PieceType.Pawn:
-            default:
-                return soldierSprite;
+            return SpriteData.GetSprite(pieceType, false);
         }
+        return null;
     }
 
     public Sprite GetEnemySpriteFor(PieceType pieceType)
     {
-        switch (pieceType)
+        if (SpriteData != null)
         {
-            case PieceType.King:
-                return enemykingSprite;
-            case PieceType.Rook:
-                return enemychariotSprite;
-            case PieceType.Knight:
-                return enemyhorseSprite;
-            case PieceType.Bishop:
-                return enemyelephantSprite;
-            case PieceType.Queen:
-                return enemycannonSprite;
-            case PieceType.Pawn:
-            default:
-                return enemysoldierSprite;
+            return SpriteData.GetSprite(pieceType, true);
         }
+        return null;
     }
 
     public int GetPlayerPieceCountOnBoard()
@@ -643,8 +740,7 @@ public class PieceManager : MonoBehaviour
     {
         if (pieceCountText != null)
         {
-            pieceCountText.text = $"[NODES DEPLOYED: {GetPlayerPieceCountOnBoard()}/{maxPlayerPiecesOnBoard}]";
-            pieceCountText.color = new Color(0f, 1f, 0f, 1f);
+            pieceCountText.text = $"배치 가능 기물: {GetPlayerPieceCountOnBoard()}/{maxPlayerPiecesOnBoard}";
         }
     }
 
@@ -770,18 +866,21 @@ public class PieceManager : MonoBehaviour
             flyParentOverride);
     }
 
-    public void MoveSelectedTo(Vector2Int gridPosition)
+    public bool MoveSelectedTo(Vector2Int gridPosition)
     {
         if (selectedPiece == null)
         {
-            return;
+            return false;
         }
 
         if (TryMovePiece(selectedPiece, gridPosition))
         {
             ClearMarkers();
             selectedPiece = null;
+            return true;
         }
+
+        return false;
     }
 
     public bool TryMovePiece(PieceController piece, Vector2Int gridPosition)
@@ -800,6 +899,12 @@ public class PieceManager : MonoBehaviour
             {
                 return false;
             }
+
+            // 액티브 유물 대상 선택 중에는 플레이어 이동 불가
+            if (!piece.IsEnemy && ActiveArtifactController.IsTargeting)
+            {
+                return false;
+            }
         }
 
         Vector2Int fromPosition = piece.gridPosition.Value;
@@ -810,6 +915,14 @@ public class PieceManager : MonoBehaviour
         if (targetPiece != null)
         {
             if (targetPiece.IsEnemy == piece.IsEnemy) return false;
+
+            AttackResponse response = ResolveAttackResponse(piece, targetPiece);
+            if (response != AttackResponse.None)
+            {
+                UpdateThreatenedStatus();
+                AdvanceTurnAfterMove();
+                return true;
+            }
 
             if (!targetPiece.CanBeDestroyed())
             {
@@ -841,22 +954,209 @@ public class PieceManager : MonoBehaviour
         }
 
         Vector2Int prevPos = piece.gridPosition.Value;
+        piece.OnStartMove(prevPos, gridPosition);
         piece.MoveToGrid(gridPosition);
+
+        // 체스닷컴 스타일: 이동 전 칸과 이동 후 칸 하이라이트
+        if (gridManager != null)
+        {
+            gridManager.HighlightLastMove(prevPos, gridPosition);
+        }
 
         LogTurnAction(piece, prevPos, gridPosition, capturedType, capturedIsEnemy);
         
         piece.OnMoveFinished(prevPos, gridPosition);
 
+        if (capturedType.HasValue)
+        {
+            piece.OnCapturedPiece(capturedType.Value);
+        }
+
         UpdateThreatenedStatus();
 
-        if (TurnManager.Instance != null)
+        AdvanceTurnAfterMove();
+        return true;
+    }
+
+    private enum AttackResponse
+    {
+        None,
+        Protected,
+        Evaded,
+        Counterattacked
+    }
+
+    private AttackResponse ResolveAttackResponse(PieceController attacker, PieceController defender)
+    {
+        // 여러 버프가 동시에 있으면 보호 -> 회피 -> 역공 순서로 하나만 발동합니다.
+        if (defender.ConsumeBuff(PieceBuffType.Protection))
         {
-            if (PiecePromotionManager.Instance == null || !PiecePromotionManager.Instance.IsPromotionPanelOpen())
+            ActivateBuffEffect(defender, PieceBuffType.Protection, "공격 무효화");
+            return AttackResponse.Protected;
+        }
+
+        Vector2Int? evasionPosition = FindEvasionPosition(defender);
+        if (evasionPosition.HasValue)
+        {
+            defender.ConsumeBuff(PieceBuffType.Evasion);
+            defender.OnStartMove(defender.gridPosition.Value, evasionPosition.Value);
+            Vector2Int previousPosition = defender.gridPosition.Value;
+            defender.MoveToGrid(evasionPosition.Value);
+            defender.OnMoveFinished(previousPosition, evasionPosition.Value);
+            ActivateBuffEffect(defender, PieceBuffType.Evasion, "주변 빈 칸으로 회피");
+            return AttackResponse.Evaded;
+        }
+
+        if (defender.ConsumeBuff(PieceBuffType.Counterattack))
+        {
+            if (attacker.CanBeDestroyed())
             {
-                TurnManager.Instance.AdvanceTurn();
+                DestroyPieceWithEffects(attacker, true, true, defender);
+                defender.OnCapturedPiece(attacker.Type);
+                ActivateBuffEffect(defender, PieceBuffType.Counterattack, "공격자를 역공");
+                return AttackResponse.Counterattacked;
+            }
+
+            // The counterattack stack is refunded when another destruction veto prevents it.
+            defender.AddBuff(PieceBuffType.Counterattack);
+        }
+
+        return AttackResponse.None;
+    }
+
+    private void ActivateBuffEffect(PieceController defender, PieceBuffType buffType, string effectDescription)
+    {
+        // 공통 발동 연출은 PieceController에서 관리하고, 이곳에서는 로그만 조합합니다.
+        defender.PlayBuffActivationEffect(buffType);
+
+        string buffName = buffType switch
+        {
+            PieceBuffType.Protection => "보호",
+            PieceBuffType.Evasion => "회피",
+            PieceBuffType.Counterattack => "역공",
+            _ => "버프"
+        };
+
+        TurnLogUIManager.Instance?.AddLog(
+            $"{buffName} 발동: {effectDescription} (남은 스택 {defender.GetBuffStacks(buffType)})",
+            defender.IsEnemy);
+    }
+
+    private Vector2Int? FindEvasionPosition(PieceController defender)
+    {
+        if (defender.GetBuffStacks(PieceBuffType.Evasion) <= 0 ||
+            defender.gridPosition == null ||
+            gridManager == null)
+        {
+            return null;
+        }
+
+        Vector2Int origin = defender.gridPosition.Value;
+        Vector2Int[] adjacentOffsets =
+        {
+            new Vector2Int(0, 1),
+            new Vector2Int(1, 0),
+            new Vector2Int(0, -1),
+            new Vector2Int(-1, 0),
+            new Vector2Int(1, 1),
+            new Vector2Int(1, -1),
+            new Vector2Int(-1, 1),
+            new Vector2Int(-1, -1)
+        };
+
+        foreach (Vector2Int offset in adjacentOffsets)
+        {
+            Vector2Int candidate = origin + offset;
+            GridCell cell = gridManager.GetGridCell(candidate);
+            if (cell != null && !cell.isDestroyed && GetPieceAt(candidate) == null)
+            {
+                return candidate;
             }
         }
-        return true;
+
+        return null;
+    }
+
+    private void AdvanceTurnAfterMove()
+    {
+        if (TurnManager.Instance != null &&
+            (PiecePromotionManager.Instance == null || !PiecePromotionManager.Instance.IsPromotionPanelOpen()))
+        {
+            TurnManager.Instance.AdvanceTurn();
+        }
+    }
+
+    public void ResetTurnNumber()
+    {
+        currentTurnNumber = 1;
+        whiteMovedInTurn = false;
+        blackMovedInTurn = false;
+        if (gridManager != null)
+        {
+            gridManager.ClearLastMoveHighlight();
+        }
+    }
+
+    private string GetTurnPrefix(bool isEnemy)
+    {
+        string prefix = isEnemy ? $"{currentTurnNumber}... " : $"{currentTurnNumber}. ";
+        if (isEnemy)
+        {
+            blackMovedInTurn = true;
+        }
+        else
+        {
+            whiteMovedInTurn = true;
+        }
+
+        if (whiteMovedInTurn && blackMovedInTurn)
+        {
+            currentTurnNumber++;
+            whiteMovedInTurn = false;
+            blackMovedInTurn = false;
+        }
+
+        return prefix;
+    }
+
+    public static string GetPieceAlgebraicSymbol(PieceType type)
+    {
+        return type switch
+        {
+            PieceType.King => "K",
+            PieceType.Queen => "Q",
+            PieceType.Rook => "R",
+            PieceType.Bishop => "B",
+            PieceType.Knight => "N",
+            PieceType.Pawn => "",
+            PieceType.Amazon => "A",
+            PieceType.Chancellor => "C",
+            PieceType.Archbishop => "H",
+            PieceType.Centaur => "T",
+            PieceType.Cannon => "X",
+            PieceType.Grasshopper => "G",
+            _ => ""
+        };
+    }
+
+    public static string GetPieceTypeKoreanName(PieceType type)
+    {
+        return type switch
+        {
+            PieceType.King => "킹",
+            PieceType.Queen => "퀸",
+            PieceType.Rook => "룩",
+            PieceType.Bishop => "비숍",
+            PieceType.Knight => "나이트",
+            PieceType.Pawn => "폰",
+            PieceType.Amazon => "아마존",
+            PieceType.Chancellor => "챈슬러",
+            PieceType.Archbishop => "아치비숍",
+            PieceType.Centaur => "켄타우로스",
+            PieceType.Cannon => "캐논",
+            PieceType.Grasshopper => "그래스호퍼",
+            _ => type.ToString()
+        };
     }
 
     private void LogTurnAction(PieceController mover, Vector2Int from, Vector2Int to, PieceType? capturedType, bool? capturedIsEnemy)
@@ -866,32 +1166,168 @@ public class PieceManager : MonoBehaviour
             return;
         }
 
-        string moverTypeName = GetPieceTypeKoreanName(mover.Type);
-        string moverPositionFrom = FormatDisplayGridPosition(from);
-        string moverPositionTo = FormatDisplayGridPosition(to);
+        MarkPiecePositionCacheDirty();
+
+        string fromPos = FormatDisplayGridPosition(from);
+        string toPos = FormatDisplayGridPosition(to);
+        bool isCapture = capturedType.HasValue;
+
+        // 1. 체스 기보(Algebraic Notation) 기본 문자열 생성
+        string notation = "";
+        if (mover.Type == PieceType.Pawn)
+        {
+            if (isCapture)
+            {
+                notation = $"{fromPos[0]}x{toPos}";
+            }
+            else
+            {
+                notation = toPos;
+            }
+
+            // 승급선 도달 시 적군은 즉시 퀸(=Q)으로 표기
+            if (gridManager != null)
+            {
+                int promoRank = mover.IsEnemy ? gridManager.gridMinBounds.y : (gridManager.gridMinBounds.y + gridManager.boardHeight - 1);
+                if (to.y == promoRank && mover.IsEnemy)
+                {
+                    notation += "=Q";
+                }
+            }
+        }
+        else
+        {
+            string symbol = GetPieceAlgebraicSymbol(mover.Type);
+
+            // 동일 기물 출발 위치 모호성(Disambiguation) 해소
+            string disambiguation = "";
+            List<PieceController> others = new List<PieceController>();
+            for (int i = 0; i < pieces.Count; i++)
+            {
+                PieceController p = pieces[i];
+                if (p != null && p != mover && p.IsEnemy == mover.IsEnemy && p.Type == mover.Type && p.CurrentLocation == PieceLocation.Board && p.gridPosition.HasValue)
+                {
+                    var validMoves = p.GetCandidateMoves();
+                    if (validMoves != null && validMoves.Contains(to))
+                    {
+                        others.Add(p);
+                    }
+                }
+            }
+
+            if (others.Count > 0)
+            {
+                bool sameFile = false;
+                bool sameRank = false;
+                for (int i = 0; i < others.Count; i++)
+                {
+                    if (others[i].gridPosition.Value.x == from.x) sameFile = true;
+                    if (others[i].gridPosition.Value.y == from.y) sameRank = true;
+                }
+
+                if (!sameFile)
+                {
+                    disambiguation = fromPos[0].ToString();
+                }
+                else if (!sameRank)
+                {
+                    disambiguation = fromPos[1].ToString();
+                }
+                else
+                {
+                    disambiguation = fromPos;
+                }
+            }
+
+            if (isCapture)
+            {
+                notation = $"{symbol}{disambiguation}x{toPos}";
+            }
+            else
+            {
+                notation = $"{symbol}{disambiguation}{toPos}";
+            }
+        }
+
+        // 2. 체크(+) 및 체크메이트(#) 판별
+        if (capturedType == PieceType.King)
+        {
+            notation += "#";
+        }
+        else
+        {
+            PieceController oppKing = null;
+            for (int i = 0; i < pieces.Count; i++)
+            {
+                PieceController p = pieces[i];
+                if (p != null && p.IsEnemy != mover.IsEnemy && p.Type == PieceType.King && p.CurrentLocation == PieceLocation.Board && p.gridPosition.HasValue)
+                {
+                    oppKing = p;
+                    break;
+                }
+            }
+
+            if (oppKing != null && oppKing.gridPosition.HasValue)
+            {
+                Vector2Int kingPos = oppKing.gridPosition.Value;
+                bool isCheck = false;
+
+                var moverMoves = mover.GetCandidateMoves();
+                if (moverMoves != null && moverMoves.Contains(kingPos))
+                {
+                    isCheck = true;
+                }
+                else
+                {
+                    for (int i = 0; i < pieces.Count; i++)
+                    {
+                        PieceController p = pieces[i];
+                        if (p != null && p != mover && p.IsEnemy == mover.IsEnemy && p.CurrentLocation == PieceLocation.Board && p.gridPosition.HasValue)
+                        {
+                            var pm = p.GetCandidateMoves();
+                            if (pm != null && pm.Contains(kingPos))
+                            {
+                                isCheck = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (isCheck)
+                {
+                    notation += "+";
+                }
+            }
+        }
+
+        // 3. 턴 번호 접두사
+        string turnPrefix = GetTurnPrefix(mover.IsEnemy);
+
+        // 4. 로그 문자열 포맷팅
         bool useSimpleTurnLog = SettingsManager.Instance != null
             && SettingsManager.Instance.Settings != null
             && SettingsManager.Instance.Settings.simpleTurnLog;
 
-        string logStr = null;
+        string logStr;
         if (useSimpleTurnLog)
         {
-            logStr = $"> mv {moverTypeName} {moverPositionTo}";
-            TurnLogUIManager.Instance?.AddLog(logStr, mover.IsEnemy);
-            return;
+            logStr = $"{turnPrefix}{notation}";
         }
-
-        if (capturedType.HasValue && capturedIsEnemy.HasValue)
+        else
         {
-            string targetTypeName = GetPieceTypeKoreanName(capturedType.Value);
-            string attackTag = mover.IsEnemy ? "[INTRUSION DETECTED]" : "[DDoS ATTACK SUCCESS]";
-            logStr = $"{attackTag} {moverTypeName}({moverPositionFrom}->{moverPositionTo}) :: KILLED {targetTypeName}";
-            TurnLogUIManager.Instance?.AddLog(logStr, mover.IsEnemy);
-            return;
+            string moverTypeName = GetPieceTypeKoreanName(mover.Type);
+            if (isCapture && capturedType.HasValue)
+            {
+                string targetTypeName = GetPieceTypeKoreanName(capturedType.Value);
+                logStr = $"{turnPrefix}{notation} ({moverTypeName} {fromPos} → {toPos}, {targetTypeName} 포획)";
+            }
+            else
+            {
+                logStr = $"{turnPrefix}{notation} ({moverTypeName} {fromPos} → {toPos})";
+            }
         }
 
-        string cmdTag = mover.IsEnemy ? "[SYS_DAEMON]" : "[ROOT_EXEC]";
-        logStr = $"{cmdTag} mv {moverTypeName} {moverPositionFrom} -> {moverPositionTo}";
         TurnLogUIManager.Instance?.AddLog(logStr, mover.IsEnemy);
     }
 
@@ -902,51 +1338,10 @@ public class PieceManager : MonoBehaviour
             return $"({gridPos.x},{gridPos.y})";
         }
 
-        int fileIndex = Mathf.Clamp(gridPos.x - gridManager.gridMinBounds.x, 0, 7);
-        int rankNumber = Mathf.Clamp(gridPos.y - gridManager.gridMinBounds.y + 1, 1, 8);
+        int fileIndex = Mathf.Clamp(gridPos.x - gridManager.gridMinBounds.x, 0, 25);
+        int rankNumber = gridPos.y - gridManager.gridMinBounds.y + 1;
         char fileChar = (char)('a' + fileIndex);
         return $"{fileChar}{rankNumber}";
-    }
-
-    private enum ParticleKind { Subject, Object, Topic }
-
-    private string GetKoreanParticle(string word, ParticleKind kind)
-    {
-        if (string.IsNullOrEmpty(word))
-        {
-            return kind == ParticleKind.Object ? "를" : (kind == ParticleKind.Subject ? "가" : "는");
-        }
-
-        char lastChar = word[word.Length - 1];
-
-        if (lastChar >= 0xAC00 && lastChar <= 0xD7A3)
-        {
-            int finalConsonantIndex = (lastChar - 0xAC00) % 28;
-            bool hasBatchim = finalConsonantIndex != 0;
-            return kind switch
-            {
-                ParticleKind.Subject => hasBatchim ? "이" : "가",
-                ParticleKind.Object => hasBatchim ? "을" : "를",
-                ParticleKind.Topic => hasBatchim ? "은" : "는",
-                _ => ""
-            };
-        }
-
-        return kind == ParticleKind.Object ? "를" : (kind == ParticleKind.Subject ? "가" : "는");
-    }
-
-    private string GetPieceTypeKoreanName(PieceType type)
-    {
-        return type switch
-        {
-            PieceType.King => "KING[K]",
-            PieceType.Queen => "QUEEN[Q]",
-            PieceType.Rook => "ROOK[R]",
-            PieceType.Bishop => "BISHOP[B]",
-            PieceType.Knight => "KNIGHT[N]",
-            PieceType.Pawn => "PAWN[P]",
-            _ => type.ToString()
-        };
     }
 
     public void UpdateThreatenedStatus()
@@ -1336,22 +1731,25 @@ public class PieceManager : MonoBehaviour
         activeMarkers.Clear();
     }
 
-    private void CheckPieceCounts()
+    public void CheckPieceCounts()
     {
         if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameStateManager.GameState.GamePlay)
         {
             return;
         }
 
+        bool isEnemyPromoting = PiecePromotionManager.Instance != null && PiecePromotionManager.Instance.IsEnemyPromoting;
+        bool isPlayerPromoting = PiecePromotionManager.Instance != null && PiecePromotionManager.Instance.IsPlayerPromoting;
+
         int enemyOnBoardCount = CountPiecesOnBoard(enemyPieces);
         int playerOnBoardCount = CountPiecesOnBoard(playerPieces);
 
-        if (enemyOnBoardCount == 0)
+        if (enemyOnBoardCount == 0 && !isEnemyPromoting)
         {
             OnAllEnemyPiecesRemoved();
         }
 
-        if (playerOnBoardCount == 0)
+        if (playerOnBoardCount == 0 && !isPlayerPromoting)
         {
             OnAllPlayerPiecesRemoved();
         }

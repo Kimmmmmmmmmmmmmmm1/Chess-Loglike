@@ -823,7 +823,7 @@ public class EventManager : MonoBehaviour
         if (ArtifactManager.Instance == null || artifact == null) return;
 
         // 목표 슬롯을 먼저 찾기
-        Transform targetSlot = FindArtifactSlotInInventory();
+        Transform targetSlot = FindArtifactSlotInInventory(artifact);
         if (targetSlot == null)
         {
             // 슬롯을 못 찾으면 그냥 추가
@@ -872,22 +872,13 @@ public class EventManager : MonoBehaviour
         });
     }
 
-    private Transform FindArtifactSlotInInventory()
+    private Transform FindArtifactSlotInInventory(ArtifactData artifact)
     {
         if (ArtifactManager.Instance == null) return null;
 
-        // 다음에 추가될 유물의 인덱스 사용
-        int targetIndex = ArtifactManager.Instance.OwnedArtifacts.Count;
-        if (ArtifactManager.Instance.artifactSlots != null && 
-            targetIndex < ArtifactManager.Instance.artifactSlots.Count)
-        {
-            if (ArtifactManager.Instance.artifactSlots[targetIndex] != null)
-            {
-                return ArtifactManager.Instance.artifactSlots[targetIndex].transform;
-            }
-        }
-        
-        return null;
+        // 다음에 추가될 유물의 슬롯 (이미 보유한 액티브 유물이면 기존 칸)
+        ArtifactSlot incomingSlot = ArtifactManager.Instance.GetIncomingSlot(artifact);
+        return incomingSlot != null ? incomingSlot.transform : null;
     }
 
     private void AnimateArtifactLose(ArtifactData artifact)

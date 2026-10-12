@@ -48,10 +48,27 @@ public class GridManager : MonoBehaviour
             if (GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare)
             {
                 if (gridCells == null) CreateGridCells();
+                HighlightInvalidZones();
                 StartCoroutine(HighlightInvalidZoneRoutine());
             }
         }
     }
+
+    [Header("Coordinate Labels (File & Rank)")]
+    public bool showCoordinateLabels = true;
+    public TMP_FontAsset coordinateFont;
+    public float coordinateFontSize = 7f;
+    public Color lightTileTextColor = new Color(0.710f, 0.533f, 0.388f, 0.9f); // 밝은 타일 위 어두운 글자색
+    public Color darkTileTextColor = new Color(0.941f, 0.851f, 0.710f, 0.9f);  // 어두운 타일 위 밝은 글자색
+    public Vector2 coordinatePadding = new Vector2(3f, 3f);
+
+    [Header("Last Move Highlight Settings (Chess.com style)")]
+    public bool enableLastMoveHighlight = true;
+    public Color lightTileLastMoveColor = new Color(0.804f, 0.808f, 0.478f, 1f); // #CDCF7A (밝은 타일용 체스닷컴 시그니처 옐로우/올리브)
+    public Color darkTileLastMoveColor = new Color(0.667f, 0.678f, 0.318f, 1f);  // #AAAD51 (어두운 타일용 체스닷컴 시그니처 옐로우/올리브)
+
+    private Vector2Int? lastMoveFrom = null;
+    private Vector2Int? lastMoveTo = null;
 
     public void CreateGridCells()
     {
@@ -102,7 +119,210 @@ public class GridManager : MonoBehaviour
                 float delay = y * 0.04f + x * 0.02f;
                 rect.DOAnchorPos(anchoredPos, 0.35f).SetEase(Ease.OutBack).SetDelay(delay);
                 rect.DOScale(Vector3.one, 0.35f).SetEase(Ease.OutBack).SetDelay(delay);
+
+                // 체스 좌표 표기 (File: 가로 열 알파벳 a-f / Rank: 세로 행 숫자 1-5)
+                if (showCoordinateLabels)
+                {
+                    Color labelColor = isLight ? lightTileTextColor : darkTileTextColor;
+
+                    // 1. 랭크(Rank): 가장 왼쪽 열(x == 0) 좌측 상단 구석에 행 번호 표기
+                    if (x == 0)
+                    {
+                        int rankNumber = y + 1;
+                        CreateCoordinateLabel(rect, rankNumber.ToString(), TextAlignmentOptions.TopLeft, labelColor, delay + 0.15f);
+                    }
+
+                    // 2. 파일(File): 가장 아랫쪽 행(y == 0) 우측 하단 구석에 열 알파벳(a, b, c...) 표기
+                    if (y == 0)
+                    {
+                        char fileChar = (char)('a' + x);
+                        CreateCoordinateLabel(rect, fileChar.ToString(), TextAlignmentOptions.BottomRight, labelColor, delay + 0.15f);
+                    }
+                }
+
             }
+        }
+    }
+
+    public void SetBoardSize(int[] size, Vector2Int minBounds)
+    {
+        if (size == null || size.Length != 2)
+        {
+            Debug.LogError("Stage board size must contain exactly [width, height].", this);
+            return;
+        }
+
+        int width = Mathf.Max(1, size[0]);
+        int height = Mathf.Max(1, size[1]);
+        bool sizeChanged = boardWidth != width || boardHeight != height || gridMinBounds != minBounds;
+
+        boardWidth = width;
+        boardHeight = height;
+        gridMinBounds = minBounds;
+
+        if (sizeChanged && gridCells != null)
+        {
+            ResizeGridCells();
+        }
+    }
+
+    private void ResizeGridCells()
+    {
+        GridCell[,] previousGrid = gridCells;
+        gridCells = new GridCell[boardWidth, boardHeight];
+
+        for (int x = 0; x < previousGrid.GetLength(0); x++)
+        {
+            for (int y = 0; y < previousGrid.GetLength(1); y++)
+            {
+                GridCell cell = previousGrid[x, y];
+                if (cell == null) continue;
+
+                Vector2Int position = cell.gridPosition;
+                if (!IsInBounds(position))
+                {
+                    Destroy(cell.gameObject);
+                    continue;
+                }
+
+                int newX = position.x - gridMinBounds.x;
+                int newY = position.y - gridMinBounds.y;
+                gridCells[newX, newY] = cell;
+                Vector2 targetPosition = GridToUiPosition(position);
+                cell.gridPosition = position;
+                cell.rectTransform.sizeDelta = cellSize;
+                cell.SetTileColor(GetTileColor(newX, newY));
+                cell.rectTransform.DOKill();
+                cell.rectTransform.DOAnchorPos(targetPosition, 0.45f).SetEase(Ease.InOutQuad);
+            }
+        }
+
+        for (int x = 0; x < boardWidth; x++)
+        {
+            for (int y = 0; y < boardHeight; y++)
+            {
+                if (gridCells[x, y] == null)
+                {
+                    CreateGridCell(x, y, true);
+                }
+            }
+        }
+
+        RefreshCoordinateLabels();
+        lastMoveFrom = null;
+        lastMoveTo = null;
+    }
+
+    private void CreateGridCell(int x, int y, bool animate)
+    {
+        Vector2Int gridPos = new(gridMinBounds.x + x, gridMinBounds.y + y);
+        GameObject cellObj = new($"GridCell_{gridPos.x}_{gridPos.y}");
+        cellObj.transform.SetParent(gridCellsParent, false);
+        RectTransform rect = cellObj.AddComponent<RectTransform>();
+        Image cellImage = cellObj.AddComponent<Image>();
+        cellImage.raycastTarget = true;
+        rect.sizeDelta = cellSize;
+
+        Vector2 anchoredPos = GridToUiPosition(gridPos);
+        Color tileColor = GetTileColor(x, y);
+        cellImage.color = tileColor;
+
+        Outline outline = cellObj.AddComponent<Outline>();
+        outline.effectColor = tileBorderColor;
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        GridCell cell = cellObj.AddComponent<GridCell>();
+        cell.Initialize(gridPos, rect, anchoredPos, cellSize, tileColor);
+        gridCells[x, y] = cell;
+
+        if (animate)
+        {
+            rect.localScale = Vector3.zero;
+            rect.anchoredPosition = anchoredPos - new Vector2(0, 30f);
+            rect.DOAnchorPos(anchoredPos, 0.45f).SetEase(Ease.OutBack);
+            rect.DOScale(Vector3.one, 0.45f).SetEase(Ease.OutBack);
+        }
+
+        CreateCoordinateLabels(rect, x, y, 0.15f);
+    }
+
+    private Color GetTileColor(int x, int y)
+    {
+        return ((x + y) % 2 != 0) ? lightTileColor : darkTileColor;
+    }
+
+    private void RefreshCoordinateLabels()
+    {
+        if (!showCoordinateLabels) return;
+
+        foreach (GridCell cell in gridCells)
+        {
+            if (cell == null) continue;
+
+            for (int i = cell.transform.childCount - 1; i >= 0; i--)
+            {
+                Transform child = cell.transform.GetChild(i);
+                if (child.name.StartsWith("Coord_"))
+                {
+                    Destroy(child.gameObject);
+                }
+            }
+
+            int x = cell.gridPosition.x - gridMinBounds.x;
+            int y = cell.gridPosition.y - gridMinBounds.y;
+            CreateCoordinateLabels(cell.rectTransform, x, y, 0f);
+        }
+    }
+
+    private void CreateCoordinateLabels(RectTransform rect, int x, int y, float delay)
+    {
+        Color labelColor = GetTileColor(x, y) == lightTileColor ? lightTileTextColor : darkTileTextColor;
+        if (x == 0)
+        {
+            CreateCoordinateLabel(rect, (y + 1).ToString(), TextAlignmentOptions.TopLeft, labelColor, delay);
+        }
+
+        if (y == 0)
+        {
+            CreateCoordinateLabel(rect, ((char)('a' + x)).ToString(), TextAlignmentOptions.BottomRight, labelColor, delay);
+        }
+    }
+
+    private void CreateCoordinateLabel(RectTransform parentCell, string text, TextAlignmentOptions alignment, Color color, float animDelay)
+    {
+        GameObject labelObj = new GameObject($"Coord_{text}", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        labelObj.transform.SetParent(parentCell, false);
+        labelObj.transform.SetAsLastSibling();
+
+        RectTransform labelRect = labelObj.GetComponent<RectTransform>();
+        TextMeshProUGUI tmp = labelObj.GetComponent<TextMeshProUGUI>();
+
+        if (coordinateFont != null)
+        {
+            tmp.font = coordinateFont;
+        }
+
+        tmp.text = text;
+        tmp.fontSize = coordinateFontSize;
+        tmp.alignment = alignment;
+        tmp.color = color;
+        tmp.raycastTarget = false;
+
+        // 셀 내부 여백(패딩) 맞춰 stretch 앵커 설정
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = coordinatePadding;
+        labelRect.offsetMax = -coordinatePadding;
+
+        // 살짝 떠오르며 페이드인되는 텍스트 애니메이션
+        labelRect.localScale = Vector3.one * 0.7f;
+        if (animDelay > 0f)
+        {
+            labelRect.DOScale(Vector3.one, 0.25f).SetEase(Ease.OutBack).SetDelay(animDelay);
+        }
+        else
+        {
+            labelRect.localScale = Vector3.one;
         }
     }
 
@@ -168,6 +388,7 @@ public class GridManager : MonoBehaviour
         if (newState == GameStateManager.GameState.Prepare)
         {
             if (gridCells == null) CreateGridCells();
+            HighlightInvalidZones();
             StartCoroutine(HighlightInvalidZoneRoutine());
         }
         else
@@ -176,17 +397,25 @@ public class GridManager : MonoBehaviour
         }
     }
 
-    private IEnumerator HighlightInvalidZoneRoutine()
+    public void HighlightInvalidZones()
     {
-        yield return null;
-
-        if (gridCells == null) yield break;
+        if (gridCells == null) return;
 
         foreach (var cell in gridCells)
         {
             if (cell == null) continue;
             bool isInvalid = IsInvalidZone(cell.gridPosition);
             cell.SetGray(isInvalid, invalidZoneColor);
+        }
+    }
+
+    private IEnumerator HighlightInvalidZoneRoutine()
+    {
+        yield return null;
+
+        if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare)
+        {
+            HighlightInvalidZones();
         }
     }
 
@@ -206,8 +435,55 @@ public class GridManager : MonoBehaviour
         if (gridCells == null) return;
         foreach (var cell in gridCells)
         {
-            cell?.SetGray(false, invalidZoneColor);
+            cell?.ResetHighlight();
         }
+    }
+
+    /// <summary>
+    /// 체스닷컴 스타일: 전 턴에 이동한 기물의 출발 칸(From)과 도착 칸(To)을 하이라이트합니다.
+    /// </summary>
+    public void HighlightLastMove(Vector2Int from, Vector2Int to)
+    {
+        if (!enableLastMoveHighlight || gridCells == null) return;
+
+        // 이전 턴의 하이라이트 복원
+        ClearLastMoveHighlight();
+
+        lastMoveFrom = from;
+        lastMoveTo = to;
+
+        ApplyLastMoveHighlightToCell(from);
+        ApplyLastMoveHighlightToCell(to);
+    }
+
+    public void ClearLastMoveHighlight()
+    {
+        if (lastMoveFrom.HasValue)
+        {
+            GridCell fromCell = GetGridCell(lastMoveFrom.Value);
+            fromCell?.SetLastMoveHighlight(false, Color.white);
+            lastMoveFrom = null;
+        }
+
+        if (lastMoveTo.HasValue)
+        {
+            GridCell toCell = GetGridCell(lastMoveTo.Value);
+            toCell?.SetLastMoveHighlight(false, Color.white);
+            lastMoveTo = null;
+        }
+    }
+
+    private void ApplyLastMoveHighlightToCell(Vector2Int pos)
+    {
+        GridCell cell = GetGridCell(pos);
+        if (cell == null) return;
+
+        int x = pos.x - gridMinBounds.x;
+        int y = pos.y - gridMinBounds.y;
+        bool isLight = ((x + y) % 2 != 0);
+        Color targetColor = isLight ? lightTileLastMoveColor : darkTileLastMoveColor;
+
+        cell.SetLastMoveHighlight(true, targetColor);
     }
 
     private void OnDestroy()
@@ -261,6 +537,42 @@ public class GridManager : MonoBehaviour
         }
 
         ApplyPresentationTint(dimmed, duration);
+        ApplyGridCellsPresentationTint(dimmed, duration);
+    }
+
+    private void ApplyGridCellsPresentationTint(bool dimmed, float duration)
+    {
+        if (gridCells == null) return;
+
+        float multiplier = dimmed ? boardDimMultiplier : 1f;
+        bool isPrepare = GameStateManager.Instance != null &&
+                         GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare;
+
+        foreach (var cell in gridCells)
+        {
+            if (cell == null || cell.CellImage == null) continue;
+
+            Color baseColor;
+            if (isPrepare && IsInvalidZone(cell.gridPosition))
+            {
+                baseColor = invalidZoneColor;
+            }
+            else
+            {
+                baseColor = cell.OriginalColor;
+            }
+
+            Color targetColor = new Color(baseColor.r * multiplier, baseColor.g * multiplier, baseColor.b * multiplier, baseColor.a);
+            cell.CellImage.DOKill();
+            if (duration > 0f)
+            {
+                cell.CellImage.DOColor(targetColor, duration).SetEase(Ease.OutQuad);
+            }
+            else
+            {
+                cell.CellImage.color = targetColor;
+            }
+        }
     }
 
     private void CacheBoardPresentationTargets()
@@ -356,6 +668,10 @@ public class GridManager : MonoBehaviour
         {
             if (graphic != null && !(graphic is TMP_Text))
             {
+                if (graphic.GetComponent<GridCell>() != null || graphic.GetComponentInParent<GridCell>() != null)
+                {
+                    continue;
+                }
                 graphics.Add(graphic);
             }
         }

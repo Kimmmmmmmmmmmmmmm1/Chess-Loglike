@@ -107,6 +107,24 @@ public class StageManager : MonoBehaviour
             else
             {
             }
+
+            GridManager gridManager = PieceManager.Instance != null
+                ? PieceManager.Instance.gridManager
+                : FindFirstObjectByType<GridManager>();
+            if (gridManager == null)
+            {
+                gridManager = FindFirstObjectByType<GridManager>();
+            }
+
+            if (gridManager != null)
+            {
+                gridManager.SetBoardSize(
+                    selectedStage.boardSize,
+                    new Vector2Int(selectedStage.minX, selectedStage.minY));
+            }
+
+            PieceManager.Instance?.SetHideEnemyTerritoryDuringPrepare(
+                selectedStage.hideEnemyTerritoryDuringPrepare);
         }
         else
         {

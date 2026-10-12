@@ -34,6 +34,7 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
     private string tooltipTitle;
     private string tooltipDescription;
     private string tooltipFlavorText;
+    private PieceData currentPieceData;
     private CollectionDiscoveryState currentState;
     private TextMeshProUGUI iconFallbackLabel;
     private TextMeshProUGUI typeTagLabel;
@@ -54,6 +55,7 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
         }
 
         NormalizeCardLayout();
+        currentPieceData = null;
         currentState = state;
 
         bool hasSeen = state >= CollectionDiscoveryState.Seen;
@@ -102,6 +104,7 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
         }
 
         NormalizeCardLayout();
+        currentPieceData = null;
         currentState = state;
 
         bool hasSeen = state >= CollectionDiscoveryState.Seen;
@@ -147,13 +150,28 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
         }
 
         NormalizeCardLayout();
+        currentPieceData = piece;
         currentState = state;
 
         bool hasSeen = state >= CollectionDiscoveryState.Seen;
         bool isAcquired = state == CollectionDiscoveryState.Acquired;
-        Color rarityColor = GetPieceRarityColor(piece.pieceType);
+        Color rarityColor = GetPieceRarityColor(piece);
 
-        SetIcon(piece.icon, hasSeen, "기물", rarityColor);
+        Sprite pieceSprite = null;
+        if (PieceSpriteData.Instance != null)
+        {
+            pieceSprite = PieceSpriteData.Instance.GetSprite(piece.pieceType, false);
+        }
+        if (pieceSprite == null && PieceManager.Instance != null)
+        {
+            pieceSprite = PieceManager.Instance.GetSpriteFor(piece.pieceType);
+        }
+        if (pieceSprite == null)
+        {
+            pieceSprite = piece.icon;
+        }
+
+        SetIcon(pieceSprite, hasSeen, "기물", rarityColor);
         SetRarityColor(rarityColor, hasSeen);
         SetTypeBackgroundColor(pieceTypeColor, hasSeen);
         UpdateTypeTag("기물", hasSeen, new Color(0.20f, 0.50f, 0.32f, 0.92f));
@@ -188,6 +206,12 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
     {
         if (TooltipManager.Instance == null)
         {
+            return;
+        }
+
+        if (currentPieceData != null && currentState == CollectionDiscoveryState.Acquired)
+        {
+            TooltipManager.Instance.ShowPieceTooltip(currentPieceData.pieceType, null, transform.position, gameObject);
             return;
         }
 
@@ -474,16 +498,31 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
         }
     }
 
+    private Color GetPieceRarityColor(PieceData piece)
+    {
+        if (piece == null)
+        {
+            return commonRarityColor;
+        }
+
+        int rarity = piece.rarity > 0 ? piece.rarity : PieceController.GetRarityForType(piece.pieceType);
+        return GetPieceRarityColorByValue(rarity);
+    }
+
     private Color GetPieceRarityColor(PieceType type)
     {
-        return type switch
+        int rarity = PieceController.GetRarityForType(type);
+        return GetPieceRarityColorByValue(rarity);
+    }
+
+    private Color GetPieceRarityColorByValue(int rarity)
+    {
+        return rarity switch
         {
-            PieceType.King => legendaryRarityColor,
-            PieceType.Queen => epicRarityColor,
-            PieceType.Rook => rareRarityColor,
-            PieceType.Bishop => rareRarityColor,
-            PieceType.Knight => rareRarityColor,
-            _ => commonRarityColor
+            1 => commonRarityColor,
+            2 => rareRarityColor,
+            3 => epicRarityColor,
+            _ => legendaryRarityColor
         };
     }
 }

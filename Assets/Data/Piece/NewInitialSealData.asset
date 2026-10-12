@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: NewInitialSealData
   m_EditorClassIdentifier: Assembly-CSharp::InitialSealData
   initialSeals:
-  - {fileID: 11400000, guid: 03681346e1099466fb9709ff2563c8f0, type: 2}
-  - {fileID: 11400000, guid: bff5f243f0f1b4729b9396ef4bb062a3, type: 2}
-  - {fileID: 11400000, guid: 03681346e1099466fb9709ff2563c8f0, type: 2}
+  - {fileID: 11400000, guid: 7b2b5aa92b5649e7a42a4f07c5d4a234, type: 2}
+  - {fileID: 11400000, guid: 8f1bde4f4d394e0ab6d10e5d3e4de002, type: 2}
+  - {fileID: 11400000, guid: e5a6b7c8d9e04f1a92b3c4d5e6f70812, type: 2}

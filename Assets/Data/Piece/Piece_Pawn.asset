@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4da099f0f7d54b7f9ffd8afa398d3cc7, type: 3}
-  m_Name: Pawn
+  m_Name: Piece_Pawn
   m_EditorClassIdentifier: Assembly-CSharp::PieceData
   id: Pawn
   pieceType: 5
-  pieceName: 폰
-  icon: {fileID: -1355300903190567821, guid: fd633027036cd4c11bed298215d4b898, type: 3}
-  description: "앞으로 1칸 전진(첫 이동 시 2칸 가능)하며, 대각선 앞 1칸의 적을 포획합니다.
-적진 끝에 도달하면 승급합니다."
-  flavorText: "가장 앞장서 전진하며, 끝에 도달하면 승급을 이뤄내는 보병."
+  pieceName: "\uD3F0"
+  icon: {fileID: -1645784633617896932, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
+  rarity: 1
+  description: "\uC55E\uC73C\uB85C 1\uCE78 \uC804\uC9C4(\uCCAB \uC774\uB3D9 \uC2DC 2\uCE78 \uAC00\uB2A5)\uD558\uBA70, \uB300\uAC01\uC120 \uC55E 1\uCE78\uC758 \uC801\uC744 \uD3EC\uD68D\uD569\uB2C8\uB2E4. \uC801\uC9C4 \uB05D\uC5D0 \uB3C4\uB2EC\uD558\uBA74 \uC2B9\uAE09\uD569\uB2C8\uB2E4."
+  flavorText: "\uAC00\uC7A5 \uC55E\uC7A5\uC11C \uC804\uC9C4\uD558\uBA70, \uB05D\uC5D0 \uB3C4\uB2EC\uD558\uBA74 \uC2B9\uAE09\uC744 \uC774\uB904\uB0B4\uB294 \uBCF4\uBCD1."

@@ -8,6 +8,16 @@ public enum ArtifactRarity
     Legendary
 }
 
+/// <summary>
+/// Passive: 보유하는 동안 영구적으로 효과를 발휘합니다.
+/// Active: 전투 중 내 턴에 클릭하여 사용하면 소모됩니다. (중복 보유 가능, 강화 불가)
+/// </summary>
+public enum ArtifactType
+{
+    Passive,
+    Active
+}
+
 [CreateAssetMenu(fileName = "NewArtifact", menuName = "Chess/Artifact Data")]
 public class ArtifactData : ScriptableObject
 {
@@ -21,13 +31,48 @@ public class ArtifactData : ScriptableObject
     public bool isSoldInShop = true; // 상점에서 판매 여부
     public bool isGaugeRequired = false; // 게이지 필요 여부
 
+    [Header("Type")]
+    public ArtifactType artifactType = ArtifactType.Passive;
+
     [Header("Enhancement")]
     [Min(1)] public int maxLevel = 1;
     [SerializeField, Min(1)] private int level = 1;
 
+    // 런타임 전용: 액티브 유물 중복 보유 개수
+    [System.NonSerialized] private int stackCount = 1;
+
+    public bool IsActive => artifactType == ArtifactType.Active;
+    public bool IsPassive => artifactType == ArtifactType.Passive;
+    public int StackCount => Mathf.Max(1, stackCount);
+
     public int Level => Mathf.Clamp(level, 1, MaxLevel);
     public int MaxLevel => Mathf.Max(1, maxLevel);
-    public bool CanEnhance => Level < MaxLevel;
+    public bool CanEnhance => IsPassive && Level < MaxLevel;
+
+    public void ResetStack()
+    {
+        stackCount = 1;
+    }
+
+    public void AddStack(int amount = 1)
+    {
+        stackCount = StackCount + Mathf.Max(0, amount);
+    }
+
+    /// <summary>
+    /// 스택을 1 감소시킵니다. 남은 스택이 없으면 false를 반환합니다.
+    /// </summary>
+    public bool RemoveStack()
+    {
+        if (StackCount <= 1)
+        {
+            stackCount = 0;
+            return false;
+        }
+
+        stackCount = StackCount - 1;
+        return true;
+    }
 
     public bool TryEnhance()
     {
@@ -47,6 +92,11 @@ public class ArtifactData : ScriptableObject
 
     public string GetTooltipTitle()
     {
+        if (IsActive)
+        {
+            return StackCount > 1 ? $"{artifactName} ({StackCount}) [액티브]" : $"{artifactName} [액티브]";
+        }
+
         if (MaxLevel <= 1 || Level <= 1)
         {
             return artifactName;
@@ -57,7 +107,12 @@ public class ArtifactData : ScriptableObject
 
     public string GetTooltipDescription()
     {
-        return GetDescription(Level);
+        string desc = GetDescription(Level);
+        if (IsActive)
+        {
+            desc += "\n\n<color=#AAAAAA>전투 중 내 턴에 클릭하여 사용 (1회용, 턴 소모)</color>";
+        }
+        return desc;
     }
 
     /// <summary>

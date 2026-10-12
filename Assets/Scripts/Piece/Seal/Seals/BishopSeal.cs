@@ -7,7 +7,7 @@ public class BishopSeal : SealBase
 
     public override void ModifyMoves(ref List<Vector2Int> moves, Vector2Int currentPos, bool isEnemy, System.Func<Vector2Int, bool> validator = null, System.Func<Vector2Int, bool> isOccupied = null)
     {
-        // [CODE INJECTION: Vector_Override.sh] 기존 기물 이동 벡터에 무제한 대각선 슬라이딩 알고리즘을 주입
+        // 기존 기물 이동 벡터에 무제한 대각선 슬라이딩 알고리즘을 주입
         Vector2Int[] diagonals = new Vector2Int[]
         {
             new Vector2Int(1, 1),
