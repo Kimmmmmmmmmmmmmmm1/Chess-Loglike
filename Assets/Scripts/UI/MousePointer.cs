@@ -16,6 +16,7 @@ public class MousePointer : MonoBehaviour
     private float currentDist;
     private bool isMouseDown = false;
     private ArtifactSlot currentHoveredArtifact;
+    private Vector2Int? currentGridPos;
 
     [Header("Settings")]
     [SerializeField] private float smoothSpeed = 20f;
@@ -148,12 +149,15 @@ public class MousePointer : MonoBehaviour
             catch { /* Ignore */ }
         }
 
-        if (isPressed && !isMouseDown)
+        bool isDragging = PieceController.IsAnyDragging;
+        bool isHolding = isPressed || isDragging;
+
+        if (isHolding && !isMouseDown)
         {
             isMouseDown = true;
             AnimatePressDown();
         }
-        else if (!isPressed && isMouseDown)
+        else if (!isHolding && isMouseDown)
         {
             isMouseDown = false;
             AnimatePressUp();
@@ -173,6 +177,7 @@ public class MousePointer : MonoBehaviour
 
                 if (slot != null)
                 {
+                    currentGridPos = null;
                     if (currentHoveredArtifact != null)
                     {
                         currentHoveredArtifact.HideTooltip();
@@ -180,10 +185,17 @@ public class MousePointer : MonoBehaviour
                     }
 
                     SetCornersActive(true);
-                    rectTransform.position = Vector3.Lerp(rectTransform.position, slot.transform.position, Time.deltaTime * smoothSpeed);
+                    if (Vector3.Distance(rectTransform.position, slot.transform.position) < 0.2f)
+                    {
+                        rectTransform.position = slot.transform.position;
+                    }
+                    else
+                    {
+                        rectTransform.position = Vector3.Lerp(rectTransform.position, slot.transform.position, Time.deltaTime * smoothSpeed);
+                    }
                     
                     PieceController piece = slot.GetComponentInChildren<PieceController>();
-                    UpdatePointerState(piece != null, PieceController.IsAnyDragging, piece);
+                    UpdatePointerState(piece != null, isDragging, piece);
                     return;
                 }
 
@@ -191,9 +203,17 @@ public class MousePointer : MonoBehaviour
                 if (sealSlot == null) sealSlot = result.gameObject.GetComponentInParent<SealInventorySlot>();
                 if (sealSlot != null)
                 {
+                    currentGridPos = null;
                     SetCornersActive(true);
-                    rectTransform.position = Vector3.Lerp(rectTransform.position, sealSlot.transform.position, Time.deltaTime * smoothSpeed);
-                    UpdatePointerState(true, PieceController.IsAnyDragging, null, true);
+                    if (Vector3.Distance(rectTransform.position, sealSlot.transform.position) < 0.2f)
+                    {
+                        rectTransform.position = sealSlot.transform.position;
+                    }
+                    else
+                    {
+                        rectTransform.position = Vector3.Lerp(rectTransform.position, sealSlot.transform.position, Time.deltaTime * smoothSpeed);
+                    }
+                    UpdatePointerState(true, isDragging, null, true);
                     return;
                 }
 
@@ -201,6 +221,7 @@ public class MousePointer : MonoBehaviour
 
                 if (artifactSlot != null)
                 {
+                    currentGridPos = null;
                     if (currentHoveredArtifact != artifactSlot)
                     {
                         if (currentHoveredArtifact != null) currentHoveredArtifact.HideTooltip();
@@ -209,8 +230,15 @@ public class MousePointer : MonoBehaviour
                     }
 
                     SetCornersActive(true);
-                    rectTransform.position = Vector3.Lerp(rectTransform.position, artifactSlot.transform.position, Time.deltaTime * smoothSpeed);
-                    UpdatePointerState(true, PieceController.IsAnyDragging, null, true);
+                    if (Vector3.Distance(rectTransform.position, artifactSlot.transform.position) < 0.2f)
+                    {
+                        rectTransform.position = artifactSlot.transform.position;
+                    }
+                    else
+                    {
+                        rectTransform.position = Vector3.Lerp(rectTransform.position, artifactSlot.transform.position, Time.deltaTime * smoothSpeed);
+                    }
+                    UpdatePointerState(true, isDragging, null, true);
                     return;
                 }
             }
@@ -224,14 +252,15 @@ public class MousePointer : MonoBehaviour
 
         if (!gridManager.IsGridCreated)
         {
+            currentGridPos = null;
             SetCornersActive(false);
             return;
         }
 
         if (RectTransformUtility.ScreenPointToLocalPointInRectangle(referenceRect, screenPos, cam, out localPoint))
         {
-            // 보드 원점을 기준으로 그리드 좌표 계산
-            Vector2Int? gridPos = gridManager.GetNearestGridPosition(localPoint);
+            // 보드 원점을 기준으로 그리드 좌표 계산 (타일 경계 지터 방지를 위한 히스테리시스 적용)
+            Vector2Int? gridPos = GetGridPositionWithHysteresis(gridManager, localPoint);
 
             // 그리드 범위 내에 있는지 확인
             if (gridPos.HasValue)
@@ -242,25 +271,80 @@ public class MousePointer : MonoBehaviour
                 Vector2 targetAnchoredPos = gridManager.GridToUiPosition(gridPos.Value);
                 Vector3 worldPos = referenceRect.TransformPoint(targetAnchoredPos);
                 
-                // 부드러운 이동
-                rectTransform.position = Vector3.Lerp(rectTransform.position, worldPos, Time.deltaTime * smoothSpeed);
+                // 부드러운 이동 (목표 위치에 매우 가까우면 스냅하여 미세 지터 방지)
+                if (Vector3.Distance(rectTransform.position, worldPos) < 0.2f)
+                {
+                    rectTransform.position = worldPos;
+                }
+                else
+                {
+                    rectTransform.position = Vector3.Lerp(rectTransform.position, worldPos, Time.deltaTime * smoothSpeed);
+                }
 
                 PieceController piece = PieceManager.Instance.GetPieceAt(gridPos.Value);
-                UpdatePointerState(piece != null, PieceController.IsAnyDragging, piece);
+                UpdatePointerState(piece != null, isDragging, piece);
             }
             else
             {
                 // 보드 밖이면 숨김
+                currentGridPos = null;
                 SetCornersActive(false);
             }
         }
+    }
+
+    private Vector2Int? GetGridPositionWithHysteresis(GridManager gridManager, Vector2 localPoint)
+    {
+        Vector2Int? nearest = gridManager.GetNearestGridPosition(localPoint);
+        if (!nearest.HasValue)
+        {
+            currentGridPos = null;
+            return null;
+        }
+
+        if (!currentGridPos.HasValue)
+        {
+            currentGridPos = nearest;
+            return nearest;
+        }
+
+        if (currentGridPos.Value == nearest.Value)
+        {
+            return currentGridPos;
+        }
+
+        if (!gridManager.IsInBounds(currentGridPos.Value))
+        {
+            currentGridPos = nearest;
+            return nearest;
+        }
+
+        Vector2 currentCellCenter = gridManager.GridToUiPosition(currentGridPos.Value);
+        Vector2 nearestCellCenter = gridManager.GridToUiPosition(nearest.Value);
+
+        float distToCurrent = Vector2.Distance(localPoint, currentCellCenter);
+        float distToNearest = Vector2.Distance(localPoint, nearestCellCenter);
+
+        // 새 셀로 전환하려면 마우스가 현재 셀보다 새 셀에 threshold 이상 더 가까워야 함 (히스테리시스)
+        float threshold = gridManager.cellSize.x * 0.15f;
+        if (distToNearest < distToCurrent - threshold)
+        {
+            currentGridPos = nearest;
+        }
+
+        return currentGridPos;
     }
 
     private void UpdatePointerState(bool hovering, bool isDragging, PieceController piece, bool isArtifact = false)
     {
         float targetBaseDist = BaseDistance;
 
-        if (hovering)
+        if (isDragging)
+        {
+            // 드래그(기물 잡기) 중에는 아래 기물 타입과 무관하게 균일한 크기로 고정하여 크기 널뛰기/지터 방지
+            targetBaseDist = HoverDistance;
+        }
+        else if (hovering)
         {
             if (piece != null)
             {
@@ -284,18 +368,18 @@ public class MousePointer : MonoBehaviour
                 targetBaseDist = HoverDistance - 4f;
             }
         }
-        else if (isDragging)
-        {
-            targetBaseDist = HoverDistance;
-        }
-        
+
+        bool isHolding = isMouseDown || isDragging;
+        bool stateChanged = (hovering || isDragging) != isHoveringPiece;
+        bool distChanged = Mathf.Abs(targetBaseDist - currentAnimBaseDist) > 0.1f;
+
         // 상태가 바뀌거나 타겟 크기가 크게 변했을 때 애니메이션 갱신
-        if ((hovering || isDragging) != isHoveringPiece || Mathf.Abs(targetBaseDist - currentAnimBaseDist) > 0.1f)
+        if (stateChanged || distChanged)
         {
             isHoveringPiece = (hovering || isDragging);
             currentAnimBaseDist = targetBaseDist;
             
-            if (isMouseDown)
+            if (isHolding)
                 AnimatePressDown();
             else
                 StartPulseAnimation(targetBaseDist);
@@ -311,7 +395,6 @@ public class MousePointer : MonoBehaviour
     private void AnimatePressDown()
     {
         distanceTween?.Kill();
-        // 기존 비율(0.4배) 대신 현재 거리에서 4픽셀만큼만 안쪽으로 모이도록 수정
         float targetDist = Mathf.Max(0f, currentAnimBaseDist - 4f);
         distanceTween = DOTween.To(() => currentDist, x => { currentDist = x; UpdateCornerPositions(currentDist); }, targetDist, 0.1f).SetEase(Ease.OutQuad);
     }
@@ -321,11 +404,21 @@ public class MousePointer : MonoBehaviour
         distanceTween?.Kill();
         distanceTween = DOTween.To(() => currentDist, x => { currentDist = x; UpdateCornerPositions(currentDist); }, currentAnimBaseDist, 0.2f)
             .SetEase(Ease.OutBack)
-            .OnComplete(() => StartPulseAnimation(currentAnimBaseDist));
+            .OnComplete(() => {
+                if (!isMouseDown && !PieceController.IsAnyDragging)
+                {
+                    StartPulseAnimation(currentAnimBaseDist);
+                }
+            });
     }
 
     private void StartPulseAnimation(float centerDist)
     {
+        if (isMouseDown || PieceController.IsAnyDragging)
+        {
+            return;
+        }
+
         distanceTween?.Kill();
         
         currentDist = centerDist;

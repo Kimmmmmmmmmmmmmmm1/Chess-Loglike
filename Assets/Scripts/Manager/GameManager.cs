@@ -81,6 +81,18 @@ public class GameManager : MonoBehaviour
     public int EnemyPiecesCaptured { get; private set; } = 0;
     public int PlayerPiecesCaptured { get; private set; } = 0;
 
+    private readonly System.Collections.Generic.List<PieceType> currentBattleEnemyCaptures = new System.Collections.Generic.List<PieceType>();
+    private readonly System.Collections.Generic.List<PieceType> currentBattlePlayerCaptures = new System.Collections.Generic.List<PieceType>();
+
+    public System.Collections.Generic.IReadOnlyList<PieceType> CurrentBattleEnemyCaptures => currentBattleEnemyCaptures;
+    public System.Collections.Generic.IReadOnlyList<PieceType> CurrentBattlePlayerCaptures => currentBattlePlayerCaptures;
+
+    public void ResetBattleCaptures()
+    {
+        currentBattleEnemyCaptures.Clear();
+        currentBattlePlayerCaptures.Clear();
+    }
+
     [Header("UI")]
     public TextMeshProUGUI coinText;
     public TextMeshProUGUI stageText;
@@ -115,6 +127,7 @@ public class GameManager : MonoBehaviour
         Coin = 100;
         EnemyPiecesCaptured = 0;
         PlayerPiecesCaptured = 0;
+        ResetBattleCaptures();
 
         if (coinText != null)
         {
@@ -470,6 +483,7 @@ public class GameManager : MonoBehaviour
         switch (currentFlowState)
         {
             case GameFlowState.Battle:
+                ResetBattleCaptures();
                 if (GameStateManager.Instance != null)
                 {
                             if (PieceManager.Instance != null && PieceManager.Instance.gridManager != null)
@@ -632,6 +646,7 @@ public class GameManager : MonoBehaviour
     {
         if (isEnemyPieceCaptured)
         {
+            currentBattleEnemyCaptures.Add(capturedPieceType);
             EnemyPiecesCaptured++;
             TryAddAchievementProgress(AchievementIds.CombatFirstCapture);
             TryAddAchievementProgress(AchievementIds.CombatCapture5);
@@ -652,8 +667,85 @@ public class GameManager : MonoBehaviour
         }
         else
         {
+            currentBattlePlayerCaptures.Add(capturedPieceType);
             PlayerPiecesCaptured++;
         }
+    }
+
+    public static int GetPieceScore(PieceType type, ShopPieceData shopPieceData = null)
+    {
+        switch (type)
+        {
+            case PieceType.Pawn: return 1;
+            case PieceType.Knight: return 3;
+            case PieceType.Bishop: return 3;
+            case PieceType.Rook: return 5;
+            case PieceType.Queen: return 9;
+            case PieceType.King: return 4;
+            case PieceType.Centaur: return 5;
+            case PieceType.Archbishop: return 6;
+            case PieceType.Chancellor: return 7;
+            case PieceType.Amazon: return 13;
+            case PieceType.Grasshopper: return 3;
+            case PieceType.Cannon: return 5;
+            default: return 1;
+        }
+    }
+
+    public static int CeilToMultipleOfTen(int value)
+    {
+        if (value <= 0) return 0;
+        return Mathf.CeilToInt(value / 10f) * 10;
+    }
+
+    [System.Serializable]
+    public struct BattleRewardResult
+    {
+        public int BaseReward;
+        public int EnemyCaptureScore;
+        public int EnemyCaptureReward;
+        public int EnemyCaptureCount;
+        public int PlayerLossScore;
+        public int PlayerLossReward;
+        public int PlayerLossCount;
+        public int TotalReward;
+    }
+
+    public BattleRewardResult CalculateBattleReward(ShopPieceData shopPieceData = null)
+    {
+        int enemyScore = 0;
+        for (int i = 0; i < currentBattleEnemyCaptures.Count; i++)
+        {
+            enemyScore += GetPieceScore(currentBattleEnemyCaptures[i], shopPieceData);
+        }
+
+        int playerLossScore = 0;
+        for (int i = 0; i < currentBattlePlayerCaptures.Count; i++)
+        {
+            playerLossScore += GetPieceScore(currentBattlePlayerCaptures[i], shopPieceData);
+        }
+
+        // 보상 계산 방식:
+        // 기본 보상: 10
+        // 적 기물 포획: 기물점수당 5씩
+        // 내 기물 포획당함: 기물점수당 3씩
+        // 모든 개별 보상을 10의 배수로 올림
+        int baseReward = CeilToMultipleOfTen(10);
+        int enemyReward = CeilToMultipleOfTen(enemyScore * 5);
+        int playerLossReward = CeilToMultipleOfTen(playerLossScore * 3);
+        int totalReward = baseReward + enemyReward + playerLossReward;
+
+        return new BattleRewardResult
+        {
+            BaseReward = baseReward,
+            EnemyCaptureScore = enemyScore,
+            EnemyCaptureReward = enemyReward,
+            EnemyCaptureCount = currentBattleEnemyCaptures.Count,
+            PlayerLossScore = playerLossScore,
+            PlayerLossReward = playerLossReward,
+            PlayerLossCount = currentBattlePlayerCaptures.Count,
+            TotalReward = totalReward
+        };
     }
 
     public void RecordPurchase()

@@ -23,7 +23,6 @@ public class TurnManager : MonoBehaviour
     [SerializeField] private float waitTime = 0.5f;
     private int consecutiveSkips = 0;
     [SerializeField] private int turnsSinceLastCapture = 0;
-    private const int MaxTurnsWithoutCapture = 15;
     private bool skipNextOpponentTurn = false;
 
     public bool IsOpponentTurnSkipPending => skipNextOpponentTurn;
@@ -183,18 +182,6 @@ public class TurnManager : MonoBehaviour
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.RecordPlayerTurnProgress();
-            }
-            int turnsLeft = MaxTurnsWithoutCapture - turnsSinceLastCapture;
-
-            if (turnsLeft <= 0)
-            {
-                // 턴 제한 초과 (교착 상태)
-                Debug.LogWarning("[TurnManager] Max turns without capture reached (턴 제한 교착 상태)");
-                GameStateManager.Instance?.ChangeState(GameStateManager.GameState.GameOver);
-                return;
-            }
-            else if (turnsLeft <= 5)
-            {
             }
         }
 
