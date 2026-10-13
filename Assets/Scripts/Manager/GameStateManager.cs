@@ -188,7 +188,10 @@ public class GameStateManager : MonoBehaviour
                 PieceManager.Instance.CapturePlacementSnapshot();
             }
 
-            ChangeState(GameState.GamePlay);
+            if (PieceSpawner.Instance == null || !PieceSpawner.Instance.TryStartGameWithEnemyReveal())
+            {
+                ChangeState(GameState.GamePlay);
+            }
         }
         else
         {

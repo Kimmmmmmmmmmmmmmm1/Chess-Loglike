@@ -35,7 +35,9 @@ public enum PieceBuffType
     [InspectorName("회피")]
     Evasion,
     [InspectorName("역공")]
-    Counterattack
+    Counterattack,
+    [InspectorName("무적")]
+    Invincibility
 }
 
 public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler, IPointerClickHandler, ISealDropTarget
@@ -115,12 +117,16 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     [SerializeField] private int protectionStacks;
     [SerializeField] private int evasionStacks;
     [SerializeField] private int counterattackStacks;
-    private readonly Image[] buffAuraImages = new Image[3];
+    [Tooltip("무적 턴 수. 0은 비활성, -1은 무한 지속입니다.")]
+    [SerializeField] private int invincibilityTurns;
+    private readonly Image[] buffAuraImages = new Image[4];
     private static Sprite buffAuraSprite;
     public PieceLocation CurrentLocation => currentLocation;
     public int ProtectionStacks => protectionStacks;
     public int EvasionStacks => evasionStacks;
     public int CounterattackStacks => counterattackStacks;
+    public int InvincibilityTurns => invincibilityTurns;
+    public bool IsInvincible => invincibilityTurns != 0;
 
     [Header("Drag Wobble Settings")]
     [SerializeField] private float maxTiltAngle = 30f;
@@ -407,12 +413,12 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         if (sprite != null)
         {
             pieceImage.sprite = sprite;
-            pieceImage.SetNativeSize();
+            pieceImage.preserveAspect = true;
 
             if (shadowImage != null)
             {
                 shadowImage.sprite = sprite;
-                shadowImage.SetNativeSize();
+                shadowImage.preserveAspect = true;
             }
         }
     }
@@ -1521,6 +1527,12 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         // 📌 Case A Hook: 코드 인젝션(Seal)들에게 이동 경로 수정 요청
         foreach (var seal in equippedSeals) seal.ModifyMoves(ref moves, gridPosition.Value, isEnemy, null, IsOccupied);
+        // 무적 기물은 공격 대상 후보에서도 제외합니다.
+        moves.RemoveAll(target =>
+        {
+            PieceController targetPiece = PieceManager.Instance?.GetPieceAt(target);
+            return targetPiece != null && targetPiece.IsEnemy != isEnemy && targetPiece.IsInvincible;
+        });
         return moves;
     }
 
@@ -2466,12 +2478,19 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceBuffType.Protection => protectionStacks,
             PieceBuffType.Evasion => evasionStacks,
             PieceBuffType.Counterattack => counterattackStacks,
+            PieceBuffType.Invincibility => invincibilityTurns,
             _ => 0
         };
     }
 
     public void AddBuff(PieceBuffType buffType, int stacks = 1)
     {
+        if (buffType == PieceBuffType.Invincibility)
+        {
+            AddInvincibility(stacks);
+            return;
+        }
+
         if (stacks <= 0) return;
 
         switch (buffType)
@@ -2484,6 +2503,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 break;
             case PieceBuffType.Counterattack:
                 counterattackStacks += stacks;
+                break;
+            case PieceBuffType.Invincibility:
+                invincibilityTurns = stacks;
                 break;
         }
 
@@ -2505,12 +2527,47 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             case PieceBuffType.Counterattack:
                 counterattackStacks--;
                 break;
+            case PieceBuffType.Invincibility:
+                if (invincibilityTurns > 0)
+                {
+                    invincibilityTurns--;
+                }
+                else
+                {
+                    return false;
+                }
+                break;
             default:
                 return false;
         }
 
         RefreshBuffAuraVisuals();
         return true;
+    }
+
+    public void AddInvincibility(int turns)
+    {
+        if (turns == 0) return;
+
+        if (turns < 0)
+        {
+            invincibilityTurns = -1;
+        }
+        else if (invincibilityTurns != -1)
+        {
+            invincibilityTurns = Mathf.Max(invincibilityTurns, turns);
+        }
+
+        RefreshBuffAuraVisuals();
+    }
+
+    public void AdvanceBuffTurn()
+    {
+        if (invincibilityTurns > 0)
+        {
+            invincibilityTurns--;
+            RefreshBuffAuraVisuals();
+        }
     }
 
     public void PlayBuffActivationEffect(PieceBuffType buffType)
@@ -2527,6 +2584,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceBuffType.Protection => new Color(0.35f, 0.75f, 1f),
             PieceBuffType.Evasion => new Color(0.75f, 0.45f, 1f),
             PieceBuffType.Counterattack => new Color(1f, 0.35f, 0.2f),
+            PieceBuffType.Invincibility => new Color(0.35f, 1f, 0.45f),
             _ => Color.white
         };
 
@@ -2550,6 +2608,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 break;
             case PieceBuffType.Counterattack:
                 counterattackStacks = stacks;
+                break;
+            case PieceBuffType.Invincibility:
+                invincibilityTurns = stacks < 0 ? -1 : stacks;
                 break;
         }
 
@@ -2597,12 +2658,13 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
 
         // 배열 순서와 PieceBuffType 순서가 일치합니다.
-        // 보호=노랑, 회피=파랑, 역공=빨강입니다.
+        // 보호=노랑, 회피=파랑, 역공=빨강, 무적=초록입니다.
         Color[] auraColors =
         {
             new Color(1f, 0.85f, 0.1f, 0.9f),
             new Color(0.2f, 0.55f, 1f, 0.9f),
-            new Color(1f, 0.2f, 0.15f, 0.9f)
+            new Color(1f, 0.2f, 0.15f, 0.9f),
+            new Color(0.3f, 1f, 0.4f, 0.9f)
         };
 
         for (int i = 0; i < buffAuraImages.Length; i++)
@@ -2638,6 +2700,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         buffAuraImages[0].gameObject.SetActive(protectionStacks > 0);
         buffAuraImages[1].gameObject.SetActive(evasionStacks > 0);
         buffAuraImages[2].gameObject.SetActive(counterattackStacks > 0);
+        buffAuraImages[3].gameObject.SetActive(IsInvincible);
     }
 
     // -------------------

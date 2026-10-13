@@ -50,22 +50,43 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3cc55b050a7ce42b8936cf755bdd3dc7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PieceController
-  gridPosition: {x: 0, y: 0}
   selectButton: {fileID: 4274091784610530544}
+  sellButtonPrefab: {fileID: 0}
   pieceType: 0
   pieceImage: {fileID: 0}
+  shadowImage: {fileID: 0}
   isEnemy: 1
+  currentLocation: 0
+  promotedByMedalThisStage: 0
+  protectionStacks: 0
+  evasionStacks: 0
+  counterattackStacks: 0
   maxTiltAngle: 30
   tiltSensitivity: 0.5
   tiltSmoothTime: 0.1
   returnDuration: 0.3
   returnEase: 27
-  placeLiftHeight: 10
+  placeLiftHeightMultiplier: 0.3
   placeDuration: 0.4
   placeEase: 30
   squashScale: {x: 1.05, y: 0.95}
   stretchScale: {x: 0.95, y: 1.05}
   squashDuration: 0.15
+  hoverLiftAmount: 10
+  hoverDuration: 0.2
+  startleJumpPower: 20
+  startleDuration: 0.5
+  threatenedShakeStrength: 0.3
+  shakeFrameInterval: 8
+  allyColor: {r: 1, g: 0, b: 0, a: 1}
+  enemyColor: {r: 0, g: 0, b: 1, a: 1}
+  invalidZoneTint: {r: 1, g: 0.3, b: 0.3, a: 0.7}
+  sealIconSize: 20
+  sealIconPrefab: {fileID: 0}
+  sealIconSpacing: 10
+  duplicateSealCycleInterval: 1.2
+  duplicateSealSwitchDuration: 0.18
+  equippedSeals: []
 --- !u!114 &7272245619367617530
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -145,7 +166,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 1005468194322837479, guid: fd633027036cd4c11bed298215d4b898, type: 3}
+  m_Sprite: {fileID: 3286163911610860551, guid: 7d3a1a1565f454bb19f9fdcaf3a36eac, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

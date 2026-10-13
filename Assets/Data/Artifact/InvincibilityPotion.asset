@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a81c7032dbb2493eaa5c8e1cdc35369, type: 3}
+  m_Name: InvincibilityPotion
+  m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
+  id: AC06
+  artifactName: "무적의 물약"
+  description: "선택한 아군 기물 1개에게 2턴 동안 무적을 부여합니다.\n<color=#66FF88>[무적]</color> 무적 상태인 기물은 상대의 공격 대상이 될 수 없습니다."
+  flavorText: "어떤 공격도 닿지 않는 불멸의 막을 두릅니다."
+  rarity: 1
+  icon: {fileID: 0}
+  price: 180
+  isSoldInShop: 1
+  isGaugeRequired: 0
+  artifactType: 1
+  maxLevel: 1
+  level: 1

@@ -281,9 +281,25 @@ public class SoundManager : MonoBehaviour
         return true;
     }
 
+    public void ApplyLivePreview(SettingsData settings)
+    {
+        if (settings == null) return;
+
+        masterVolume = settings.masterVolume;
+        bgmVolume = settings.bgmVolume;
+        sfxVolume = settings.sfxVolume;
+        uiVolume = settings.uiVolume;
+        muteInBackground = settings.muteInBackground;
+
+        UpdateVolumes();
+    }
+
     private void UpdateVolumes()
     {
-        float effectiveMultiplier = (isAppFocused || !muteInBackground) ? 1f : 0f;
+        bool isMutedByBackground = muteInBackground && !isAppFocused;
+        AudioListener.pause = isMutedByBackground;
+
+        float effectiveMultiplier = isMutedByBackground ? 0f : 1f;
 
         if (bgmSource != null) // 볼륨 값을 0-1 범위로 정규화 (기존 값은 0-10)
             bgmSource.volume = (bgmVolume / 10f) * (masterVolume / 10f) * effectiveMultiplier;
@@ -345,10 +361,10 @@ public class SoundManager : MonoBehaviour
         PlaySFX(clip);
     }
 
-    public void PlaySFX(AudioClip clip)
+    public void PlaySFX(AudioClip clip, float volumeScale = 1f)
     {
         if (sfxSource == null || clip == null) return;
-        sfxSource.PlayOneShot(clip, sfxSource.volume);
+        sfxSource.PlayOneShot(clip, volumeScale);
     }
 
     public void PlayUI(UIType uiType)
@@ -357,33 +373,33 @@ public class SoundManager : MonoBehaviour
         PlayUI(clip);
     }
 
-    public void PlayUI(AudioClip clip)
+    public void PlayUI(AudioClip clip, float volumeScale = 1f)
     {
         if (uiSource == null || clip == null) return;
-        uiSource.PlayOneShot(clip, uiSource.volume);
+        uiSource.PlayOneShot(clip, volumeScale);
     }
 
     public void SetMasterVolume(float volume)
     {
-        masterVolume = Mathf.Clamp01(volume);
+        masterVolume = Mathf.Clamp(volume, 0f, 10f);
         UpdateVolumes();
     }
 
     public void SetBGMVolume(float volume)
     {
-        bgmVolume = Mathf.Clamp01(volume);
+        bgmVolume = Mathf.Clamp(volume, 0f, 10f);
         UpdateVolumes();
     }
 
     public void SetSFXVolume(float volume)
     {
-        sfxVolume = Mathf.Clamp01(volume);
+        sfxVolume = Mathf.Clamp(volume, 0f, 10f);
         UpdateVolumes();
     }
 
     public void SetUIVolume(float volume)
     {
-        uiVolume = Mathf.Clamp01(volume);
+        uiVolume = Mathf.Clamp(volume, 0f, 10f);
         UpdateVolumes();
     }
 

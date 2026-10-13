@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class PieceSpawner : MonoBehaviour
 {
@@ -19,6 +20,8 @@ public class PieceSpawner : MonoBehaviour
     public GameObject piecePrefab;
     public Transform piecesParent;
     [SerializeField] private float spawnDropHeightMultiplier = 3.0f;
+    [SerializeField] private float enemyRevealDuration = 0.9f;
+    [SerializeField] private float enemyRevealInterval = 0.12f;
 
     [Header("Spawn Data")]
     public List<PieceSpawnInfo> playerPieces;
@@ -26,6 +29,7 @@ public class PieceSpawner : MonoBehaviour
 
     private bool hasSpawned = false;
     private Coroutine spawnCoroutine;
+    private bool isStartingGame;
 
     private void Awake()
     {
@@ -52,6 +56,7 @@ public class PieceSpawner : MonoBehaviour
 
     private void OnDestroy()
     {
+        DOTween.Kill(this);
         if (GameStateManager.Instance != null)
         {
             GameStateManager.Instance.OnStateChanged -= OnStateChanged;
@@ -141,6 +146,141 @@ public class PieceSpawner : MonoBehaviour
         SpawnGroup(enemyPieces, true, ref currentDelay);
     }
 
+    public bool TryStartGameWithEnemyReveal()
+    {
+        if (isStartingGame)
+        {
+            return true;
+        }
+
+        if (PieceManager.Instance == null ||
+            !PieceManager.Instance.IsEnemyTerritoryHiddenDuringPrepare)
+        {
+            return false;
+        }
+
+        isStartingGame = true;
+        Sequence revealSequence = DOTween.Sequence().SetId(this);
+
+        int revealIndex = 0;
+        foreach (PieceController piece in PieceManager.Instance.EnemyPieces)
+        {
+            if (piece == null) continue;
+
+            CanvasGroup canvasGroup = piece.GetComponent<CanvasGroup>();
+            if (canvasGroup == null)
+            {
+                canvasGroup = piece.gameObject.AddComponent<CanvasGroup>();
+            }
+
+            canvasGroup.alpha = 0f;
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
+            revealSequence.Insert(
+                revealIndex * enemyRevealInterval,
+                CreateEnemyRevealSequence(piece, canvasGroup));
+            revealIndex++;
+        }
+
+        revealSequence.OnComplete(() =>
+        {
+            isStartingGame = false;
+            if (GameStateManager.Instance != null &&
+                GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare)
+            {
+                GameStateManager.Instance.ChangeState(GameStateManager.GameState.GamePlay);
+            }
+        });
+
+        if (revealSequence.Duration() <= 0f)
+        {
+            revealSequence.Complete();
+        }
+
+        return true;
+    }
+
+    private Sequence CreateEnemyRevealSequence(PieceController piece, CanvasGroup canvasGroup)
+    {
+        RectTransform pieceRect = piece.transform as RectTransform;
+        if (pieceRect == null)
+        {
+            return DOTween.Sequence()
+                .Append(canvasGroup.DOFade(1f, enemyRevealDuration))
+                .OnComplete(() =>
+                {
+                    canvasGroup.interactable = true;
+                    canvasGroup.blocksRaycasts = true;
+                });
+        }
+
+        Transform parent = pieceRect.parent;
+        GameObject pillarObject = new GameObject(
+            "EnemyRevealLightPillar",
+            typeof(RectTransform),
+            typeof(CanvasRenderer),
+            typeof(Image));
+        pillarObject.transform.SetParent(parent, false);
+
+        RectTransform pillarRect = pillarObject.GetComponent<RectTransform>();
+        Image pillarImage = pillarObject.GetComponent<Image>();
+        pillarImage.sprite = GetRevealSprite();
+        pillarImage.color = new Color(1f, 1f, 1f, 0f);
+        pillarImage.raycastTarget = false;
+
+        Vector2 cellSize = PieceManager.Instance.gridManager != null
+            ? PieceManager.Instance.gridManager.cellSize
+            : pieceRect.rect.size;
+        float pillarWidth = Mathf.Max(cellSize.x * 0.72f, pieceRect.rect.width * 0.72f);
+        float pillarHeight = Mathf.Max(cellSize.y * 2.4f, pieceRect.rect.height * 2.4f);
+        Vector2 pieceTargetPosition = pieceRect.anchoredPosition;
+        Vector2 pillarPosition = pieceTargetPosition;
+        pillarPosition.y -= cellSize.y * 0.45f;
+        Vector2 startPosition = pieceTargetPosition + new Vector2(
+            0f,
+            cellSize.y * spawnDropHeightMultiplier);
+        pieceRect.anchoredPosition = startPosition;
+        pillarRect.anchoredPosition = pillarPosition;
+        pillarRect.pivot = new Vector2(0.5f, 0f);
+        pillarRect.sizeDelta = new Vector2(0f, pillarHeight);
+        pillarRect.SetSiblingIndex(pieceRect.GetSiblingIndex());
+
+        Sequence sequence = DOTween.Sequence();
+        sequence.Append(pillarImage.DOFade(0.9f, 0.12f).SetEase(Ease.OutQuad));
+        sequence.Join(DOTween.To(
+            () => pillarRect.sizeDelta.x,
+            width => pillarRect.sizeDelta = new Vector2(width, pillarHeight),
+            pillarWidth,
+            0.18f).SetEase(Ease.OutBack));
+        sequence.Join(pieceRect.DOAnchorPos(pieceTargetPosition, enemyRevealDuration * 0.75f)
+            .SetEase(Ease.OutCubic));
+        sequence.Join(canvasGroup.DOFade(1f, enemyRevealDuration * 0.75f)
+            .SetEase(Ease.OutQuad));
+        sequence.Append(pillarImage.DOFade(0f, 0.18f));
+        sequence.OnComplete(() =>
+        {
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+            Destroy(pillarObject);
+        });
+
+        return sequence;
+    }
+
+    private static Sprite revealSprite;
+
+    private static Sprite GetRevealSprite()
+    {
+        if (revealSprite != null) return revealSprite;
+
+        Texture2D texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        texture.SetPixel(0, 0, Color.white);
+        texture.Apply();
+        revealSprite = Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f));
+        revealSprite.name = "EnemyRevealLightPillarSprite";
+        return revealSprite;
+    }
+
     public void SpawnPieceAndFlyToInventory(PieceType pieceType, Vector3 startWorldPos, InventorySlot targetSlot, SealData attachedSeal = null, System.Action<PieceController> onComplete = null, Transform flyParentOverride = null)
     {
         if (piecePrefab == null) return;
@@ -211,27 +351,50 @@ public class PieceSpawner : MonoBehaviour
                     }
                 }
 
-                // 생성 애니메이션: 위에서 아래로 떨어짐
-                if (piece.GetComponent<RectTransform>() is RectTransform rt)
-                {
-                    Vector2 targetPos = rt.anchoredPosition;
-                    float dropHeight = PieceManager.Instance.gridManager.cellSize.y * spawnDropHeightMultiplier;
-                    rt.anchoredPosition = targetPos + new Vector2(0, dropHeight); // 적당히 위쪽에서 시작
-                    rt.DOAnchorPos(targetPos, 0.8f).SetEase(Ease.OutQuad).SetDelay(delayAccumulator)
-                        .OnComplete(() => 
-                        {
-                            if (EffectManager.Instance != null)
-                                EffectManager.Instance.PlayLandingEffect(rt.position);
-                        });
+                bool hideEnemyDuringPrepare = isEnemy &&
+                    PieceManager.Instance != null &&
+                    PieceManager.Instance.IsEnemyTerritoryHiddenDuringPrepare;
 
-                    if (piece.PieceImage != null)
+                if (isEnemy && !hideEnemyDuringPrepare)
+                {
+                    CanvasGroup canvasGroup = piece.GetComponent<CanvasGroup>();
+                    if (canvasGroup == null)
                     {
-                        Color c = piece.PieceImage.color;
-                        piece.PieceImage.color = new Color(c.r, c.g, c.b, 0f); // 투명하게 시작
-                        piece.PieceImage.DOFade(1f, 0.8f).SetEase(Ease.OutQuad).SetDelay(delayAccumulator);
+                        canvasGroup = piece.gameObject.AddComponent<CanvasGroup>();
                     }
-                    
-                    delayAccumulator += 0.1f; // 다음 기물은 0.1초 뒤에 생성
+
+                    canvasGroup.alpha = 0f;
+                    canvasGroup.interactable = false;
+                    canvasGroup.blocksRaycasts = false;
+                    CreateEnemyRevealSequence(piece, canvasGroup)
+                        .SetDelay(delayAccumulator)
+                        .SetId(this);
+                    delayAccumulator += enemyRevealInterval;
+                }
+                else
+                {
+                    // 생성 애니메이션: 위에서 아래로 떨어짐
+                    if (piece.GetComponent<RectTransform>() is RectTransform rt)
+                    {
+                        Vector2 targetPos = rt.anchoredPosition;
+                        float dropHeight = PieceManager.Instance.gridManager.cellSize.y * spawnDropHeightMultiplier;
+                        rt.anchoredPosition = targetPos + new Vector2(0, dropHeight); // 적당히 위쪽에서 시작
+                        rt.DOAnchorPos(targetPos, 0.8f).SetEase(Ease.OutQuad).SetDelay(delayAccumulator)
+                            .OnComplete(() =>
+                            {
+                                if (EffectManager.Instance != null)
+                                    EffectManager.Instance.PlayLandingEffect(rt.position);
+                            });
+
+                        if (piece.PieceImage != null)
+                        {
+                            Color c = piece.PieceImage.color;
+                            piece.PieceImage.color = new Color(c.r, c.g, c.b, 0f); // 투명하게 시작
+                            piece.PieceImage.DOFade(1f, 0.8f).SetEase(Ease.OutQuad).SetDelay(delayAccumulator);
+                        }
+
+                        delayAccumulator += 0.1f; // 다음 기물은 0.1초 뒤에 생성
+                    }
                 }
 
             }

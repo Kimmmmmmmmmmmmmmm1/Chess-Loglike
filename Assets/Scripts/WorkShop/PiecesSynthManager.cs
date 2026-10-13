@@ -32,6 +32,7 @@ public class PiecesSynthManager : MonoBehaviour
     public Vector2 previewSealIconSize = new Vector2(24f, 24f);
     public bool autoResizePreviewPieceImage = true;
     public float previewPieceImageSizeMultiplier = 1f;
+    private Vector2? previewPieceImageBaseSize; // 씬에 배치된 원래 미리보기 크기
 
     [Header("Slot Return Animation")]
     public bool useFlyAnimationToInventory = true;
@@ -405,13 +406,18 @@ public class PiecesSynthManager : MonoBehaviour
             return;
         }
 
-        previewPieceImage.SetNativeSize();
-
         RectTransform rt = previewPieceImage.rectTransform;
-        if (rt != null && Mathf.Abs(previewPieceImageSizeMultiplier - 1f) > 0.0001f)
+        if (rt == null)
         {
-            rt.sizeDelta *= previewPieceImageSizeMultiplier;
+            return;
         }
+
+        // SetNativeSize()는 텍스처 픽셀 크기로 바꿔버려서(SVG 256px 등) 씬에 배치된 크기를 기준으로 조절
+        if (!previewPieceImageBaseSize.HasValue)
+        {
+            previewPieceImageBaseSize = rt.sizeDelta;
+        }
+        rt.sizeDelta = previewPieceImageBaseSize.Value * previewPieceImageSizeMultiplier;
     }
 
     private void RefreshPreviewSealIcons()

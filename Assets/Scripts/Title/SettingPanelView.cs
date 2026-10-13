@@ -130,6 +130,7 @@ public class SettingPanelView : MonoBehaviour
 
     private void OnDisable()
     {
+        RevertUnsavedAudioPreview();
         StopTransition();
         UnbindButtons();
 
@@ -1090,8 +1091,18 @@ public class SettingPanelView : MonoBehaviour
         return ModalManager.Instance.ShowModalAsync(message);
     }
 
+    public void RevertUnsavedAudioPreview()
+    {
+        if (SettingsManager.Instance != null && SoundManager.Instance != null)
+        {
+            SoundManager.Instance.ApplyLivePreview(SettingsManager.Instance.Settings);
+        }
+    }
+
     public void ClosePanel()
     {
+        RevertUnsavedAudioPreview();
+
         if (panelAnimator == null)
         {
             panelAnimator = GetComponent<PanelAnimator>();

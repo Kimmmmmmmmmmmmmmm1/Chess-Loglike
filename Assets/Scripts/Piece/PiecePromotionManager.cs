@@ -301,7 +301,7 @@ public class PiecePromotionManager : MonoBehaviour
             {
                 effectImage.sprite = GetOrCreateRuntimeSprite();
             }
-            effectImage.color = new Color(1f, 0.2f, 0.2f, 0.85f);
+            effectImage.color = new Color(1f, 1f, 1f, 0f);
             effectRect = effectImage.rectTransform;
             effectRect.pivot = new Vector2(0.5f, 0f);
 
@@ -320,6 +320,7 @@ public class PiecePromotionManager : MonoBehaviour
             effectRect.sizeDelta = new Vector2(0f, effectHeight);
 
             effectRect.DOSizeDelta(new Vector2(effectTargetWidth, effectHeight), enemyEffectDuration * 0.7f).SetEase(effectEase);
+            effectImage.DOFade(0.85f, enemyEffectDuration * 0.7f).SetEase(Ease.OutQuad);
         }
 
         // 폰 기물이 에너지를 응축하며 떨리고 커지는 연출
@@ -363,7 +364,7 @@ public class PiecePromotionManager : MonoBehaviour
             newPiece.transform.DOPunchScale(new Vector3(0.35f, 0.35f, 0f), 0.45f, 8, 0.6f);
         }
 
-        // 붉은 기둥 페이드 아웃 후 정리
+        // 흰색 기둥 페이드 아웃 후 정리
         if (effectImage != null)
         {
             effectImage.DOFade(0f, 0.35f).OnComplete(() =>
@@ -421,8 +422,8 @@ public class PiecePromotionManager : MonoBehaviour
             {
                 effectImage.sprite = GetOrCreateRuntimeSprite();
             }
-            // 적군은 붉은색 계열, 아군은 기본 초록 계열 연출
-            effectImage.color = soldier.IsEnemy ? new Color(1f, 0.25f, 0.25f, 0.85f) : promotionEffectColor;
+            // 적군 프로모션은 흰색 빛기둥으로 연출
+            effectImage.color = soldier.IsEnemy ? new Color(1f, 1f, 1f, 0f) : promotionEffectColor;
             effectRect = effectImage.rectTransform;
             effectRect.pivot = new Vector2(0.5f, 0f); // bottom align
 
@@ -449,6 +450,10 @@ public class PiecePromotionManager : MonoBehaviour
         if (effectRect != null)
         {
             seq.Append(DOTween.To(() => effectRect.sizeDelta.x, x => { var s = effectRect.sizeDelta; s.x = x; effectRect.sizeDelta = s; }, effectTargetWidth, effectExpandDuration).SetEase(effectEase));
+            if (soldier.IsEnemy)
+            {
+                seq.Join(effectImage.DOFade(0.85f, effectExpandDuration).SetEase(Ease.OutQuad));
+            }
             seq.AppendCallback(() =>
             {
                 // Swap the piece now

@@ -44,6 +44,7 @@ public class AudioSettingsView : MonoBehaviour
         ApplyToUI();
         BindUI();
         UpdateSelectionVisuals();
+        ApplyLiveAudioPreview();
     }
 
     private void PopulateLabels()
@@ -107,6 +108,7 @@ public class AudioSettingsView : MonoBehaviour
         if (staged == null) return;
         staged.masterVolume = v;
         UpdateSelectionVisuals();
+        ApplyLiveAudioPreview();
     }
 
     private void OnBgmChanged(float v)
@@ -114,6 +116,7 @@ public class AudioSettingsView : MonoBehaviour
         if (staged == null) return;
         staged.bgmVolume = v;
         UpdateSelectionVisuals();
+        ApplyLiveAudioPreview();
     }
     
     private void OnSfxChanged(float v)
@@ -121,6 +124,7 @@ public class AudioSettingsView : MonoBehaviour
         if (staged == null) return;
         staged.sfxVolume = v;
         UpdateSelectionVisuals();
+        ApplyLiveAudioPreview();
     }
     
     private void OnUiChanged(float v)
@@ -128,6 +132,7 @@ public class AudioSettingsView : MonoBehaviour
         if (staged == null) return;
         staged.uiVolume = v;
         UpdateSelectionVisuals();
+        ApplyLiveAudioPreview();
     }
     
     private void OnMuteBackgroundChanged(bool val)
@@ -135,6 +140,13 @@ public class AudioSettingsView : MonoBehaviour
         if (staged == null) return;
         staged.muteInBackground = val;
         UpdateSelectionVisuals();
+        ApplyLiveAudioPreview();
+    }
+
+    private void ApplyLiveAudioPreview()
+    {
+        if (staged == null || SoundManager.Instance == null) return;
+        SoundManager.Instance.ApplyLivePreview(staged);
     }
 
     private void SyncSelectionVisuals()

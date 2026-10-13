@@ -127,6 +127,10 @@ public class PieceManager : MonoBehaviour
         {
             GameStateManager.Instance.OnStateChanged += OnStateChanged;
         }
+        if (TurnManager.Instance != null)
+        {
+            TurnManager.Instance.OnTurnAdvanced += HandleTurnAdvanced;
+        }
         UpdatePieceCountUI();
     }
 
@@ -141,7 +145,22 @@ public class PieceManager : MonoBehaviour
         {
             GameStateManager.Instance.OnStateChanged -= OnStateChanged;
         }
+        if (TurnManager.Instance != null)
+        {
+            TurnManager.Instance.OnTurnAdvanced -= HandleTurnAdvanced;
+        }
         SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    private void HandleTurnAdvanced(TurnOwner newTurn)
+    {
+        foreach (PieceController piece in pieces)
+        {
+            if (piece != null)
+            {
+                piece.AdvanceBuffTurn();
+            }
+        }
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -915,6 +934,7 @@ public class PieceManager : MonoBehaviour
         if (targetPiece != null)
         {
             if (targetPiece.IsEnemy == piece.IsEnemy) return false;
+            if (targetPiece.IsInvincible) return false;
 
             AttackResponse response = ResolveAttackResponse(piece, targetPiece);
             if (response != AttackResponse.None)

@@ -438,7 +438,7 @@ public class BoardEvaluator : MonoBehaviour
                     continue;
                 }
 
-                SimPiece sim = new SimPiece(id, piece.Type, piece.IsEnemy, piece.gridPosition.Value);
+                SimPiece sim = new SimPiece(id, piece.Type, piece.IsEnemy, piece.gridPosition.Value, piece.IsInvincible);
                 pieces.Add(id, sim);
                 actualPieces.Add(id, piece);
                 positions[sim.Position] = id;
@@ -844,6 +844,11 @@ public class BoardEvaluator : MonoBehaviour
                 return true;
             }
 
+            if (pieceAt.IsInvincible)
+            {
+                return false;
+            }
+
             return pieceAt.IsEnemy != piece.IsEnemy;
         }
 
@@ -892,19 +897,21 @@ public class BoardEvaluator : MonoBehaviour
         public int Id { get; }
         public PieceType Type { get; set; }
         public bool IsEnemy { get; }
+        public bool IsInvincible { get; }
         public Vector2Int Position { get; set; }
 
-        public SimPiece(int id, PieceType type, bool isEnemy, Vector2Int position)
+        public SimPiece(int id, PieceType type, bool isEnemy, Vector2Int position, bool isInvincible)
         {
             Id = id;
             Type = type;
             IsEnemy = isEnemy;
+            IsInvincible = isInvincible;
             Position = position;
         }
 
         public SimPiece Clone()
         {
-            return new SimPiece(Id, Type, IsEnemy, Position);
+            return new SimPiece(Id, Type, IsEnemy, Position, IsInvincible);
         }
     }
 }

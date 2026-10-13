@@ -17,13 +17,15 @@ public static class ArtifactEffectRegistry
     public static readonly ProtectionPotionArtifactEffect ProtectionPotion = new ProtectionPotionArtifactEffect();
     public static readonly EvasionPotionArtifactEffect EvasionPotion = new EvasionPotionArtifactEffect();
     public static readonly CounterattackPotionArtifactEffect CounterattackPotion = new CounterattackPotionArtifactEffect();
+    public static readonly InvincibilityPotionArtifactEffect InvincibilityPotion = new InvincibilityPotionArtifactEffect();
 
     private static readonly Dictionary<string, ActiveArtifactEffectBase> activeEffects = BuildActiveEffects(
         Hourglass,
         Lightning,
         ProtectionPotion,
         EvasionPotion,
-        CounterattackPotion
+        CounterattackPotion,
+        InvincibilityPotion
     );
 
     private static Dictionary<string, ActiveArtifactEffectBase> BuildActiveEffects(params ActiveArtifactEffectBase[] effects)

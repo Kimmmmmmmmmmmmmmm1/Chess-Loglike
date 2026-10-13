@@ -286,6 +286,9 @@ MonoBehaviour:
   isEnemy: 0
   currentLocation: 0
   promotedByMedalThisStage: 0
+  protectionStacks: 0
+  evasionStacks: 0
+  counterattackStacks: 0
   maxTiltAngle: 30
   tiltSensitivity: 0.5
   tiltSmoothTime: 0.1
@@ -381,7 +384,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 1005468194322837479, guid: fd633027036cd4c11bed298215d4b898, type: 3}
+  m_Sprite: {fileID: 3286163911610860551, guid: 019611c85dca34f3d82caad0054255c9, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
