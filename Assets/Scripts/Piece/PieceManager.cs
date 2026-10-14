@@ -1685,11 +1685,17 @@ public class PieceManager : MonoBehaviour
             if (markerTransform != null)
             {
                 markerTransform.anchoredPosition = GridToUiPosition(gridPos);
+                if (gridManager != null)
+                {
+                    markerTransform.sizeDelta = gridManager.cellSize;
+                }
             }
 
             if (marker != null)
             {
-                marker.Initialize(this, gridPos, isEnemy);
+                PieceController pieceAt = GetPieceAt(gridPos);
+                bool isCapture = pieceAt != null && pieceAt.IsEnemy != isEnemy;
+                marker.Initialize(this, gridPos, isEnemy, isCapture);
                 activeMarkers.Add(marker);
                 added?.Add(gridPos);
             }

@@ -196,7 +196,6 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         originalParent = parent;
     }
     private CanvasGroup canvasGroup;
-    private Outline outline;
     private TextMeshProUGUI nameText;
     private TextMeshProUGUI asciiArtText;
     private static Sprite terminalBlockSprite;
@@ -271,14 +270,6 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
             originalColor = pieceImage.color;
 
-            // 외곽선은 기물 이미지에 직접 적용
-            outline = pieceImage.GetComponent<Outline>();
-            if (outline == null)
-            {
-                outline = pieceImage.gameObject.AddComponent<Outline>();
-            }
-            outline.enabled = false;
-
             // 그림자용 자식 오브젝트를 별도로 생성/관리
             if (shadowImage != null)
             {
@@ -349,10 +340,6 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             activeSellButton = null;
         }
 
-        if (outline != null)
-        {
-            outline.enabled = false;
-        }
         if (nameText != null)
         {
             nameText.transform.DOKill();
@@ -421,6 +408,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 shadowImage.preserveAspect = true;
             }
         }
+
     }
 
     public static string GetShortAsciiSymbol(PieceType type)
@@ -518,12 +506,6 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         Color uiColor = isEnemy ? enemyColor : allyColor;
         bool isPrepare = GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare;
 
-        if (outline != null)
-        {
-            outline.effectColor = uiColor;
-            outline.enabled = true;
-        }
-
         if (nameText != null)
         {
             nameText.text = GetPieceNameForType(pieceType);
@@ -616,7 +598,6 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (outline != null) outline.enabled = false;
         if (nameText != null)
         {
             // 사라질 때 애니메이션 (Scale 1 -> 0)
@@ -858,17 +839,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             CheckInvalidZoneFeedback();
         }
 
-        // 드래그 아이콘에 흔들림 효과 적용
-        Vector2 dragDelta = eventData.position - previousDragPosition;
-        float tiltZ = -dragDelta.x * tiltSensitivity;
-        float tiltX = dragDelta.y * tiltSensitivity;
-
-        tiltZ = Mathf.Clamp(tiltZ, -maxTiltAngle, maxTiltAngle);
-        tiltX = Mathf.Clamp(tiltX, -maxTiltAngle, maxTiltAngle);
-
-        Quaternion targetRotation = Quaternion.Euler(tiltX, 0f, tiltZ);
-
-        rotationTween = rectTransform.DOLocalRotateQuaternion(targetRotation, tiltSmoothTime).SetEase(Ease.OutQuad);
+        // 드래그 중 기물 흔들림(틸트) 방지 - 정자세 유지
+        rotationTween?.Kill();
+        rectTransform.localRotation = originalRotation;
 
         previousDragPosition = eventData.position;
     }
@@ -3356,5 +3329,6 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         positionTween?.Kill();
         scaleTween?.Kill();
         threatenedTween?.Kill();
+
     }
 }

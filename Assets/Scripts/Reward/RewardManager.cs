@@ -28,6 +28,12 @@ public class RewardManager : MonoBehaviour
     private float rewardExpandedHeight = 0f;
     private Vector2 rewardPanelFinalAnchoredPos = Vector2.zero;
 
+    private TMPro.TextMeshProUGUI titleText;
+    private TMPro.TextMeshProUGUI closeButtonText;
+    private ScrollRect rewardScrollRect;
+    private GameManager.BattleRewardResult currentBattleReward;
+    private bool isSettlementPhase = false;
+
     [Header("Movement")]
     public float panelMoveOffset = 60f;
     public float panelMoveDuration = 0.25f;
@@ -159,10 +165,19 @@ public class RewardManager : MonoBehaviour
             if (rewardPanelRect != null)
             {
                 rewardPanelRect.pivot = new Vector2(0.5f, 0.5f);
-                rewardPanelRect.sizeDelta = new Vector2(520f, 260f);
                 rewardPanelFinalAnchoredPos = Vector2.zero;
-                rewardExpandedHeight = 260f;
             }
+
+            Transform titleTextObj = rewardPanel.transform.Find("Image/GameObject/Text (TMP)");
+            if (titleTextObj != null)
+            {
+                titleText = titleTextObj.GetComponent<TMPro.TextMeshProUGUI>();
+            }
+        }
+
+        if (closeButton != null)
+        {
+            closeButtonText = closeButton.GetComponentInChildren<TMPro.TextMeshProUGUI>();
         }
 
         if (rewardContainer != null)
@@ -198,21 +213,21 @@ public class RewardManager : MonoBehaviour
             }
 
             // 부모 ScrollRect 및 Viewport 크기 및 스크롤 제한 설정
-            ScrollRect scrollRect = rewardContainer.GetComponentInParent<ScrollRect>();
-            if (scrollRect != null)
+            rewardScrollRect = rewardContainer.GetComponentInParent<ScrollRect>();
+            if (rewardScrollRect != null)
             {
-                scrollRect.horizontal = false;
-                scrollRect.vertical = false;
-                RectTransform scrollRectTransform = scrollRect.GetComponent<RectTransform>();
+                rewardScrollRect.horizontal = false;
+                rewardScrollRect.vertical = false;
+                RectTransform scrollRectTransform = rewardScrollRect.GetComponent<RectTransform>();
                 if (scrollRectTransform != null)
                 {
                     scrollRectTransform.sizeDelta = new Vector2(500f, 64f);
-                    scrollRectTransform.anchoredPosition = new Vector2(0f, -35f);
+                    scrollRectTransform.anchoredPosition = new Vector2(0f, -10f);
                 }
 
-                if (scrollRect.verticalScrollbar != null)
+                if (rewardScrollRect.verticalScrollbar != null)
                 {
-                    scrollRect.verticalScrollbar.gameObject.SetActive(false);
+                    rewardScrollRect.verticalScrollbar.gameObject.SetActive(false);
                 }
             }
         }
@@ -258,40 +273,8 @@ public class RewardManager : MonoBehaviour
                     summaryRect.anchorMin = new Vector2(0.5f, 0.5f);
                     summaryRect.anchorMax = new Vector2(0.5f, 0.5f);
                     summaryRect.pivot = new Vector2(0.5f, 0.5f);
-                    summaryRect.anchoredPosition = new Vector2(0f, 45f);
-                    summaryRect.sizeDelta = new Vector2(480f, 80f);
-                }
-            }
-        }
-
-        if (rewardSummaryText != null)
-        {
-            RectTransform summaryRect = rewardSummaryText.GetComponent<RectTransform>();
-            if (summaryRect != null)
-            {
-                summaryRect.anchoredPosition = new Vector2(0f, 45f);
-                summaryRect.sizeDelta = new Vector2(480f, 80f);
-            }
-        }
-
-        if (rewardPanel != null)
-        {
-            Transform titleTextObj = rewardPanel.transform.Find("Image/GameObject/Text (TMP)");
-            if (titleTextObj != null)
-            {
-                RectTransform titleRect = titleTextObj.GetComponent<RectTransform>();
-                if (titleRect != null)
-                {
-                    titleRect.anchoredPosition = new Vector2(0f, 102f);
-                }
-            }
-
-            if (closeButton != null)
-            {
-                RectTransform btnRect = closeButton.GetComponent<RectTransform>();
-                if (btnRect != null)
-                {
-                    btnRect.anchoredPosition = new Vector2(0f, -95f);
+                    summaryRect.anchoredPosition = new Vector2(0f, 15f);
+                    summaryRect.sizeDelta = new Vector2(280f, 110f);
                 }
             }
         }
@@ -380,43 +363,19 @@ public class RewardManager : MonoBehaviour
     {
         currentRarity = rarity;
         currentIsTreasure = isTreasure;
-        UpdateRerollUI();
         SetupHorizontalRewardLayout();
-
-        // 게임(전투) 종료시 확정 보상 정산 및 지급
-        if (!isTreasure && GameManager.Instance != null)
-        {
-            var rewardResult = GameManager.Instance.CalculateBattleReward(pieceData);
-            GameManager.Instance.AddCoin(rewardResult.TotalReward);
-            UpdateRewardSummaryUI(rewardResult);
-        }
-        else if (rewardSummaryText != null)
-        {
-            if (isTreasure)
-            {
-                rewardSummaryText.text = "<color=#FFD700><b>보물상자 보상을 선택하세요!</b></color>";
-            }
-            else
-            {
-                rewardSummaryText.text = string.Empty;
-            }
-        }
 
         if (rewardPanel != null)
         {
             rewardPanel.SetActive(true);
-
-            // UI가 다른 요소 뒤에 가려지지 않도록 맨 앞으로 가져오기
             rewardPanel.transform.SetAsLastSibling();
 
-            // 위치 초기화
             RectTransform rect = rewardPanel.GetComponent<RectTransform>();
             if (rect != null)
             {
                 rect.anchoredPosition = rewardPanelFinalAnchoredPos;
             }
 
-            // 투명도 초기화 (CanvasGroup이 있다면)
             CanvasGroup cg = rewardPanel.GetComponent<CanvasGroup>();
             if (cg != null)
             {
@@ -424,19 +383,230 @@ public class RewardManager : MonoBehaviour
                 cg.blocksRaycasts = true;
                 cg.interactable = true;
             }
+        }
 
-            if (rewardPanelRect != null)
+        // 보물상자는 정산 단계 없이 바로 선택 보상 창으로 진입
+        if (isTreasure)
+        {
+            ShowChoicePhase(count, rarity, true);
+        }
+        else
+        {
+            // 1단계: 기본 보상(전투 정산) 창 먼저 표시
+            currentBattleReward = GameManager.Instance != null
+                ? GameManager.Instance.CalculateBattleReward(pieceData)
+                : default;
+
+            ShowSettlementPhase(currentBattleReward);
+        }
+    }
+
+    private void ShowSettlementPhase(GameManager.BattleRewardResult result)
+    {
+        isSettlementPhase = true;
+
+        if (rewardPanelRect != null)
+        {
+            rewardPanelRect.DOKill();
+            rewardPanelRect.sizeDelta = new Vector2(320f, 240f);
+            rewardPanelRect.anchoredPosition = Vector2.zero;
+        }
+
+        if (titleText != null)
+        {
+            titleText.text = "전투 정산";
+            RectTransform titleRect = titleText.GetComponent<RectTransform>();
+            if (titleRect != null)
             {
-                rewardPanelRect.DOKill();
-                if (rewardExpandedHeight > 0f)
-                {
-                    SetRewardPanelHeight(rewardExpandedHeight);
-                }
-                rewardPanelRect.anchoredPosition = rewardPanelFinalAnchoredPos;
+                titleRect.anchoredPosition = new Vector2(0f, 92f);
             }
         }
 
-        GenerateRewards(3, rarity, isTreasure);
+        if (rewardSummaryText != null)
+        {
+            rewardSummaryText.gameObject.SetActive(true);
+            UpdateRewardSummaryUI(result);
+            RectTransform summaryRect = rewardSummaryText.GetComponent<RectTransform>();
+            if (summaryRect != null)
+            {
+                summaryRect.anchoredPosition = new Vector2(0f, 12f);
+                summaryRect.sizeDelta = new Vector2(280f, 115f);
+            }
+        }
+
+        // 선택 보상 카드 및 리롤 버튼 숨기기
+        if (rewardScrollRect != null)
+        {
+            rewardScrollRect.gameObject.SetActive(false);
+        }
+
+        if (rerollButton != null)
+        {
+            rerollButton.gameObject.SetActive(false);
+        }
+
+        // "보상 받기" 버튼 활성화
+        if (closeButton != null)
+        {
+            closeButton.gameObject.SetActive(true);
+            closeButton.interactable = true;
+            if (closeButtonText != null)
+            {
+                closeButtonText.text = "보상 받기";
+            }
+            RectTransform btnRect = closeButton.GetComponent<RectTransform>();
+            if (btnRect != null)
+            {
+                btnRect.anchoredPosition = new Vector2(0f, -85f);
+            }
+
+            closeButton.onClick.RemoveAllListeners();
+            closeButton.onClick.AddListener(OnClaimSettlementRewardClicked);
+        }
+    }
+
+    private void OnClaimSettlementRewardClicked()
+    {
+        if (closeButton != null)
+        {
+            closeButton.interactable = false;
+        }
+
+        Vector3 startPos = closeButton != null
+            ? closeButton.transform.position
+            : (rewardPanel != null ? rewardPanel.transform.position : transform.position);
+
+        // 골드 날아가는 연출 실행 후 선택 보상 창으로 전환
+        PlayCoinFlyAnimation(currentBattleReward.TotalReward, startPos, () =>
+        {
+            ShowChoicePhase(3, currentRarity, false);
+        });
+    }
+
+    private void ShowChoicePhase(int count, int rarity, bool isTreasure)
+    {
+        isSettlementPhase = false;
+
+        if (rewardPanelRect != null)
+        {
+            rewardPanelRect.DOKill();
+            rewardPanelRect.DOSizeDelta(new Vector2(520f, 220f), 0.25f).SetEase(Ease.OutQuad);
+            rewardPanelRect.anchoredPosition = Vector2.zero;
+        }
+
+        if (titleText != null)
+        {
+            titleText.text = isTreasure ? "보물상자" : "보상 선택";
+            RectTransform titleRect = titleText.GetComponent<RectTransform>();
+            if (titleRect != null)
+            {
+                titleRect.anchoredPosition = new Vector2(0f, 78f);
+            }
+        }
+
+        // 정산 세로 계산식 텍스트 숨기기
+        if (rewardSummaryText != null)
+        {
+            rewardSummaryText.gameObject.SetActive(false);
+        }
+
+        // 선택 보상 카드 컨테이너 표시
+        if (rewardScrollRect != null)
+        {
+            rewardScrollRect.gameObject.SetActive(true);
+            RectTransform scrollRectTransform = rewardScrollRect.GetComponent<RectTransform>();
+            if (scrollRectTransform != null)
+            {
+                scrollRectTransform.sizeDelta = new Vector2(500f, 64f);
+                scrollRectTransform.anchoredPosition = new Vector2(0f, -10f);
+            }
+        }
+
+        // 리롤 버튼 표시 (보물상자가 아닐 때)
+        if (rerollButton != null)
+        {
+            rerollButton.gameObject.SetActive(!isTreasure);
+            UpdateRerollUI();
+        }
+
+        // 닫기 / 선택 완료 버튼 설정
+        if (closeButton != null)
+        {
+            closeButton.gameObject.SetActive(true);
+            closeButton.interactable = true;
+            if (closeButtonText != null)
+            {
+                closeButtonText.text = "선택 완료";
+            }
+            RectTransform btnRect = closeButton.GetComponent<RectTransform>();
+            if (btnRect != null)
+            {
+                btnRect.anchoredPosition = new Vector2(0f, -75f);
+            }
+
+            closeButton.onClick.RemoveAllListeners();
+            closeButton.onClick.AddListener(OnRewardClaimed);
+        }
+
+        GenerateRewards(count, rarity, isTreasure);
+    }
+
+    private void PlayCoinFlyAnimation(int amount, Vector3 startPos, System.Action onComplete)
+    {
+        if (amount <= 0 || GameManager.Instance == null || GameManager.Instance.coinText == null)
+        {
+            if (amount > 0 && GameManager.Instance != null)
+            {
+                GameManager.Instance.AddCoin(amount);
+            }
+            onComplete?.Invoke();
+            return;
+        }
+
+        GameObject flyObj = new GameObject("FlyingCoin");
+        Canvas rootCanvas = rewardPanel != null ? rewardPanel.GetComponentInParent<Canvas>() : null;
+        if (rootCanvas != null)
+        {
+            flyObj.transform.SetParent(rootCanvas.transform, true);
+        }
+        else
+        {
+            flyObj.transform.SetParent(rewardPanel != null ? rewardPanel.transform.root : transform.root, true);
+        }
+
+        flyObj.transform.position = startPos;
+        flyObj.transform.localScale = Vector3.one;
+
+        TMPro.TextMeshProUGUI flyText = flyObj.AddComponent<TMPro.TextMeshProUGUI>();
+        flyText.raycastTarget = false;
+        flyText.text = $"+{amount}";
+        flyText.fontSize = 34;
+        flyText.color = Color.yellow;
+        flyText.alignment = TMPro.TextAlignmentOptions.Center;
+        flyText.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
+        if (GameManager.Instance.coinText != null)
+        {
+            flyText.font = GameManager.Instance.coinText.font;
+        }
+        if (flyText.font == null)
+        {
+            flyText.font = TMPro.TMP_Settings.defaultFontAsset;
+        }
+
+        Sequence seq = DOTween.Sequence().SetUpdate(true);
+        seq.Append(flyObj.transform.DOScale(1.25f, 0.2f).SetEase(Ease.OutQuad));
+        seq.Append(flyObj.transform.DOMove(GameManager.Instance.coinText.transform.position, 0.75f).SetEase(Ease.InBack));
+        seq.Join(flyObj.transform.DOScale(0.5f, 0.75f).SetDelay(0.15f));
+
+        seq.OnComplete(() =>
+        {
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.AddCoin(amount);
+            }
+            Destroy(flyObj);
+            onComplete?.Invoke();
+        });
     }
 
     private void UpdateRewardSummaryUI(GameManager.BattleRewardResult result)

@@ -41,6 +41,20 @@ public class PiecePromotionManager : MonoBehaviour
     public float effectFadeDuration = 0.4f;
     public Ease effectEase = Ease.OutQuad;
 
+    private float GetEnemyEffectHeight(PieceController piece)
+    {
+        if (piece != null && PieceManager.Instance != null &&
+            PieceManager.Instance.gridManager != null)
+        {
+            float cellHeight = PieceManager.Instance.gridManager.cellSize.y;
+            return Mathf.Max(cellHeight * 5f, piece.transform as RectTransform != null
+                ? (piece.transform as RectTransform).rect.height * 5f
+                : cellHeight * 5f);
+        }
+
+        return effectHeight;
+    }
+
     [Header("Enemy Promotion Timing & Delays")]
     [Tooltip("1단계: 이동(AnimatePlacement) 완료 대기 시간")]
     [SerializeField] private float enemyMoveWaitTime = 0.65f;
@@ -317,9 +331,10 @@ public class PiecePromotionManager : MonoBehaviour
             RectTransformUtility.ScreenPointToLocalPointInRectangle(uiCanvasRect, screenPoint, uiCanvasRect.GetComponentInParent<Canvas>()?.worldCamera, out localPoint);
             localPoint.y -= 16f;
             effectRect.anchoredPosition = localPoint;
-            effectRect.sizeDelta = new Vector2(0f, effectHeight);
+            float promotionEffectHeight = GetEnemyEffectHeight(enemyPawn);
+            effectRect.sizeDelta = new Vector2(0f, promotionEffectHeight);
 
-            effectRect.DOSizeDelta(new Vector2(effectTargetWidth, effectHeight), enemyEffectDuration * 0.7f)
+            effectRect.DOSizeDelta(new Vector2(effectTargetWidth, promotionEffectHeight), enemyEffectDuration * 0.7f)
                 .SetEase(effectEase);
         }
 
@@ -442,7 +457,10 @@ public class PiecePromotionManager : MonoBehaviour
             localPoint.y -= 16f;
             effectRect.anchoredPosition = localPoint;
 
-            effectRect.sizeDelta = new Vector2(0f, effectHeight);
+            float promotionEffectHeight = soldier.IsEnemy
+                ? GetEnemyEffectHeight(soldier)
+                : effectHeight;
+            effectRect.sizeDelta = new Vector2(0f, promotionEffectHeight);
         }
 
         // Sequence: expand width -> when reached, swap piece -> fade out
@@ -555,16 +573,16 @@ public class PiecePromotionManager : MonoBehaviour
                         }
                     }
 
-                    // 아군 기물인 경우에만 승급의 인장 부착 (적군은 인장 부착 생략)
+                    // 승급한 기물은 아군과 적군 모두 승급의 인장을 부착한다.
+                    bool attachedPromotionSeal = newPiece.AttachPromotionSeal(promotionSealData);
+                    if (attachedPromotionSeal)
+                    {
+                        newPiece.MarkPromotedByMedalThisStage();
+                    }
+
                     if (!isEnemy)
                     {
                         CollectionManager.EnsureInstance()?.RecordPiece(promotedType);
-                        bool attached = newPiece.AttachPromotionSeal(promotionSealData);
-                        if (!attached)
-                        {
-                        }
-
-                        newPiece.MarkPromotedByMedalThisStage();
 
                         string promoSymbol = PieceManager.GetPieceAlgebraicSymbol(promotedType);
                         string promoKorName = PieceManager.GetPieceTypeKoreanName(promotedType);

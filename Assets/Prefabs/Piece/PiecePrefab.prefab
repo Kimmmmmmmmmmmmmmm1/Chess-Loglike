@@ -289,6 +289,7 @@ MonoBehaviour:
   protectionStacks: 0
   evasionStacks: 0
   counterattackStacks: 0
+  invincibilityTurns: 0
   maxTiltAngle: 30
   tiltSensitivity: 0.5
   tiltSmoothTime: 0.1
@@ -328,7 +329,6 @@ GameObject:
   - component: {fileID: 2289614883636636166}
   - component: {fileID: 636238825164382176}
   - component: {fileID: 257716988490848658}
-  - component: {fileID: 1685780222723293769}
   m_Layer: 5
   m_Name: Piece
   m_TagString: Untagged
@@ -457,18 +457,3 @@ MonoBehaviour:
   pressDuration: 0.1
   hoverEase: 6
   pressEase: 7
---- !u!114 &1685780222723293769
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6359718690639581808}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
-  m_EffectColor: {r: 1, g: 1, b: 1, a: 1}
-  m_EffectDistance: {x: 2, y: -2}
-  m_UseGraphicAlpha: 1

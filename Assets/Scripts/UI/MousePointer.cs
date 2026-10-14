@@ -36,7 +36,7 @@ public class MousePointer : MonoBehaviour
         CreateCorners();
         currentDist = BaseDistance;
         currentAnimBaseDist = BaseDistance;
-        StartPulseAnimation(BaseDistance);
+        UpdateCornerPositions(BaseDistance);
     }
 
     private void CreateCorners()
@@ -185,7 +185,7 @@ public class MousePointer : MonoBehaviour
                     }
 
                     SetCornersActive(true);
-                    if (Vector3.Distance(rectTransform.position, slot.transform.position) < 0.2f)
+                    if (isDragging || Vector3.Distance(rectTransform.position, slot.transform.position) < 0.2f)
                     {
                         rectTransform.position = slot.transform.position;
                     }
@@ -205,7 +205,7 @@ public class MousePointer : MonoBehaviour
                 {
                     currentGridPos = null;
                     SetCornersActive(true);
-                    if (Vector3.Distance(rectTransform.position, sealSlot.transform.position) < 0.2f)
+                    if (isDragging || Vector3.Distance(rectTransform.position, sealSlot.transform.position) < 0.2f)
                     {
                         rectTransform.position = sealSlot.transform.position;
                     }
@@ -230,7 +230,7 @@ public class MousePointer : MonoBehaviour
                     }
 
                     SetCornersActive(true);
-                    if (Vector3.Distance(rectTransform.position, artifactSlot.transform.position) < 0.2f)
+                    if (isDragging || Vector3.Distance(rectTransform.position, artifactSlot.transform.position) < 0.2f)
                     {
                         rectTransform.position = artifactSlot.transform.position;
                     }
@@ -271,8 +271,8 @@ public class MousePointer : MonoBehaviour
                 Vector2 targetAnchoredPos = gridManager.GridToUiPosition(gridPos.Value);
                 Vector3 worldPos = referenceRect.TransformPoint(targetAnchoredPos);
                 
-                // 부드러운 이동 (목표 위치에 매우 가까우면 스냅하여 미세 지터 방지)
-                if (Vector3.Distance(rectTransform.position, worldPos) < 0.2f)
+                // 부드러운 이동 (드래그 중이거나 목표 위치에 가까우면 스냅하여 미세 지터 및 슬라이딩 흔들림 방지)
+                if (isDragging || Vector3.Distance(rectTransform.position, worldPos) < 0.2f)
                 {
                     rectTransform.position = worldPos;
                 }
@@ -382,7 +382,7 @@ public class MousePointer : MonoBehaviour
             if (isHolding)
                 AnimatePressDown();
             else
-                StartPulseAnimation(targetBaseDist);
+                AnimateToDistance(targetBaseDist, 0.15f, Ease.OutQuad);
         }
     }
 
@@ -392,42 +392,24 @@ public class MousePointer : MonoBehaviour
         foreach (var c in corners) c.gameObject.SetActive(active);
     }
 
-    private void AnimatePressDown()
+    private void AnimateToDistance(float target, float duration = 0.15f, Ease ease = Ease.OutQuad)
     {
         distanceTween?.Kill();
+        distanceTween = DOTween.To(() => currentDist, x => {
+            currentDist = x;
+            UpdateCornerPositions(currentDist);
+        }, target, duration).SetEase(ease);
+    }
+
+    private void AnimatePressDown()
+    {
         float targetDist = Mathf.Max(0f, currentAnimBaseDist - 4f);
-        distanceTween = DOTween.To(() => currentDist, x => { currentDist = x; UpdateCornerPositions(currentDist); }, targetDist, 0.1f).SetEase(Ease.OutQuad);
+        AnimateToDistance(targetDist, 0.1f, Ease.OutQuad);
     }
 
     private void AnimatePressUp()
     {
-        distanceTween?.Kill();
-        distanceTween = DOTween.To(() => currentDist, x => { currentDist = x; UpdateCornerPositions(currentDist); }, currentAnimBaseDist, 0.2f)
-            .SetEase(Ease.OutBack)
-            .OnComplete(() => {
-                if (!isMouseDown && !PieceController.IsAnyDragging)
-                {
-                    StartPulseAnimation(currentAnimBaseDist);
-                }
-            });
-    }
-
-    private void StartPulseAnimation(float centerDist)
-    {
-        if (isMouseDown || PieceController.IsAnyDragging)
-        {
-            return;
-        }
-
-        distanceTween?.Kill();
-        
-        currentDist = centerDist;
-        distanceTween = DOTween.To(() => currentDist, x => {
-            currentDist = x;
-            UpdateCornerPositions(currentDist);
-        }, centerDist + PulseStrength, 0.6f)
-            .SetLoops(-1, LoopType.Yoyo)
-            .SetEase(Ease.InOutSine);
+        AnimateToDistance(currentAnimBaseDist, 0.15f, Ease.OutBack);
     }
 
     private void UpdateCornerPositions(float dist)
