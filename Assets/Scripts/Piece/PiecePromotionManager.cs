@@ -301,7 +301,7 @@ public class PiecePromotionManager : MonoBehaviour
             {
                 effectImage.sprite = GetOrCreateRuntimeSprite();
             }
-            effectImage.color = new Color(1f, 1f, 1f, 0f);
+            effectImage.color = new Color(1f, 1f, 1f, 0.85f);
             effectRect = effectImage.rectTransform;
             effectRect.pivot = new Vector2(0.5f, 0f);
 
@@ -319,8 +319,8 @@ public class PiecePromotionManager : MonoBehaviour
             effectRect.anchoredPosition = localPoint;
             effectRect.sizeDelta = new Vector2(0f, effectHeight);
 
-            effectRect.DOSizeDelta(new Vector2(effectTargetWidth, effectHeight), enemyEffectDuration * 0.7f).SetEase(effectEase);
-            effectImage.DOFade(0.85f, enemyEffectDuration * 0.7f).SetEase(Ease.OutQuad);
+            effectRect.DOSizeDelta(new Vector2(effectTargetWidth, effectHeight), enemyEffectDuration * 0.7f)
+                .SetEase(effectEase);
         }
 
         // 폰 기물이 에너지를 응축하며 떨리고 커지는 연출
@@ -423,7 +423,7 @@ public class PiecePromotionManager : MonoBehaviour
                 effectImage.sprite = GetOrCreateRuntimeSprite();
             }
             // 적군 프로모션은 흰색 빛기둥으로 연출
-            effectImage.color = soldier.IsEnemy ? new Color(1f, 1f, 1f, 0f) : promotionEffectColor;
+            effectImage.color = soldier.IsEnemy ? new Color(1f, 1f, 1f, 0.85f) : promotionEffectColor;
             effectRect = effectImage.rectTransform;
             effectRect.pivot = new Vector2(0.5f, 0f); // bottom align
 

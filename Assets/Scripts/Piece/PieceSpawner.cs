@@ -232,7 +232,8 @@ public class PieceSpawner : MonoBehaviour
             ? PieceManager.Instance.gridManager.cellSize
             : pieceRect.rect.size;
         float pillarWidth = Mathf.Max(cellSize.x * 0.72f, pieceRect.rect.width * 0.72f);
-        float pillarHeight = Mathf.Max(cellSize.y * 2.4f, pieceRect.rect.height * 2.4f);
+        // 기물 아래쪽 끝은 유지하면서 반대쪽 끝이 보이지 않도록 충분히 길게 확장한다.
+        float pillarHeight = Mathf.Max(cellSize.y * 5f, pieceRect.rect.height * 5f);
         Vector2 pieceTargetPosition = pieceRect.anchoredPosition;
         Vector2 pillarPosition = pieceTargetPosition;
         pillarPosition.y -= cellSize.y * 0.45f;

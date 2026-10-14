@@ -97,9 +97,9 @@ public class PiecesSynthManager : MonoBehaviour
 
         if (descriptionText != null)
         {
-            descriptionText.text = "[CODE MERGE COMPILER]\n인벤토리에서 기물 프로세스 2개를 슬롯에 마운트하세요.\n" +
-                "두 노드의 코드 인젝션(Seal)을 병합하거나\n" +
-                "새로운 체스 기물 프로세스로 리컴파일합니다.";
+            descriptionText.text = "[기물 합성]\n인벤토리에서 기물 2개를 슬롯에 배치하세요.\n" +
+                "두 기물의 인장(Seal)을 병합하거나\n" +
+                "새로운 체스 기물로 합성합니다.";
         }
 
     }
