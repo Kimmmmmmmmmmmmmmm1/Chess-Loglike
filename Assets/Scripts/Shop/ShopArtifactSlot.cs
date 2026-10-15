@@ -69,6 +69,7 @@ public class ShopArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExi
         if (iconImage != null && artifactData != null)
         {
             iconImage.sprite = artifactData.icon;
+            iconImage.preserveAspect = true;
             iconImage.enabled = true;
             iconImage.color = Color.white;
         }

@@ -36,9 +36,6 @@ public enum CheatArtifactChoice
 
 public enum CheatSealChoice
 {
-    [InspectorName("비숍의 인장 (대각선 이동 추가)")]
-    Bishop,
-
     [InspectorName("도약의 인장 (나이트 도약 이동 추가)")]
     KnightLeap,
 

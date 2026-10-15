@@ -93,6 +93,17 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     public Vector2Int? GridPosition => gridPosition;
     public bool IsEnemy => isEnemy;
     public Image PieceImage => pieceImage;
+    public bool IsHidden
+    {
+        get
+        {
+            if (isEnemy && PieceManager.Instance != null && PieceManager.Instance.IsEnemyTerritoryHiddenDuringPrepare)
+                return true;
+            if (prepareVisibilityGroup != null && prepareVisibilityGroup.alpha <= 0.01f)
+                return true;
+            return false;
+        }
+    }
 
     public void SetHiddenDuringPrepare(bool hidden)
     {
@@ -638,8 +649,13 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             {
                 return;
             }
+            // 마우스가 기물 자신 또는 기물의 자식(그림자, 기물 이미지, 인장 등)으로 이동했다면 숨기지 않음
+            if (eventData.pointerEnter != null && (eventData.pointerEnter == gameObject || eventData.pointerEnter.transform.IsChildOf(transform)))
+            {
+                return;
+            }
             // 즉시 닫지 않고 지연을 줌 (버튼으로 이동할 시간 확보)
-            activeSellButton.Close(0.2f);
+            activeSellButton.Close(0.25f);
         }
 
         if (TooltipManager.Instance != null)
@@ -1189,6 +1205,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         if (PieceManager.Instance != null)
         {
+            PieceManager.Instance.MarkPiecePositionCacheDirty();
             PieceManager.Instance.UpdateThreatenedStatus();
         }
     }
@@ -1409,6 +1426,14 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
 
         return PieceManager.Instance.GetPieceAt(position) != null;
+    }
+
+    private bool IsHiddenEnemyDuringPrepare(PieceController piece)
+    {
+        return piece != null &&
+               piece.IsEnemy &&
+               PieceManager.Instance != null &&
+               PieceManager.Instance.IsEnemyTerritoryHiddenDuringPrepare;
     }
 
     private bool IsDestroyedCell(Vector2Int position)
@@ -1683,13 +1708,19 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 break;
 
             PieceController pieceAt = PieceManager.Instance.GetPieceAt(current);
+            bool isHiddenPiece = IsHiddenEnemyDuringPrepare(pieceAt);
+
+            if (isHiddenPiece)
+            {
+                pieceAt = null;
+            }
 
             if (!jumped)
             {
                 if (pieceAt == null)
                 {
                     // 첫 번째 기물을 만나기 전: 빈 칸으로 일반 이동 가능 (잡기 아님)
-                    if (CanMoveTo(current))
+                    if (isHiddenPiece || CanMoveTo(current))
                     {
                         moves.Add(current);
                     }
@@ -1753,6 +1784,11 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 break;
 
             PieceController pieceAt = PieceManager.Instance.GetPieceAt(current);
+            if (IsHiddenEnemyDuringPrepare(pieceAt))
+            {
+                pieceAt = null;
+            }
+
             if (pieceAt != null)
             {
                 // 기물을 발견함 (이 기물을 발판으로 뛰어넘음)
@@ -1760,10 +1796,16 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 if (IsInBounds(landingPos) && !IsDestroyedCell(landingPos))
                 {
                     PieceController landingPiece = PieceManager.Instance.GetPieceAt(landingPos);
+                    bool isHiddenLandingPiece = IsHiddenEnemyDuringPrepare(landingPiece);
+                    if (isHiddenLandingPiece)
+                    {
+                        landingPiece = null;
+                    }
+
                     if (landingPiece == null)
                     {
                         // 바로 다음 칸이 빈 칸이면 착지 이동 가능
-                        if (CanMoveTo(landingPos))
+                        if (isHiddenLandingPiece || CanMoveTo(landingPos))
                         {
                             moves.Add(landingPos);
                         }
@@ -1799,7 +1841,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         // 1. 전진 1칸 (빈 칸일 때만 이동 가능)
         Vector2Int oneStep = gridPosition.Value + forward;
-        if (IsInBounds(oneStep) && !IsDestroyedCell(oneStep) && !IsOccupied(oneStep))
+        bool oneStepHasHiddenEnemy = IsInBounds(oneStep) &&
+            IsHiddenEnemyDuringPrepare(PieceManager.Instance.GetPieceAt(oneStep));
+        if (IsInBounds(oneStep) && !IsDestroyedCell(oneStep) &&
+            (oneStepHasHiddenEnemy || !IsOccupied(oneStep)))
         {
             moves.Add(oneStep);
 
@@ -1811,7 +1856,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 : (gridPosition.Value.y <= minY + 1);
 
             Vector2Int twoStep = gridPosition.Value + (forward * 2);
-            if (isStartRank && IsInBounds(twoStep) && !IsDestroyedCell(twoStep) && !IsOccupied(twoStep))
+            bool twoStepHasHiddenEnemy = IsInBounds(twoStep) &&
+                IsHiddenEnemyDuringPrepare(PieceManager.Instance.GetPieceAt(twoStep));
+            if (isStartRank && IsInBounds(twoStep) && !IsDestroyedCell(twoStep) &&
+                (twoStepHasHiddenEnemy || !IsOccupied(twoStep)))
             {
                 moves.Add(twoStep);
             }
@@ -1859,6 +1907,13 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
 
             PieceController pieceAt = PieceManager.Instance.GetPieceAt(current);
+            if (IsHiddenEnemyDuringPrepare(pieceAt))
+            {
+                moves.Add(current);
+                current += direction;
+                continue;
+            }
+
             if (pieceAt == null)
             {
                 if (CanMoveTo(current))
@@ -1873,9 +1928,26 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             {
                 moves.Add(current);
             }
+            else if (pieceAt.IsEnemy == isEnemy && HasPhantomSeal())
+            {
+                current += direction;
+                continue;
+            }
 
             break;
         }
+    }
+
+    public bool HasPhantomSeal()
+    {
+        foreach (SealBase seal in equippedSeals)
+        {
+            if (seal != null && seal.Data != null && seal.Data.sealName == "환영의 인장")
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private bool IsInBounds(Vector2Int position)
@@ -2295,6 +2367,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         if (sealData != null && sealData.icon != null)
         {
             img.sprite = sealData.icon;
+            img.preserveAspect = true;
             img.color = Color.white;
         }
         else

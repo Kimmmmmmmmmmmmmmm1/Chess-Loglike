@@ -13,15 +13,14 @@ MonoBehaviour:
   m_Name: LightningTalisman
   m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
   id: AC02
-  artifactName: "낙뢰의 부적"
-  description: "선택한 적 기물 1개를 즉시 파괴합니다."
-  flavorText: "하늘의 벼락을 불러내 적을 멸하는 부적."
+  artifactName: "\uB099\uB8B0\uC758 \uBD80\uC801"
+  description: "\uC120\uD0DD\uD55C \uC801 \uAE30\uBB3C 1\uAC1C\uB97C \uC989\uC2DC \uD30C\uAD34\uD569\uB2C8\uB2E4."
+  flavorText: "\uD558\uB298\uC758 \uBCBC\uB77D\uC744 \uBD88\uB7EC\uB0B4 \uC801\uC744 \uBA78\uD558\uB294 \uBD80\uC801."
   rarity: 2
-  icon: {fileID: 862281467, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
+  icon: {fileID: 3286163911610860551, guid: 72cda85eeefab4269b41f26416c03875, type: 3}
   price: 200
   isSoldInShop: 1
   isGaugeRequired: 0
   artifactType: 1
   maxLevel: 1
   level: 1
-

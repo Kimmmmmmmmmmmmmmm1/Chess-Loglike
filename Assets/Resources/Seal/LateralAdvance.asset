@@ -12,14 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
   m_Name: LateralAdvance
   m_EditorClassIdentifier: Assembly-CSharp::SealData
-  sealName: "측면의 인장"
+  sealName: "\uCE21\uBA74\uC758 \uC778\uC7A5"
   rarity: 1
-  description: "기물이 좌우로 1칸 이동할 수 있게 됩니다."
-  flavorText: "시야를 넓혀 양옆으로 전진한다."
-  icon: {fileID: 3944343766228188813, guid: 95980ea79e9734fbc9fe2d2728f381c0, type: 3}
+  description: "\uAE30\uBB3C\uC774 \uC88C\uC6B0\uB85C 1\uCE78 \uC774\uB3D9\uD560 \uC218 \uC788\uAC8C \uB429\uB2C8\uB2E4."
+  flavorText: "\uC2DC\uC57C\uB97C \uB113\uD600 \uC591\uC606\uC73C\uB85C \uC804\uC9C4\uD55C\uB2E4."
+  icon: {fileID: 3286163911610860551, guid: a3ed15b9fb91f455d9502ecef50fa5c5, type: 3}
   isSoldInShop: 1
   sealPrefab: {fileID: 2006435481796697726, guid: 0fd17345368d4a9fa98e506b0f068d97, type: 3}
-  compatiblePieces: []
+  compatiblePieces: 
   effectType: 1
   effectValue: 0
-

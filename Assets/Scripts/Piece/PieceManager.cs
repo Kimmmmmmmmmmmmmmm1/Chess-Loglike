@@ -311,6 +311,25 @@ public class PieceManager : MonoBehaviour
         return pieceByPosition.TryGetValue(gridPosition, out PieceController piece) ? piece : null;
     }
 
+    public bool TryForceMovePiece(PieceController piece, Vector2Int target)
+    {
+        if (piece == null || piece.CurrentLocation != PieceLocation.Board || !piece.gridPosition.HasValue ||
+            GetPieceAt(target) != null || gridManager == null || !gridManager.IsInBounds(target))
+        {
+            return false;
+        }
+
+        GridCell cell = gridManager.GetGridCell(target);
+        if (cell != null && cell.isDestroyed) return false;
+
+        Vector2Int previous = piece.gridPosition.Value;
+        piece.OnStartMove(previous, target);
+        piece.MoveToGrid(target);
+        piece.OnMoveFinished(previous, target);
+        UpdateThreatenedStatus();
+        return true;
+    }
+
     public void MarkPiecePositionCacheDirty()
     {
         positionCacheDirty = true;
@@ -556,6 +575,12 @@ public class PieceManager : MonoBehaviour
             if (Application.isPlaying) Destroy(piece.gameObject);
             else DestroyImmediate(piece.gameObject);
             return;
+        }
+
+        if (EffectManager.Instance != null)
+        {
+            Color debrisColor = piece.PieceImage != null ? piece.PieceImage.color : Color.white;
+            EffectManager.Instance.PlayCollapseExplosion(pieceRect.position, debrisColor, piece.IsEnemy, 1f);
         }
 
         piece.gridPosition = null;
@@ -969,7 +994,6 @@ public class PieceManager : MonoBehaviour
             if (EffectManager.Instance != null)
             {
                 EffectManager.Instance.PlaySlowMotion();
-                EffectManager.Instance.PlayCameraShake(0.2f, 0.5f);
             }
         }
 
@@ -1685,16 +1709,14 @@ public class PieceManager : MonoBehaviour
             if (markerTransform != null)
             {
                 markerTransform.anchoredPosition = GridToUiPosition(gridPos);
-                if (gridManager != null)
-                {
-                    markerTransform.sizeDelta = gridManager.cellSize;
-                }
+                Vector2 cellSize = gridManager != null ? gridManager.cellSize : new Vector2(42f, 42f);
+                markerTransform.sizeDelta = cellSize;
             }
 
             if (marker != null)
             {
                 PieceController pieceAt = GetPieceAt(gridPos);
-                bool isCapture = pieceAt != null && pieceAt.IsEnemy != isEnemy;
+                bool isCapture = pieceAt != null && pieceAt.IsEnemy != isEnemy && !pieceAt.IsHidden;
                 marker.Initialize(this, gridPos, isEnemy, isCapture);
                 activeMarkers.Add(marker);
                 added?.Add(gridPos);

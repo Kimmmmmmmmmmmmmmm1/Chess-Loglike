@@ -20,8 +20,10 @@ public class ShopManager : MonoBehaviour
     public Button pieceLimitUpgradeButton;
     public TextMeshProUGUI pieceLimitUpgradeCostText;
     public RectTransform inventoryContainer; // 인벤토리 컨테이너 참조
+    public RectTransform sealInventoryContainer; // 인장 인벤토리 컨테이너 참조
     private RectTransform shopPanelRect;
     private int inventoryOriginalSiblingIndex = -1; // 인벤토리 원래 순서 저장
+    private int sealInventoryOriginalSiblingIndex = -1; // 인장 인벤토리 원래 순서 저장
 
     [Header("Shop Generation")]
     public ShopPieceData shopPieceData;
@@ -456,6 +458,26 @@ public class ShopManager : MonoBehaviour
             inventoryOriginalSiblingIndex = inventoryContainer.GetSiblingIndex();
             inventoryContainer.SetAsLastSibling();
         }
+
+        if (sealInventoryContainer == null)
+        {
+            GameObject sealObj = GameObject.Find("SealInventoryPanel");
+            if (sealObj != null)
+            {
+                sealInventoryContainer = sealObj.GetComponent<RectTransform>();
+            }
+        }
+
+        if (sealInventoryContainer != null)
+        {
+            sealInventoryOriginalSiblingIndex = sealInventoryContainer.GetSiblingIndex();
+            sealInventoryContainer.SetAsLastSibling();
+        }
+
+        if (GameStateManager.Instance != null)
+        {
+            GameStateManager.Instance.RefreshInventoryPanels();
+        }
     }
 
     public void Close(Action onComplete = null)
@@ -489,6 +511,15 @@ public class ShopManager : MonoBehaviour
             if (inventoryContainer != null && inventoryOriginalSiblingIndex >= 0)
             {
                 inventoryContainer.SetSiblingIndex(inventoryOriginalSiblingIndex);
+            }
+            if (sealInventoryContainer != null && sealInventoryOriginalSiblingIndex >= 0)
+            {
+                sealInventoryContainer.SetSiblingIndex(sealInventoryOriginalSiblingIndex);
+            }
+
+            if (GameStateManager.Instance != null)
+            {
+                GameStateManager.Instance.RefreshInventoryPanels();
             }
         }).SetLink(gameObject);
     }

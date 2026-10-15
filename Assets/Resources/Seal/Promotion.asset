@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
   m_Name: Promotion
   m_EditorClassIdentifier: Assembly-CSharp::SealData
-  sealName: "승급의 인장"
+  sealName: "\uC2B9\uAE09\uC758 \uC778\uC7A5"
   rarity: 0
-  description: "승급한 폰에게 붙는 인장이다.\n이번 라운드 종료시 폰으로 돌아간다."
-  flavorText: ""
-  icon: {fileID: 1820931049, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
+  description: "\uC2B9\uAE09\uD55C \uD3F0\uC5D0\uAC8C \uBD99\uB294 \uC778\uC7A5\uC774\uB2E4.\n\uC774\uBC88 \uB77C\uC6B4\uB4DC \uC885\uB8CC\uC2DC \uD3F0\uC73C\uB85C \uB3CC\uC544\uAC04\uB2E4."
+  flavorText: 
+  icon: {fileID: 3286163911610860551, guid: 6a59c2995429e41ca80f9214cef506fb, type: 3}
   isSoldInShop: 0
   sealPrefab: {fileID: 2006435481796697723, guid: f7ee0fe3bcff4472b9fe2fea990096b5, type: 3}
   compatiblePieces: 

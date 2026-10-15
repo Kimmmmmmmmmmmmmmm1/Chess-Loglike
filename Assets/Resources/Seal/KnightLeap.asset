@@ -12,14 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
   m_Name: KnightLeap
   m_EditorClassIdentifier: Assembly-CSharp::SealData
-  sealName: "도약의 인장"
+  sealName: "\uB3C4\uC57D\uC758 \uC778\uC7A5"
   rarity: 2
-  description: "기물이 나이트처럼 장애물을 뛰어넘어 L자로 이동할 수 있게 됩니다."
-  flavorText: "도약하는 자에게 장애물은 없다."
-  icon: {fileID: 3944343766228188813, guid: 95980ea79e9734fbc9fe2d2728f381c0, type: 3}
+  description: "\uAE30\uBB3C\uC774 \uB098\uC774\uD2B8\uCC98\uB7FC \uC7A5\uC560\uBB3C\uC744 \uB6F0\uC5B4\uB118\uC5B4 L\uC790\uB85C \uC774\uB3D9\uD560 \uC218 \uC788\uAC8C \uB429\uB2C8\uB2E4."
+  flavorText: "\uB3C4\uC57D\uD558\uB294 \uC790\uC5D0\uAC8C \uC7A5\uC560\uBB3C\uC740 \uC5C6\uB2E4."
+  icon: {fileID: 3286163911610860551, guid: 6aa19956db97a4479ae671856baf4336, type: 3}
   isSoldInShop: 1
   sealPrefab: {fileID: 2006435481796697725, guid: 1d210ea26fd34c12b0609771e7fba6d0, type: 3}
-  compatiblePieces: []
+  compatiblePieces: 
   effectType: 1
   effectValue: 0
-

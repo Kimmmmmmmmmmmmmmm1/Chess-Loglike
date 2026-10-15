@@ -138,17 +138,37 @@ public class GameStateManager : MonoBehaviour
         {
             gameStartButton.onClick.AddListener(OnGameStartButtonClick);
         }
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.OnFlowStateChanged -= HandleFlowStateChanged;
+            GameManager.Instance.OnFlowStateChanged += HandleFlowStateChanged;
+        }
         ChangeState(GameState.None);
     }
     
     private void OnEnable()
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.OnFlowStateChanged -= HandleFlowStateChanged;
+            GameManager.Instance.OnFlowStateChanged += HandleFlowStateChanged;
+        }
     }
 
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.OnFlowStateChanged -= HandleFlowStateChanged;
+        }
+    }
+
+    private void HandleFlowStateChanged(GameFlowState newFlowState)
+    {
+        UpdateInventoryHoverTargets(currentState);
+        UpdateInventoryPanels(currentState);
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -303,9 +323,10 @@ public class GameStateManager : MonoBehaviour
 
     private void UpdateInventoryHoverTargets(GameState newState)
     {
-        bool enableHover = newState != GameState.Prepare;
+        bool isShop = GameManager.Instance != null && GameManager.Instance.CurrentFlowState == GameFlowState.Shop;
+        bool enableHover = newState != GameState.Prepare && !isShop;
 
-        if (newState == GameState.Prepare)
+        if (newState == GameState.Prepare || isShop)
         {
             pieceInventoryHovered = false;
             sealInventoryHovered = false;
@@ -324,7 +345,8 @@ public class GameStateManager : MonoBehaviour
 
     private void SetInventoryHoverState(bool isPieceInventory, bool hovered)
     {
-        if (currentState == GameState.Prepare)
+        bool isShop = GameManager.Instance != null && GameManager.Instance.CurrentFlowState == GameFlowState.Shop;
+        if (currentState == GameState.Prepare || isShop)
         {
             return;
         }
@@ -340,6 +362,12 @@ public class GameStateManager : MonoBehaviour
             sealInventoryHovered = hovered;
         }
 
+        UpdateInventoryPanels(currentState);
+    }
+
+    public void RefreshInventoryPanels()
+    {
+        UpdateInventoryHoverTargets(currentState);
         UpdateInventoryPanels(currentState);
     }
 
@@ -381,16 +409,18 @@ public class GameStateManager : MonoBehaviour
 
     private void UpdateInventoryPanels(GameState newState)
     {
-        if (newState == GameState.Prepare)
+        bool isShop = GameManager.Instance != null && GameManager.Instance.CurrentFlowState == GameFlowState.Shop;
+
+        if (newState == GameState.Prepare || isShop)
         {
             pieceInventoryHovered = false;
             sealInventoryHovered = false;
         }
 
-        // Keep inventory visible during battle states (Prepare, GamePlay, Win, GameOver, Cleanup)
+        // Keep inventory visible during battle states (Prepare, GamePlay, Win, GameOver, Cleanup) or Shop flow
         bool isBattleState = newState == GameState.Prepare || newState == GameState.GamePlay || newState == GameState.Win || newState == GameState.GameOver || newState == GameState.Cleanup;
-        bool pieceShouldShow = isBattleState || pieceInventoryHovered;
-        bool sealShouldShow = isBattleState || sealInventoryHovered;
+        bool pieceShouldShow = isBattleState || isShop || pieceInventoryHovered;
+        bool sealShouldShow = isBattleState || isShop || sealInventoryHovered;
 
         SetInventoryPanelVisible(pieceInventoryPanel, pieceInventoryRect, pieceInventoryCanvasGroup, pieceInventoryShownPosition, pieceInventoryHiddenPosition, ref pieceInventorySequence, pieceShouldShow);
         SetInventoryPanelVisible(sealInventoryPanel, sealInventoryRect, sealInventoryCanvasGroup, sealInventoryShownPosition, sealInventoryHiddenPosition, ref sealInventorySequence, sealShouldShow);

@@ -12,8 +12,10 @@ public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     [SerializeField] private Sprite captureSprite;
 
     [Header("Sizes")]
+    [Tooltip("일반 마커 시각적 이미지 크기")]
     [SerializeField] private Vector2 markerDotSize = new Vector2(12f, 12f);
-    [SerializeField] private Vector2 captureDotSize = new Vector2(24f, 24f);
+    [Tooltip("적 기물 캡처 마커 시각적 이미지 크기")]
+    [SerializeField] private Vector2 captureDotSize = new Vector2(28f, 28f);
 
     [Header("References")]
     [SerializeField] private Image markerVisualImage;
@@ -41,12 +43,20 @@ public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
             button.enabled = false;
         }
 
-        if (markerVisualImage == null)
+        TryGetComponent<Image>(out var rootImage);
+
+        // markerVisualImage가 null이거나, 루트 GameObject의 Image로 잘못 연결되어 있는 경우
+        if (markerVisualImage == null || (rootImage != null && markerVisualImage == rootImage))
         {
-            // 기존 루트의 Image를 시각적 자식으로 분리하고, 루트 Image는 타일 전체 크기 투명 감지 영역으로 사용
-            if (TryGetComponent<Image>(out var rootImage))
+            // 자식 중에 이미 Visual이 있는지 확인
+            Transform existingVisual = transform.Find("Visual");
+            if (existingVisual != null && existingVisual.TryGetComponent<Image>(out var existingImage))
             {
-                if (normalSprite == null && rootImage.sprite != null)
+                markerVisualImage = existingImage;
+            }
+            else
+            {
+                if (normalSprite == null && rootImage != null && rootImage.sprite != null)
                 {
                     normalSprite = rootImage.sprite;
                 }
@@ -63,8 +73,11 @@ public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
 
                 markerVisualImage = visualObj.GetComponent<Image>();
                 markerVisualImage.raycastTarget = false; // 실제 마우스 감지는 부모(타일 크기)가 처리
+            }
 
-                // 루트 Image는 타일 전체 크기 마우스 감지용 투명 영역으로 전환
+            // 루트 Image는 타일 전체 크기 마우스 감지용 투명 영역으로 설정
+            if (rootImage != null)
+            {
                 rootImage.sprite = null;
                 rootImage.color = Color.clear;
                 rootImage.raycastTarget = true;
@@ -96,7 +109,7 @@ public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     {
         if (pieceManager == null) return false;
         PieceController pieceAt = pieceManager.GetPieceAt(position);
-        return pieceAt != null && pieceAt.IsEnemy != isEnemy;
+        return pieceAt != null && pieceAt.IsEnemy != isEnemy && !pieceAt.IsHidden;
     }
 
     private void UpdateVisualAppearance()
@@ -104,18 +117,20 @@ public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         if (markerVisualImage == null) return;
 
         RectTransform visualRect = markerVisualImage.rectTransform;
+
+        // 적 기물을 잡을 수 있는 칸이면 캡처 스프라이트 + 28x28
         if (isCapture && captureSprite != null)
         {
             markerVisualImage.sprite = captureSprite;
-            visualRect.sizeDelta = captureDotSize;
+            visualRect.sizeDelta = captureDotSize; // 28 x 28
         }
-        else
+        else // 일반 이동 칸이면 일반 스프라이트 + 12x12
         {
             if (normalSprite != null)
             {
                 markerVisualImage.sprite = normalSprite;
             }
-            visualRect.sizeDelta = markerDotSize;
+            visualRect.sizeDelta = markerDotSize; // 12 x 12
         }
     }
 

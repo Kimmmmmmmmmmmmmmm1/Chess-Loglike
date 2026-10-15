@@ -170,7 +170,6 @@ Assets/Scripts/Title/
  SettingPanelView.cs
  TitleManager.cs
 Assets/Scripts/
- Treasure/TreasureManager.cs
  UI/
   AnimatedTMPText.cs
   BackgroundManager.cs

@@ -45,6 +45,7 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             {
                 iconImage.gameObject.SetActive(true);
                 iconImage.sprite = artifact.icon;
+                iconImage.preserveAspect = true;
                 iconImage.rectTransform.sizeDelta = new Vector2(24, 24);
                 iconImage.color = Color.white;
                 nameText.text = artifact.IsActive

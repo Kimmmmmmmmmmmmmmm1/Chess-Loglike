@@ -14,7 +14,6 @@ public enum GameFlowState
     Shop,
     Battle,
     Event,
-    Treasure,
     WorkShop
 }
 
@@ -26,7 +25,6 @@ public class GameManager : MonoBehaviour
     {
         public const string OtherFirstRun = "other_first_run";
         public const string OtherFirstEvent = "other_first_event";
-        public const string OtherFirstTreasure = "other_first_treasure";
         public const string OtherFirstWorkshop = "other_first_workshop";
         public const string OtherGameOver = "other_game_over";
         public const string OtherGameOver5 = "other_game_over_5";
@@ -447,15 +445,6 @@ public class GameManager : MonoBehaviour
             if (ShopManager.Instance != null) ShopManager.Instance.Close();
         }
 
-        if (currentFlowState == GameFlowState.Treasure)
-        {
-            if (TreasureManager.Instance != null) TreasureManager.Instance.Open();
-        }
-        else
-        {
-            if (TreasureManager.Instance != null) TreasureManager.Instance.Close();
-        }
-
         if (currentFlowState == GameFlowState.WorkShop)
         {
             if (WorkShopManager.Instance != null) WorkShopManager.Instance.Open();
@@ -779,9 +768,6 @@ public class GameManager : MonoBehaviour
         {
             case GameFlowState.Event:
                 TryAddAchievementProgress(AchievementIds.OtherFirstEvent);
-                break;
-            case GameFlowState.Treasure:
-                TryAddAchievementProgress(AchievementIds.OtherFirstTreasure);
                 break;
             case GameFlowState.WorkShop:
                 TryAddAchievementProgress(AchievementIds.OtherFirstWorkshop);

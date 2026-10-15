@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: InvincibilityPotion
   m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
   id: AC06
-  artifactName: "무적의 물약"
-  description: "선택한 아군 기물 1개에게 2턴 동안 무적을 부여합니다.\n<color=#66FF88>[무적]</color> 무적 상태인 기물은 상대의 공격 대상이 될 수 없습니다."
-  flavorText: "어떤 공격도 닿지 않는 불멸의 막을 두릅니다."
+  artifactName: "\uBB34\uC801\uC758 \uBB3C\uC57D"
+  description: "\uC120\uD0DD\uD55C \uC544\uAD70 \uAE30\uBB3C 1\uAC1C\uC5D0\uAC8C 2\uD134 \uB3D9\uC548 \uBB34\uC801\uC744 \uBD80\uC5EC\uD569\uB2C8\uB2E4.\n<color=#66FF88>[\uBB34\uC801]</color> \uBB34\uC801 \uC0C1\uD0DC\uC778 \uAE30\uBB3C\uC740 \uC0C1\uB300\uC758 \uACF5\uACA9 \uB300\uC0C1\uC774 \uB420 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."
+  flavorText: "\uC5B4\uB5A4 \uACF5\uACA9\uB3C4 \uB2FF\uC9C0 \uC54A\uB294 \uBD88\uBA78\uC758 \uB9C9\uC744 \uB450\uB985\uB2C8\uB2E4."
   rarity: 1
-  icon: {fileID: 0}
+  icon: {fileID: 3286163911610860551, guid: c386a79ab87b84e28af479e33256bb9f, type: 3}
   price: 180
   isSoldInShop: 1
   isGaugeRequired: 0

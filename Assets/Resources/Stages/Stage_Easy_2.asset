@@ -13,11 +13,10 @@ MonoBehaviour:
   m_Name: Stage_Easy_2
   m_EditorClassIdentifier: Assembly-CSharp::StageData
   difficulty: 0
-  boardSize:
-  - 5
-  - 5
+  boardSize: 0500000005000000i
   minX: -3
   minY: -2
+  hideEnemyTerritoryDuringPrepare: 0
   enemyPieces:
   - pieceType: 0
     gridCoordinate: {x: -1, y: 2}

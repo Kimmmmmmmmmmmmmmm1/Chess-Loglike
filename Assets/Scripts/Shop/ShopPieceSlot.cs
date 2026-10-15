@@ -80,6 +80,7 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
             if (attachedSeal != null && attachedSeal.icon != null)
             {
                 sealIconImage.sprite = attachedSeal.icon;
+                sealIconImage.preserveAspect = true;
                 sealIconImage.enabled = true;
 
                 var handler = sealIconImage.GetComponent<SealTooltipHandler>();

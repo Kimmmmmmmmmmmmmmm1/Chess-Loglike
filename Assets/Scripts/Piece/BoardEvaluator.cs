@@ -76,22 +76,24 @@ public class BoardEvaluator : MonoBehaviour
                 SimPiece captured = after.MovePiece(pieceId, target);
                 SimPiece movedPiece = after.GetPiece(pieceId);
 
+                int pieceValue = GetPieceValue(piece.Type);
                 float score = 0f;
 
                 if (captured != null && !captured.IsEnemy)
                 {
-                    score += immediateCaptureScore;
+                    int capturedValue = GetPieceValue(captured.Type);
+                    score += immediateCaptureScore * capturedValue;
                 }
 
                 bool isThreatenedAfter = IsThreatened(after, movedPiece, false);
                 if (wasThreatened && !isThreatenedAfter)
                 {
-                    score += escapeThreatScore;
+                    score += escapeThreatScore * pieceValue;
                 }
 
                 if (isThreatenedAfter)
                 {
-                    score -= threatenedPenalty;
+                    score -= threatenedPenalty * pieceValue;
                 }
 
                 // 적 폰 승급(퀸)에 큰 점수 부여
@@ -207,22 +209,24 @@ public class BoardEvaluator : MonoBehaviour
                 SimPiece captured = after.MovePiece(pieceId, target);
                 SimPiece movedPiece = after.GetPiece(pieceId);
 
+                int pieceValue = GetPieceValue(piece.Type);
                 float score = 0f;
 
                 if (captured != null && !captured.IsEnemy)
                 {
-                    score += immediateCaptureScore;
+                    int capturedValue = GetPieceValue(captured.Type);
+                    score += immediateCaptureScore * capturedValue;
                 }
 
                 bool isThreatenedAfter = IsThreatened(after, movedPiece, false);
                 if (wasThreatened && !isThreatenedAfter)
                 {
-                    score += escapeThreatScore;
+                    score += escapeThreatScore * pieceValue;
                 }
 
                 if (isThreatenedAfter)
                 {
-                    score -= threatenedPenalty;
+                    score -= threatenedPenalty * pieceValue;
                 }
 
                 // 적 폰 승급(퀸)에 큰 점수 부여
@@ -317,6 +321,26 @@ public class BoardEvaluator : MonoBehaviour
         }
 
         return false;
+    }
+
+    public static int GetPieceValue(PieceType type)
+    {
+        return type switch
+        {
+            PieceType.Pawn => 1,
+            PieceType.Knight => 3,
+            PieceType.Bishop => 3,
+            PieceType.Rook => 5,
+            PieceType.Queen => 9,
+            PieceType.King => 4,
+            PieceType.Centaur => 5,
+            PieceType.Archbishop => 6,
+            PieceType.Chancellor => 7,
+            PieceType.Amazon => 13,
+            PieceType.Grasshopper => 3,
+            PieceType.Cannon => 5,
+            _ => 1
+        };
     }
 
     private bool CanCaptureWithin(BoardState state, bool attackerIsEnemy, bool targetIsEnemy, int maxDepth)

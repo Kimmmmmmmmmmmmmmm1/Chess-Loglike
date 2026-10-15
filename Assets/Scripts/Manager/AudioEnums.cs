@@ -10,7 +10,6 @@ public enum BGMType
     BossBGM,
     ShopBGM,
     WorkshopBGM,
-    TreasureBGM,
     DefeatBGM,
 }
 

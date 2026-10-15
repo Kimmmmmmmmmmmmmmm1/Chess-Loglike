@@ -13,15 +13,14 @@ MonoBehaviour:
   m_Name: EvasionPotion
   m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
   id: AC04
-  artifactName: "회피의 물약"
-  description: "선택한 아군 기물 1개에게 회피 1회를 부여합니다.\n<color=#88FF88>[회피]</color> 공격받을 때 주변 8칸 중 빈 칸으로 이동하여 공격을 피합니다."
-  flavorText: "순간적으로 바람처럼 몸을 날려 공격을 흘려보내는 물약."
+  artifactName: "\uD68C\uD53C\uC758 \uBB3C\uC57D"
+  description: "\uC120\uD0DD\uD55C \uC544\uAD70 \uAE30\uBB3C 1\uAC1C\uC5D0\uAC8C \uD68C\uD53C 1\uD68C\uB97C \uBD80\uC5EC\uD569\uB2C8\uB2E4.\n<color=#88FF88>[\uD68C\uD53C]</color> \uACF5\uACA9\uBC1B\uC744 \uB54C \uC8FC\uBCC0 8\uCE78 \uC911 \uBE48 \uCE78\uC73C\uB85C \uC774\uB3D9\uD558\uC5EC \uACF5\uACA9\uC744 \uD53C\uD569\uB2C8\uB2E4."
+  flavorText: "\uC21C\uAC04\uC801\uC73C\uB85C \uBC14\uB78C\uCC98\uB7FC \uBAB8\uC744 \uB0A0\uB824 \uACF5\uACA9\uC744 \uD758\uB824\uBCF4\uB0B4\uB294 \uBB3C\uC57D."
   rarity: 2
-  icon: {fileID: 862281467, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
+  icon: {fileID: 3286163911610860551, guid: a3a14028749144fab92e7bc3c76e0461, type: 3}
   price: 220
   isSoldInShop: 1
   isGaugeRequired: 0
   artifactType: 1
   maxLevel: 1
   level: 1
-

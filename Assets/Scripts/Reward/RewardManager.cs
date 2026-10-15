@@ -61,22 +61,17 @@ public class RewardManager : MonoBehaviour
     [Tooltip("골드 등장 확률 가중치")]
     [Range(0f, 100f)] public float coinWeight = 10f;
 
-    [Header("Treasure Bonus")]
-    [Tooltip("보물상자 시 유물 가중치 배율")]
-    public float treasureArtifactMultiplier = 2.5f;
-
     private int currentRarity = 0;
-    private bool currentIsTreasure = false;
 
     /// <summary>
     /// 가중치 비율에 따라 완전 랜덤으로 보상 타입을 추첨합니다.
     /// 인스펙터의 pieceWeight, sealWeight, artifactWeight, coinWeight 설정에 의해 결정됩니다.
     /// </summary>
-    public RewardButton.RewardType GetRandomRewardType(bool isTreasure = false, bool allowCoin = true)
+    public RewardButton.RewardType GetRandomRewardType(bool allowCoin = true)
     {
         float pWeight = Mathf.Max(0f, pieceWeight);
         float sWeight = Mathf.Max(0f, sealWeight);
-        float aWeight = Mathf.Max(0f, artifactWeight) * (isTreasure ? treasureArtifactMultiplier : 1f);
+        float aWeight = Mathf.Max(0f, artifactWeight);
         float cWeight = allowCoin ? Mathf.Max(0f, coinWeight) : 0f;
 
         float totalWeight = pWeight + sWeight + aWeight + cWeight;
@@ -335,7 +330,7 @@ public class RewardManager : MonoBehaviour
 
         if (GameManager.Instance.UseCoin(cost))
         {
-            GenerateRewards(3, currentRarity, currentIsTreasure);
+            GenerateRewards(3, currentRarity);
             UpdateRerollUI();
             if (rewardContainer != null)
             {
@@ -355,14 +350,13 @@ public class RewardManager : MonoBehaviour
             }
 
             int rarity = difficulty / 2;
-            ShowRewards(3, rarity, false);
+            ShowRewards(3, rarity);
         }
     }
 
-    public void ShowRewards(int count, int rarity, bool isTreasure = false)
+    public void ShowRewards(int count, int rarity)
     {
         currentRarity = rarity;
-        currentIsTreasure = isTreasure;
         SetupHorizontalRewardLayout();
 
         if (rewardPanel != null)
@@ -385,20 +379,12 @@ public class RewardManager : MonoBehaviour
             }
         }
 
-        // 보물상자는 정산 단계 없이 바로 선택 보상 창으로 진입
-        if (isTreasure)
-        {
-            ShowChoicePhase(count, rarity, true);
-        }
-        else
-        {
-            // 1단계: 기본 보상(전투 정산) 창 먼저 표시
-            currentBattleReward = GameManager.Instance != null
-                ? GameManager.Instance.CalculateBattleReward(pieceData)
-                : default;
+        // 1단계: 기본 보상(전투 정산) 창 먼저 표시
+        currentBattleReward = GameManager.Instance != null
+            ? GameManager.Instance.CalculateBattleReward(pieceData)
+            : default;
 
-            ShowSettlementPhase(currentBattleReward);
-        }
+        ShowSettlementPhase(currentBattleReward);
     }
 
     private void ShowSettlementPhase(GameManager.BattleRewardResult result)
@@ -479,11 +465,11 @@ public class RewardManager : MonoBehaviour
         // 골드 날아가는 연출 실행 후 선택 보상 창으로 전환
         PlayCoinFlyAnimation(currentBattleReward.TotalReward, startPos, () =>
         {
-            ShowChoicePhase(3, currentRarity, false);
+            ShowChoicePhase(3, currentRarity);
         });
     }
 
-    private void ShowChoicePhase(int count, int rarity, bool isTreasure)
+    private void ShowChoicePhase(int count, int rarity)
     {
         isSettlementPhase = false;
 
@@ -496,7 +482,7 @@ public class RewardManager : MonoBehaviour
 
         if (titleText != null)
         {
-            titleText.text = isTreasure ? "보물상자" : "보상 선택";
+            titleText.text = "보상 선택";
             RectTransform titleRect = titleText.GetComponent<RectTransform>();
             if (titleRect != null)
             {
@@ -522,10 +508,9 @@ public class RewardManager : MonoBehaviour
             }
         }
 
-        // 리롤 버튼 표시 (보물상자가 아닐 때)
         if (rerollButton != null)
         {
-            rerollButton.gameObject.SetActive(!isTreasure);
+            rerollButton.gameObject.SetActive(true);
             UpdateRerollUI();
         }
 
@@ -548,7 +533,7 @@ public class RewardManager : MonoBehaviour
             closeButton.onClick.AddListener(OnRewardClaimed);
         }
 
-        GenerateRewards(count, rarity, isTreasure);
+        GenerateRewards(count, rarity);
     }
 
     private void PlayCoinFlyAnimation(int amount, Vector3 startPos, System.Action onComplete)
@@ -623,7 +608,7 @@ public class RewardManager : MonoBehaviour
         rewardSummaryText.text = summary;
     }
 
-    private void GenerateRewards(int count, int rarity, bool isTreasure)
+    private void GenerateRewards(int count, int rarity)
     {
         if (rewardContainer == null) return;
         if (rewardButtonPrefab == null) return;
@@ -649,12 +634,12 @@ public class RewardManager : MonoBehaviour
             RewardButton btn = obj.GetComponent<RewardButton>();
             if (btn != null)
             {
-                RewardButton.RewardType randomType = GetRandomRewardType(isTreasure, !coinAlreadyGenerated);
+                RewardButton.RewardType randomType = GetRandomRewardType(!coinAlreadyGenerated);
                 if (randomType == RewardButton.RewardType.Coin)
                 {
                     coinAlreadyGenerated = true;
                 }
-                btn.InitializeWithType(this, rarity, randomType, isTreasure);
+                btn.InitializeWithType(this, rarity, randomType);
                 activeRewardCount++;
             }
 

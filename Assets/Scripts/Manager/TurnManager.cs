@@ -80,6 +80,7 @@ public class TurnManager : MonoBehaviour
         }
         else if (newState == GameStateManager.GameState.GamePlay)
         {
+            ArtifactEffectRegistry.OnBattleStarted();
             if (currentTurn == TurnOwner.Player)
             {
                 CheckPlayerTurn();

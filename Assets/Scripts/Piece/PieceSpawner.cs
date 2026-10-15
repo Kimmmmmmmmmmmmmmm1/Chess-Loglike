@@ -356,7 +356,12 @@ public class PieceSpawner : MonoBehaviour
                     PieceManager.Instance != null &&
                     PieceManager.Instance.IsEnemyTerritoryHiddenDuringPrepare;
 
-                if (isEnemy && !hideEnemyDuringPrepare)
+                if (isEnemy && hideEnemyDuringPrepare)
+                {
+                    // 준비 단계에서 숨겨지는 적 기물: 낙하 애니메이션 및 파편 효과 없이 대기
+                    // (게임 시작 시 TryStartGameWithEnemyReveal을 통해 등장)
+                }
+                else if (isEnemy)
                 {
                     CanvasGroup canvasGroup = piece.GetComponent<CanvasGroup>();
                     if (canvasGroup == null)
@@ -383,7 +388,7 @@ public class PieceSpawner : MonoBehaviour
                         rt.DOAnchorPos(targetPos, 0.8f).SetEase(Ease.OutQuad).SetDelay(delayAccumulator)
                             .OnComplete(() =>
                             {
-                                if (EffectManager.Instance != null)
+                                if (!isEnemy && EffectManager.Instance != null)
                                     EffectManager.Instance.PlayLandingEffect(rt.position);
                             });
 

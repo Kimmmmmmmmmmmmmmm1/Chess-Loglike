@@ -44,12 +44,12 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         }
     }
 
-    public void Initialize(RewardManager manager, int rarity, bool isTreasure = false)
+    public void Initialize(RewardManager manager, int rarity)
     {
-        InitializeWithType(manager, rarity, null, isTreasure);
+        InitializeWithType(manager, rarity, null);
     }
 
-    public void InitializeWithType(RewardManager manager, int rarity, RewardType? forcedType, bool isTreasure = false)
+    public void InitializeWithType(RewardManager manager, int rarity, RewardType? forcedType)
     {
         this.manager = manager;
         button = GetComponent<Button>();
@@ -71,7 +71,7 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         }
         else if (manager != null)
         {
-            type = manager.GetRandomRewardType(isTreasure);
+            type = manager.GetRandomRewardType();
         }
         else
         {
@@ -84,9 +84,7 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             float baseSealChance = 5f + (rarity * 2f); // 인장 보상 확률 추가
             float baseArtifactChance = 100f - baseCoinChance - basePieceChance - baseSealChance;
             
-            // 유물 확률 조정
-            float artifactMultiplier = isTreasure ? 3f : 0.5f;
-            float adjustedArtifactChance = baseArtifactChance * artifactMultiplier;
+            float adjustedArtifactChance = baseArtifactChance;
             
             // 조정된 유물 확률에 따라 코인과 기물 확률 재분배
             float remainingChance = 100f - adjustedArtifactChance;
@@ -163,7 +161,11 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             {
                 CollectionManager.EnsureInstance()?.RecordSealSeen(attachedSeal);
                 if (infoText != null) infoText.text = attachedSeal.sealName;
-                if (iconImage != null) iconImage.sprite = attachedSeal.icon;
+                if (iconImage != null)
+                {
+                    iconImage.sprite = attachedSeal.icon;
+                    iconImage.preserveAspect = true;
+                }
                 CreateSealIcon(attachedSeal);
             }
             else // 획득할 인장이 없으면 코인으로 대체
@@ -188,6 +190,7 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
                 if (iconImage != null)
                 {
                     iconImage.sprite = artifactReward.icon;
+                    iconImage.preserveAspect = true;
                     iconImage.color = Color.white;
                 }
             }
@@ -230,6 +233,7 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         
         sealIconImage = sealObj.AddComponent<Image>();
         sealIconImage.sprite = seal.icon;
+        sealIconImage.preserveAspect = true;
         sealIconImage.raycastTarget = true;
 
         // 툴팁 핸들러 추가

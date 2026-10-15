@@ -11,7 +11,6 @@ public class RewardService : PersistentManagerBase
     private bool hasPendingShow = false;
     private int pendingCount;
     private int pendingRarity;
-    private bool pendingIsTreasure;
 
     protected override void Awake()
     {
@@ -31,7 +30,7 @@ public class RewardService : PersistentManagerBase
         // if there is a pending request from before the UI was available, show it now
         if (hasPendingShow && boundUI != null)
         {
-            boundUI.ShowRewards(pendingCount, pendingRarity, pendingIsTreasure);
+            boundUI.ShowRewards(pendingCount, pendingRarity);
             hasPendingShow = false;
         }
     }
@@ -41,18 +40,17 @@ public class RewardService : PersistentManagerBase
         if (boundUI == ui) boundUI = null;
     }
 
-    public void ShowRewards(int count, int rarity, bool isTreasure = false)
+    public void ShowRewards(int count, int rarity)
     {
         if (boundUI != null)
         {
-            boundUI.ShowRewards(count, rarity, isTreasure);
+            boundUI.ShowRewards(count, rarity);
             return;
         }
 
         // cache if UI is not yet available
         pendingCount = count;
         pendingRarity = rarity;
-        pendingIsTreasure = isTreasure;
         hasPendingShow = true;
     }
 
@@ -62,6 +60,5 @@ public class RewardService : PersistentManagerBase
         hasPendingShow = false;
         pendingCount = 0;
         pendingRarity = 0;
-        pendingIsTreasure = false;
     }
 }

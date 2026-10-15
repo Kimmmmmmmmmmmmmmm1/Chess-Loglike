@@ -55,6 +55,7 @@ public class DraggableSeal : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
         {
             sealIconImage.enabled = true;
             sealIconImage.sprite = data.icon;
+            sealIconImage.preserveAspect = true;
             sealIconImage.color = new Color(sealIconImage.color.r, sealIconImage.color.g, sealIconImage.color.b, 1f);
             sealIconImage.raycastTarget = false;
         }

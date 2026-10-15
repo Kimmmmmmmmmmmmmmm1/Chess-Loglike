@@ -263,9 +263,6 @@ public class SoundManager : MonoBehaviour
                 case GameFlowState.WorkShop:
                     bgmType = BGMType.WorkshopBGM;
                     return true;
-                case GameFlowState.Treasure:
-                    bgmType = BGMType.TreasureBGM;
-                    return true;
                 case GameFlowState.Battle:
                     bgmType = BGMType.BattleBGM;
                     return true;

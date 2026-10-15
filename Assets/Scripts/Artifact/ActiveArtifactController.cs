@@ -166,14 +166,18 @@ public class ActiveArtifactController : MonoBehaviour
         ArtifactSlot slot = pendingSlot;
         ActiveArtifactEffectBase effect = pendingEffect;
 
-        EndTargeting();
-
         if (effect.Execute(piece))
         {
+            EndTargeting();
             Consume(artifact, slot, effect);
+        }
+        else if (effect.ContinueTargetingAfterFailedExecution)
+        {
+            HighlightValidTargets();
         }
         else
         {
+            EndTargeting();
             slot?.PlayDeniedFeedback();
         }
     }
@@ -197,6 +201,7 @@ public class ActiveArtifactController : MonoBehaviour
 
     private void EndTargeting()
     {
+        pendingEffect?.CancelSelection();
         pendingSlot?.SetTargetingVisual(false);
         ClearHighlights();
         pendingArtifact = null;

@@ -12,6 +12,7 @@ public class SellPieceButton : MonoBehaviour, IPointerExitHandler, IPointerEnter
     private Button button;
     private RectTransform rectTransform;
     private Vector2 startAnchoredPos;
+    private bool isSold = false;
     private bool isClosing = false;
     private Coroutine closeCoroutine;
     [SerializeField] private ShopPieceData shopPieceData;
@@ -27,6 +28,12 @@ public class SellPieceButton : MonoBehaviour, IPointerExitHandler, IPointerEnter
             priceText = GetComponentInChildren<TextMeshProUGUI>();
         }
         
+        // 자식 텍스트의 raycastTarget을 꺼서 마우스 이벤트가 부모 버튼에 안정적으로 전달되도록 함
+        foreach (var tmp in GetComponentsInChildren<TextMeshProUGUI>(true))
+        {
+            tmp.raycastTarget = false;
+        }
+
         if (button != null)
         {
             button.onClick.AddListener(OnSellClicked);
@@ -36,6 +43,8 @@ public class SellPieceButton : MonoBehaviour, IPointerExitHandler, IPointerEnter
     public void Initialize(PieceController piece)
     {
         this.pieceController = piece;
+        isSold = false;
+        isClosing = false;
 
         if (priceText != null)
         {
@@ -48,16 +57,16 @@ public class SellPieceButton : MonoBehaviour, IPointerExitHandler, IPointerEnter
 
     private void Show()
     {
-        // 1. 기물보다 뒤에 그려지도록 형제 순서를 가장 처음으로 변경 (기물 이미지가 형제일 경우 뒤로 감)
-        transform.SetAsFirstSibling();
+        // 판매 버튼이 기물 뒤에 가려져 마우스 입력을 방해받지 않도록 기물 위(형제 중 마지막)로 올림
+        transform.SetAsLastSibling();
 
-        // 2. 오른쪽으로 서서히 나오는 애니메이션
+        // 오른쪽으로 서서히 나오는 애니메이션
         if (rectTransform != null)
         {
             startAnchoredPos = rectTransform.anchoredPosition;
             rectTransform.localScale = Vector3.zero;
 
-            // 애니메이션: 오른쪽(x=60)으로 이동하며 크기가 커짐
+            // 애니메이션: 오른쪽(x=30)으로 이동하며 크기가 커짐
             rectTransform.DOKill();
             Sequence seq = DOTween.Sequence();
             seq.Append(rectTransform.DOAnchorPos(startAnchoredPos + new Vector2(30f, 0f), 0.3f).SetEase(Ease.OutBack));
@@ -72,16 +81,32 @@ public class SellPieceButton : MonoBehaviour, IPointerExitHandler, IPointerEnter
 
     public void CancelClose()
     {
+        if (isSold) return;
+
         if (closeCoroutine != null)
         {
             StopCoroutine(closeCoroutine);
             closeCoroutine = null;
         }
+
+        // 이미 닫히는 애니메이션 중이었다면 열린 상태로 복원
+        if (isClosing)
+        {
+            isClosing = false;
+            if (rectTransform != null)
+            {
+                rectTransform.DOKill();
+                Sequence seq = DOTween.Sequence();
+                seq.Append(rectTransform.DOAnchorPos(startAnchoredPos + new Vector2(30f, 0f), 0.2f).SetEase(Ease.OutBack));
+                seq.Join(rectTransform.DOScale(Vector3.one, 0.2f).SetEase(Ease.OutBack));
+            }
+        }
     }
 
     public void Close(float delay = 0f)
     {
-        if (isClosing) return;
+        if (isSold) return;
+        if (isClosing && closeCoroutine == null) return;
         
         if (delay > 0f)
         {
@@ -97,6 +122,7 @@ public class SellPieceButton : MonoBehaviour, IPointerExitHandler, IPointerEnter
     private IEnumerator CloseRoutine(float delay)
     {
         yield return new WaitForSeconds(delay);
+        closeCoroutine = null;
         PerformClose();
     }
 
@@ -126,8 +152,12 @@ public class SellPieceButton : MonoBehaviour, IPointerExitHandler, IPointerEnter
 
     private void OnSellClicked()
     {
+        if (isSold) return;
+
         if (pieceController != null)
         {
+            isSold = true;
+            if (button != null) button.interactable = false;
             SellPiece(pieceController);
         }
     }
@@ -135,17 +165,23 @@ public class SellPieceButton : MonoBehaviour, IPointerExitHandler, IPointerEnter
     // 마우스가 버튼 영역을 벗어날 때 호출됩니다.
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (pieceController != null)
+        if (isSold) return;
+
+        GameObject enteredObj = eventData.pointerEnter;
+        // 마우스가 이동한 대상이 버튼 자신이거나 자식이라면 닫지 않습니다.
+        if (enteredObj != null && (enteredObj == gameObject || enteredObj.transform.IsChildOf(transform)))
         {
-            // 마우스가 이동한 대상이 기물(형제)이거나 기물의 자식이라면 버튼을 끄지 않습니다.
-            GameObject enteredObj = eventData.pointerEnter;
-            if (enteredObj != null && (enteredObj == pieceController.gameObject || enteredObj.transform.IsChildOf(pieceController.transform)))
-            {
-                return;
-            }
-            
-            Close();
+            return;
         }
+
+        // 마우스가 이동한 대상이 기물이거나 기물의 자식이라면 닫지 않습니다.
+        if (pieceController != null && enteredObj != null && (enteredObj == pieceController.gameObject || enteredObj.transform.IsChildOf(pieceController.transform)))
+        {
+            return;
+        }
+
+        // 바로 닫지 않고 약간의 지연을 주어 마우스가 살짝 벗어났다가 복귀할 시간을 확보합니다.
+        Close(0.25f);
     }
 
     private void SellPiece(PieceController piece)
@@ -166,8 +202,9 @@ public class SellPieceButton : MonoBehaviour, IPointerExitHandler, IPointerEnter
             }
         }
 
+        pieceController = null;
         Destroy(piece.gameObject);
-        Close();
+        PerformClose();
     }
 
     private void AnimateCoinFly(int amount)

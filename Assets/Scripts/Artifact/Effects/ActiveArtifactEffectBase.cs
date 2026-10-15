@@ -30,6 +30,13 @@ public abstract class ActiveArtifactEffectBase : ArtifactEffectBase
     public virtual bool CanUse() => true;
 
     /// <summary>
+    /// 선택을 완료하지 않고 다음 대상을 계속 선택해야 하는 효과인지 여부입니다.
+    /// </summary>
+    public virtual bool ContinueTargetingAfterFailedExecution => false;
+
+    public virtual void CancelSelection() { }
+
+    /// <summary>
     /// 대상 선택형 유물에서 해당 기물이 유효한 대상인지
     /// </summary>
     public virtual bool IsValidTarget(PieceController piece)
@@ -54,4 +61,3 @@ public abstract class ActiveArtifactEffectBase : ArtifactEffectBase
     /// </summary>
     public abstract bool Execute(PieceController target);
 }
-

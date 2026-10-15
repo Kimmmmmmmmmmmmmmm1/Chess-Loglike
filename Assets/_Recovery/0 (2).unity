@@ -4999,7 +4999,6 @@ MonoBehaviour:
   linePrefab: {fileID: 9142460668196912926, guid: 81652a0e9e6214a4a8c3cf898c649020, type: 3}
   battleIcon: {fileID: -1894509636433252202, guid: fd633027036cd4c11bed298215d4b898, type: 3}
   shopIcon: {fileID: 33196702070366724, guid: fd633027036cd4c11bed298215d4b898, type: 3}
-  treasureIcon: {fileID: 4135466616692301975, guid: fd633027036cd4c11bed298215d4b898, type: 3}
   bossIcon: {fileID: -173141360105347108, guid: fd633027036cd4c11bed298215d4b898, type: 3}
   mysteryIcon: {fileID: 0}
   eventIcon: {fileID: 0}

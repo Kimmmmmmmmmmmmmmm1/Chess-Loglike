@@ -127,7 +127,7 @@ public class EffectManager : MonoBehaviour
         RectTransform rt = dust.GetComponent<RectTransform>();
         Image img = dust.GetComponent<Image>();
 
-        rt.position = pos;
+        rt.position = new Vector3(pos.x, pos.y, debrisParent != null ? debrisParent.position.z : 0f);
         
         // 먼지 느낌: 회색, 반투명
         img.color = new Color(0.9f, 0.9f, 0.9f, 0.6f);
@@ -155,17 +155,18 @@ public class EffectManager : MonoBehaviour
         Image img = debris.GetComponent<Image>();
 
         // 2. 초기 위치 잡기
-        rt.position = startWorldPos; 
+        rt.position = new Vector3(startWorldPos.x, startWorldPos.y, debrisParent.position.z);
         
-        // 색상 선택 (섞지 않고 랜덤 선택)
-        Color tintColor = isEnemy ? Color.blue : Color.red;
-        // 하얀색(color):기물색(tintColor) 의 비를 random(3~5):1정도로 설정
-        float whiteRatio = Random.Range(3f, 5f);
-        Color selectedColor = Random.value < (1f / (whiteRatio + 1f)) ? tintColor : color;
+        // 색상 선택: 흰색/검정색만 사용. 적은 흰색 75%, 아군은 검정색 75% (3:1)
+        float whiteChance = isEnemy ? 0.75f : 0.25f;
+        bool useWhite = Random.value < whiteChance;
+        Color selectedColor = useWhite ? Color.white : Color.black;
         
-        float brightness = Random.Range(0.8f, 1.0f);
+        float brightness = useWhite ? Random.Range(0.8f, 1.0f) : Random.Range(0.1f, 0.25f);
         
-        img.color = new Color(selectedColor.r * brightness, selectedColor.g * brightness, selectedColor.b * brightness, selectedColor.a);
+        img.color = new Color(selectedColor.r * brightness, selectedColor.g * brightness, selectedColor.b * brightness, 1f);
+        img.raycastTarget = false;
+        rt.SetAsLastSibling();
                 
         // 크기 랜덤 (2배 키움)
         float randomScale = Random.Range(1.2f, 1.8f) * scale;
@@ -259,14 +260,9 @@ public class EffectManager : MonoBehaviour
         RectTransform boardRT = gridManager.boardContainer;
         if (boardRT != null)
         {
-            // world position → boardContainer의 anchoredPosition 기준 로컬 좌표
-            Vector2 localPos;
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                boardRT,
-                worldPos,
-                null,
-                out localPos
-            );
+            // world position → boardContainer 로컬 좌표 (Screen Space - Camera 대응)
+            Vector3 world3 = new Vector3(worldPos.x, worldPos.y, boardRT.position.z);
+            Vector2 localPos = boardRT.InverseTransformPoint(world3);
             Vector2Int? gridPos = gridManager.GetNearestGridPosition(localPos);
             return gridPos.HasValue;
         }

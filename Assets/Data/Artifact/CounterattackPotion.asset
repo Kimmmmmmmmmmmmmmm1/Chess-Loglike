@@ -13,15 +13,14 @@ MonoBehaviour:
   m_Name: CounterattackPotion
   m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
   id: AC05
-  artifactName: "역공의 물약"
-  description: "선택한 아군 기물 1개에게 역공 1회를 부여합니다.\n<color=#FF8888>[역공]</color> 공격받을 때 스택 1을 소모하여 공격자를 즉시 반격 제거합니다."
-  flavorText: "적의 힘을 되받아쳐 치명적인 일격을 가하는 전설적인 비약."
+  artifactName: "\uC5ED\uACF5\uC758 \uBB3C\uC57D"
+  description: "\uC120\uD0DD\uD55C \uC544\uAD70 \uAE30\uBB3C 1\uAC1C\uC5D0\uAC8C \uC5ED\uACF5 1\uD68C\uB97C \uBD80\uC5EC\uD569\uB2C8\uB2E4.\n<color=#FF8888>[\uC5ED\uACF5]</color> \uACF5\uACA9\uBC1B\uC744 \uB54C \uC2A4\uD0DD 1\uC744 \uC18C\uBAA8\uD558\uC5EC \uACF5\uACA9\uC790\uB97C \uC989\uC2DC \uBC18\uACA9 \uC81C\uAC70\uD569\uB2C8\uB2E4."
+  flavorText: "\uC801\uC758 \uD798\uC744 \uB418\uBC1B\uC544\uCCD0 \uCE58\uBA85\uC801\uC778 \uC77C\uACA9\uC744 \uAC00\uD558\uB294 \uC804\uC124\uC801\uC778 \uBE44\uC57D."
   rarity: 3
-  icon: {fileID: 1820931049, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
+  icon: {fileID: 3286163911610860551, guid: cde18025717ec4b74ab7f6a1dff6f341, type: 3}
   price: 350
   isSoldInShop: 1
   isGaugeRequired: 0
   artifactType: 1
   maxLevel: 1
   level: 1
-

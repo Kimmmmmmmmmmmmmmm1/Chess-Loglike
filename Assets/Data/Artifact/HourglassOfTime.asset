@@ -13,15 +13,14 @@ MonoBehaviour:
   m_Name: HourglassOfTime
   m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
   id: AC01
-  artifactName: "시간의 모래"
-  description: "사용 시 상대의 다음 턴을 1회 건너뜁니다."
-  flavorText: "잠시 흐르는 시간을 멈추는 모래시계."
+  artifactName: "\uC2DC\uAC04\uC758 \uBAA8\uB798"
+  description: "\uC0AC\uC6A9 \uC2DC \uC0C1\uB300\uC758 \uB2E4\uC74C \uD134\uC744 1\uD68C \uAC74\uB108\uB701\uB2C8\uB2E4."
+  flavorText: "\uC7A0\uC2DC \uD750\uB974\uB294 \uC2DC\uAC04\uC744 \uBA48\uCD94\uB294 \uBAA8\uB798\uC2DC\uACC4."
   rarity: 1
-  icon: {fileID: 7039638777802805227, guid: d868d92bba8d34ae0a7ad49c448837bf, type: 3}
+  icon: {fileID: 3286163911610860551, guid: e39fc472bddd54c60ac681542711e164, type: 3}
   price: 120
   isSoldInShop: 1
   isGaugeRequired: 0
   artifactType: 1
   maxLevel: 1
   level: 1
-

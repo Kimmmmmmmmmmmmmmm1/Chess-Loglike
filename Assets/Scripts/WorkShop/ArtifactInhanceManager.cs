@@ -162,6 +162,7 @@ public class ArtifactInhanceManager : MonoBehaviour
             if (selectedArtifactImage != null)
             {
                 selectedArtifactImage.sprite = selectedArtifact.icon;
+                selectedArtifactImage.preserveAspect = true;
                 selectedArtifactImage.color = Color.white;
             }
 

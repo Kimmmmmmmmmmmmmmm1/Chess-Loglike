@@ -464,6 +464,7 @@ public class PiecesSynthManager : MonoBehaviour
                 iconImage = iconObj.AddComponent<Image>();
             }
             iconImage.sprite = sealData.icon;
+            iconImage.preserveAspect = true;
             iconImage.raycastTarget = true;
 
             SealTooltipHandler tooltipHandler = iconObj.GetComponent<SealTooltipHandler>();

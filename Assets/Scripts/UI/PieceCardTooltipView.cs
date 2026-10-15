@@ -486,6 +486,7 @@ public class PieceCardTooltipView : MonoBehaviour
                 if (sealIconImage != null)
                 {
                     sealIconImage.sprite = attachedSeal.icon;
+                    sealIconImage.preserveAspect = true;
                     sealIconImage.enabled = attachedSeal.icon != null;
                 }
                 if (sealInfoText != null)

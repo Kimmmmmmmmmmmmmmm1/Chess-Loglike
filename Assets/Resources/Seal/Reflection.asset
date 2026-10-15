@@ -12,18 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
   m_Name: Reflection
   m_EditorClassIdentifier: Assembly-CSharp::SealData
-  sealName: "반사의 인장"
+  sealName: "\uBC18\uC0AC\uC758 \uC778\uC7A5"
   rarity: 2
-  description: "보드 외곽(벽)을 향해 이동할 때, 밖으로 나가는 대신 입사각과 반사각에 맞춰 1회 튕겨서 이동 및 공격할 수 있습니다."
-  flavorText: "한계에 부딪혔을 때, 궤적은 새로워진다."
-  icon: {fileID: 3944343766228188813, guid: 95980ea79e9734fbc9fe2d2728f381c0, type: 3}
+  description: "\uBCF4\uB4DC \uC678\uACFD(\uBCBD)\uC744 \uD5A5\uD574 \uC774\uB3D9\uD560 \uB54C, \uBC16\uC73C\uB85C \uB098\uAC00\uB294 \uB300\uC2E0 \uC785\uC0AC\uAC01\uACFC \uBC18\uC0AC\uAC01\uC5D0 \uB9DE\uCDB0 1\uD68C \uD295\uACA8\uC11C \uC774\uB3D9 \uBC0F \uACF5\uACA9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."
+  flavorText: "\uD55C\uACC4\uC5D0 \uBD80\uB52A\uD614\uC744 \uB54C, \uADA4\uC801\uC740 \uC0C8\uB85C\uC6CC\uC9C4\uB2E4."
+  icon: {fileID: 3286163911610860551, guid: 7e6fc5d68806448bbbea445ed838319b, type: 3}
   isSoldInShop: 1
   sealPrefab: {fileID: 7411002200000000001, guid: f1e2d3c4b5a697887766554433221100, type: 3}
-  compatiblePieces:
-  - 2
-  - 3
-  - 4
-  - 8
+  compatiblePieces: 02000000030000000400000008000000i
   effectType: 2
   effectValue: 0
-

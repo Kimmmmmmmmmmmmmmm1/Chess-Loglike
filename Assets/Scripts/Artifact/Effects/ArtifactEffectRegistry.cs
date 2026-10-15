@@ -18,6 +18,8 @@ public static class ArtifactEffectRegistry
     public static readonly EvasionPotionArtifactEffect EvasionPotion = new EvasionPotionArtifactEffect();
     public static readonly CounterattackPotionArtifactEffect CounterattackPotion = new CounterattackPotionArtifactEffect();
     public static readonly InvincibilityPotionArtifactEffect InvincibilityPotion = new InvincibilityPotionArtifactEffect();
+    public static readonly PanicShotArtifactEffect PanicShot = new PanicShotArtifactEffect();
+    public static readonly TacticalShiftArtifactEffect TacticalShift = new TacticalShiftArtifactEffect();
 
     private static readonly Dictionary<string, ActiveArtifactEffectBase> activeEffects = BuildActiveEffects(
         Hourglass,
@@ -25,7 +27,9 @@ public static class ArtifactEffectRegistry
         ProtectionPotion,
         EvasionPotion,
         CounterattackPotion,
-        InvincibilityPotion
+        InvincibilityPotion,
+        PanicShot,
+        TacticalShift
     );
 
     private static Dictionary<string, ActiveArtifactEffectBase> BuildActiveEffects(params ActiveArtifactEffectBase[] effects)
@@ -52,5 +56,10 @@ public static class ArtifactEffectRegistry
         // A001-A003은 스테이지 제한이 없으므로 리셋 불필요
         Gourd.ResetStageLimitedEffects();
         Tombstone.ResetStageLimitedEffects();
+    }
+
+    public static void OnBattleStarted()
+    {
+        HeraldsHornArtifactEffect.ApplyAtBattleStart();
     }
 }
