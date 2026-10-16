@@ -325,22 +325,7 @@ public class BoardEvaluator : MonoBehaviour
 
     public static int GetPieceValue(PieceType type)
     {
-        return type switch
-        {
-            PieceType.Pawn => 1,
-            PieceType.Knight => 3,
-            PieceType.Bishop => 3,
-            PieceType.Rook => 5,
-            PieceType.Queen => 9,
-            PieceType.King => 4,
-            PieceType.Centaur => 5,
-            PieceType.Archbishop => 6,
-            PieceType.Chancellor => 7,
-            PieceType.Amazon => 13,
-            PieceType.Grasshopper => 3,
-            PieceType.Cannon => 5,
-            _ => 1
-        };
+        return PieceData.GetPieceScore(type);
     }
 
     private bool CanCaptureWithin(BoardState state, bool attackerIsEnemy, bool targetIsEnemy, int maxDepth)

@@ -17,6 +17,7 @@ MonoBehaviour:
   pieceName: 챈슬러
   icon: {fileID: -2014393228016629789, guid: fd633027036cd4c11bed298215d4b898, type: 3}
   rarity: 3
+  score: 7
   description: "룩의 행마(상하좌우 직선 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다."
   flavorText: "성채의 중장갑 직선 관통력과 기사의 지형 무시 도약 기동을 결합한 하이브리드 변형 체스 기물."
 

@@ -17,5 +17,6 @@ MonoBehaviour:
   pieceName: "\uB098\uC774\uD2B8"
   icon: {fileID: 5720223073860930455, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
   rarity: 1
+  score: 3
   description: "L\uC790 \uBAA8\uC591\uC73C\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4(2\uCE78 \uC9C1\uC9C4 \uD6C4 1\uCE78 \uC606). \uACBD\uB85C\uC0C1\uC758 \uC7A5\uC560\uBB3C\uC744 \uBB34\uC2DC\uD558\uACE0 \uB6F0\uC5B4\uB118\uC744 \uC218 \uC788\uC2B5\uB2C8\uB2E4."
   flavorText: "\uC7A5\uC560\uBB3C\uC744 \uB6F0\uC5B4\uB118\uB294 \uAE30\uB3D9\uB825\uC758 \uAE30\uC0AC."

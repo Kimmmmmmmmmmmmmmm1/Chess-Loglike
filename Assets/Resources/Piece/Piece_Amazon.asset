@@ -17,6 +17,7 @@ MonoBehaviour:
   pieceName: 아마존
   icon: {fileID: 530674500896464107, guid: fd633027036cd4c11bed298215d4b898, type: 3}
   rarity: 5
+  score: 13
   description: "퀸의 행마(전 방향 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다."
   flavorText: "퀸의 전방위 이동력과 나이트의 도약 능력을 모두 지닌 최강의 변형 체스 기물."
 

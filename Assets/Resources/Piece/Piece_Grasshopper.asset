@@ -17,6 +17,7 @@ MonoBehaviour:
   pieceName: 그래스호퍼
   icon: {fileID: 530674500896464107, guid: fd633027036cd4c11bed298215d4b898, type: 3}
   rarity: 3
+  score: 3
   description: "퀸과 같이 모든 방향으로 이동할 수 있으나, 이동할 때 반드시 다른 기물 하나를 뛰어넘어 바로 뒤 칸에 착지합니다."
   flavorText: "퀸의 8방향 경로상 단일 장애물을 경유하여 바로 뒤 칸으로 도약 기동하는 고기동 메뚜기 기물."
 

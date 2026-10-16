@@ -17,5 +17,6 @@ MonoBehaviour:
   pieceName: "\uBE44\uC20D"
   icon: {fileID: 5330433185586497934, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
   rarity: 1
+  score: 3
   description: "\uB300\uAC01\uC120 \uBC29\uD5A5\uC73C\uB85C \uAC70\uB9AC \uC81C\uD55C \uC5C6\uC774 \uC774\uB3D9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."
   flavorText: "\uB300\uAC01\uC120\uC744 \uAC00\uB85C\uC9C0\uB974\uB294 \uC131\uC9C1\uC790."

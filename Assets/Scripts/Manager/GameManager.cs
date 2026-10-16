@@ -663,22 +663,7 @@ public class GameManager : MonoBehaviour
 
     public static int GetPieceScore(PieceType type, ShopPieceData shopPieceData = null)
     {
-        switch (type)
-        {
-            case PieceType.Pawn: return 1;
-            case PieceType.Knight: return 3;
-            case PieceType.Bishop: return 3;
-            case PieceType.Rook: return 5;
-            case PieceType.Queen: return 9;
-            case PieceType.King: return 4;
-            case PieceType.Centaur: return 5;
-            case PieceType.Archbishop: return 6;
-            case PieceType.Chancellor: return 7;
-            case PieceType.Amazon: return 13;
-            case PieceType.Grasshopper: return 3;
-            case PieceType.Cannon: return 5;
-            default: return 1;
-        }
+        return PieceData.GetPieceScore(type);
     }
 
     public static int CeilToMultipleOfTen(int value)

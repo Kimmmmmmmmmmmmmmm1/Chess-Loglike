@@ -17,6 +17,7 @@ MonoBehaviour:
   pieceName: 아치비숍
   icon: {fileID: -1132234818072588592, guid: fd633027036cd4c11bed298215d4b898, type: 3}
   rarity: 3
+  score: 6
   description: "비숍의 행마(대각선 4방향 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다."
   flavorText: "비숍의 대각선 행마와 나이트의 도약 능력을 결합한 변형 체스 기물."
 

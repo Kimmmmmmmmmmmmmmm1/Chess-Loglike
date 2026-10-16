@@ -3323,26 +3323,11 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     }
 
     /// <summary>
-    /// 체스 기물의 가치 점수를 반환합니다 (폰: 1, 나이트/비숍: 3, 룩: 5, 퀸: 9, 킹: 0(★), 변형 기물: 4~12)
+    /// 체스 기물의 가치 점수를 반환합니다 (PieceData에 정의된 score 참조)
     /// </summary>
     public static int GetChessValueForType(PieceType type)
     {
-        return type switch
-        {
-            PieceType.Pawn => 1,
-            PieceType.Knight => 3,
-            PieceType.Bishop => 3,
-            PieceType.Rook => 5,
-            PieceType.Queen => 9,
-            PieceType.King => 0, // 표기 시 '★'
-            PieceType.Centaur => 4,
-            PieceType.Cannon => 4,
-            PieceType.Archbishop => 7,
-            PieceType.Chancellor => 8,
-            PieceType.Grasshopper => 7,
-            PieceType.Amazon => 12,
-            _ => 1
-        };
+        return PieceData.GetPieceScore(type);
     }
 
     /// <summary>

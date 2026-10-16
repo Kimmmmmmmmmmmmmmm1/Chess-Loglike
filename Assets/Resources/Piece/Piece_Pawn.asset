@@ -17,6 +17,7 @@ MonoBehaviour:
   pieceName: 폰
   icon: {fileID: -1355300903190567821, guid: fd633027036cd4c11bed298215d4b898, type: 3}
   rarity: 1
+  score: 1
   description: "앞으로 1칸 전진(첫 이동 시 2칸 가능)하며, 대각선 앞 1칸의 적을 포획합니다.
 적진 끝에 도달하면 승급합니다."
   flavorText: "가장 앞장서 전진하며, 끝에 도달하면 승급을 이뤄내는 보병."

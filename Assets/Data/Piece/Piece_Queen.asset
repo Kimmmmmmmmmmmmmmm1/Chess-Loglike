@@ -17,5 +17,6 @@ MonoBehaviour:
   pieceName: "\uD038"
   icon: {fileID: -5830367446604607832, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
   rarity: 2
+  score: 9
   description: "\uAC00\uB85C, \uC138\uB85C, \uB300\uAC01\uC120 \uBAA8\uB4E0 \uBC29\uD5A5\uC73C\uB85C \uAC70\uB9AC \uC81C\uD55C \uC5C6\uC774 \uC774\uB3D9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."
   flavorText: "\uC804 \uBC29\uD5A5\uC73C\uB85C \uC774\uB3D9\uD560 \uC218 \uC788\uB294 \uCCB4\uC2A4\uD310 \uC704 \uCD5C\uAC15\uC758 \uAE30\uBB3C."
