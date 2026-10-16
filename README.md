@@ -1,158 +1,123 @@
-# Chess-Loglike
+```
+# ♟️ [제목 미정] (체스 로그라이크)
 
-체스 기물의 이동 규칙에 로그라이크식 성장, 상점, 인장(Seal), 유물(Artifact)을 결합한 Unity 게임 프로젝트입니다.
-이 문서는 현재 저장소의 씬, ScriptableObject 데이터, 런타임 매니저와 UI 코드를 기준으로 작성한 개발자용 안내서입니다.
+전통 체스의 행마 규칙에 덱빌딩 로그라이크의 변수(인장, 유물)를 결합한 **클래식 모던 전략 게임**입니다 .  
+복잡한 수치(체력/마나) 계산과 불필요한 스토리 연출을 과감히 걷어내고, 오직 **6x5 컴팩트 미니 체스판** 위에서 기물의 행마와 룰 파괴 시너지만으로 승부를 결정짓는 쾌속 순수 두뇌 수싸움을 지향합니다 .
 
-## 한눈에 보기
+---
 
-- **타이틀**: `Assets/Scenes/TitleScene.unity`
-- **게임**: `Assets/Scenes/GameScene.unity`
-- **게임 루프**: 전투 → 보상/정리 → 상점·이벤트·공방 → 다음 전투
-- **핵심 성장 자원**
-  - 기물: 이동 규칙과 전투력을 결정하는 전투 유닛
-  - 인장: 개별 기물에 장착되어 이동/생존/전투 후속 행동을 바꾸는 모듈
-  - 유물: 런 전체에 적용되는 패시브 또는 전투 중 사용하는 액티브 효과
-  - 코인: 상점 구매, 유물 강화, 상점 리롤에 사용
-- **데이터 중심 설계**: 기물·인장·유물은 대부분 `ScriptableObject`로 정의하고, 실제 동작은 C# 컴포넌트/효과 클래스가 담당합니다.
+## 🎯 프로젝트 개요
 
-## 프로젝트 구조
+* **장르** : 체스 기반 덱빌딩 전략 로그라이크 
+* **세계관** : 배경 서사 없이 퍼즐적 수읽기와 전략적 판단에 몰입하는 **논스토리 클래식 게임** 
+* **아트 스타일** : 눈의 피로도를 낮춘 세련된 **클래식 모던 플랫 디자인** 
+* **전장 규격** : 초반부터 치열한 라인전과 빠른 교전을 유도하는 **6x5 미니 체스판** (가로 6칸 × 세로 5칸)
+* **UI/UX 테마** : **[suspicious link removed] 스타일**의 직관적인 다크 슬레이트 &amp; 세이지 그린 보드와 **하스스톤 스타일 TCG 카드형 툴팁**
+* **진행 루프** : 전투 승리 ➔ 확정 기본 보상 및 3지선다 전리품 선택(골드 리롤) ➔ 정비 ➔ 다음 전투로 이어지는 **선형 전진 루프**
 
-```text
-Assets/
-  Scenes/                 타이틀 및 게임 씬
-  Scripts/
-    Manager/              런 상태, 스테이지, 턴, 사운드
-    Piece/                기물 생성/이동/인벤토리/승급
-      Seal/               인장 데이터, 장착 관리자, 인장 효과
-    Artifact/             유물 데이터, 인벤토리, 효과 레지스트리
-    Shop/                 상점 생성·구매·리롤
-    WorkShop/             기물 합성·유물 강화
-    Reward/               전투 보상
-    Event/                이벤트 및 인장 해결
-    Grid/                 보드 좌표와 셀
-    UI/                   툴팁, 인벤토리, 연출
-  Data/
-    Piece/                PieceData 및 시작/상점 기물 목록
-    Seal/                 인장 프리팹
-    Artifact/             ArtifactData 에셋
-    Achievement/          업적 데이터
-  Prefabs/                UI 및 게임 오브젝트 프리팹
+---
+
+## ⚔️ 핵심 전투 규칙
+
+### 1. 6x5 타일 기반 미니 전장 (`GridManager.cs`)
+* 장기의 궁성 및 선/교차점 좌표계를 배제하고 가로 6칸(a~f) × 세로 5칸(1~5)의 면(Tile) 기반 `Vector2Int` 좌표계를 사용합니다.
+* **배치 단계 (Prepare)** : 상단 적 진영은 배치 불가 구역(Invalid Zone)으로 처리되며, 하단 아군 진영에 기물을 1개 이상 배치해야 전투를 시작할 수 있습니다.
+
+### 2. 전멸전 승패 규칙 (`PieceManager.cs`)
+* **킹(King)도 일반 기물과 동일하게 취급**되며, 특수한 패배 조건을 갖지 않습니다.
+* 필드 위의 **적 기물이 0개가 되면 승리(Win)**, **아군 기물이 0개가 되면 패배(GameOver)**합니다.
+
+### 3. 교착 방지 15턴 하드코어 제한 (`TurnManager.cs`)
+* 양측이 연속해서 이동을 스킵하거나 **15턴 제한** 내에 승부를 내지 못하면 교착 상태(Stalemate)로 간주되어 패배 처리됩니다.
+* 상대 턴에는 `BoardEvaluator.cs`가 비동기로 보드 가치와 인장 변수를 계산하여 최적의 수를 연산합니다.
+
+### 4. 배치 유지 시스템 (Persistence &amp; Dimming)
+* 전투 종료 후 아군의 진형 배치를 그대로 보존하여 매 전투마다 발생하는 세팅 피로도를 제거하고 증식 버그를 방지합니다.
+* 보상 화면 진입 시 뒤쪽 체스판이 어둡게(투명도 75% Dimming) 처리되어 현재 진형을 확인하며 보상을 선택할 수 있습니다.
+
+---
+
+## 🔄 게임 진행 및 보상 시스템
+
 ```
 
-## 실행 전 확인
+[전투 진입] ➔ [15턴 전멸전 전투] ➔ [전투 승리] ↓ ┌────────────────────────────────────────────────────────┐ │ 1\. 확정 기본 보상 (골드 정산 및 자산 즉시 합산) │ │ 2\. 3지선다 카드 선택 (기물 / 인장 / 유물 중 택 1) │ │ (골드를 소모하여 [R] 키로 선택지 새로고침 가능) │ └────────────────────────────────────────────────────────┘ ↓ [진형 유지 및 정비] ➔ [다음 전투]
 
-1. Unity에서 프로젝트를 엽니다.
-2. 빌드 씬에 `TitleScene`과 `GameScene`이 등록되어 있는지 확인합니다.
-3. `GameScene`에 `GameManager`, `GameStateManager`, `PieceManager`, `PieceSpawner`, `ShopManager`, `ArtifactManager`, `SealInventory` 등의 씬 오브젝트가 한 번씩 존재하는지 확인합니다.
-4. `PieceInventory`의 `InitialPieceData`, `InitialSealData` 참조를 확인합니다.
-5. 보드와 UI의 프리팹 참조가 비어 있지 않은지 확인합니다.
-
-현재 매니저 다수는 싱글턴이며, 일부는 `DontDestroyOnLoad`로 유지되고 일부는 씬에 종속됩니다. 씬을 복제하거나 전환 구조를 바꿀 때 중복 매니저와 오래된 UI 참조가 생기지 않도록 주의해야 합니다.
-
-## 런 구조
-
-`GameManager`의 상위 흐름은 다음과 같습니다.
-
-```text
-None
-  └─ Battle
-       ├─ Prepare       기물 생성 및 배치
-       ├─ GamePlay      턴제 전투
-       ├─ Win/GameOver
-       └─ Reward/Cleanup
-  ├─ Shop              상점
-  ├─ Event             이벤트
-  └─ WorkShop          공방
 ```
 
-- 전투에 진입하면 `GameStateManager.Prepare`가 시작되고 `PieceSpawner`가 플레이어/적 기물을 생성합니다.
-- 시작 버튼을 누르면 배치 스냅샷을 저장하고 적 기물을 공개한 뒤 `GamePlay`로 넘어갑니다.
-- 전투를 벗어날 때 플레이어 기물의 다음 스테이지용 스냅샷을 저장합니다.
-- 스테이지는 `ClearedStage + 1`이 5의 배수일 때 보스 스테이지로 취급됩니다.
-- 일반 스테이지는 `Resources.LoadAll<StageData>("Stages")`로 읽은 후보 중 진행도에 맞는 난이도를 우선 선택합니다.
+* **선형 루프 압축** : 기존의 다방향 노드 탐험을 없애고 전투와 보상 사이클에 집중된 빠른 템포를 제공합니다.
+* **원스톱 정비** : 기물 영입, 인장 장착, 유물 획득이 전투 직후 보상 모달을 통해 통합 제공됩니다.
 
-## 핵심 데이터 처리
+---
 
-### 기물
+## ♟️ 등장 기물 체계 (총 12종)
 
-- `PieceData`는 ID, `PieceType`, 표시명, 아이콘, 희귀도, 설명을 보유합니다.
-- 실제 보드 기물은 `PieceController`가 담당합니다.
-- `PieceSpawner.PieceSpawnInfo`는 기물 종류, 보드 좌표, 시작 인장을 함께 가질 수 있습니다.
-- `PieceInventory`는 다음 스테이지에 남길 기물 종류를 보유합니다. 현재 저장 구조는 기물의 종류 중심이며, 일반적인 전투 종료 경로에서는 장착 인장을 `SealInventory`로 반환합니다.
-- `PieceController`는 이동 가능 범위 계산, 드래그/드롭, 위협 표시, 승급, 버프 스택, 기물 파괴와 캡처 후속 처리를 담당합니다.
+| 분류 | 기물명 | 주요 행마 및 특성 |
+| :--- | :--- | :--- |
+| **기본 기물** | **폰 (Pawn)** | 전진 1칸, 대각선 앞 포획 (적진 도달 시 프로모션) |
+| (6종) | **나이트 (Knight)** | 장애물을 뛰어넘는 특유의 L자 도약 이동 |
+| | **비숍 (Bishop)** | 대각선 방향 무제한 직선 이동 |
+| | **룩 (Rook)** | 상하좌우 십자 방향 무제한 직선 이동 |
+| | **퀸 (Queen)** | 상하좌우 및 대각선 전방향 무제한 직선 이동 |
+| | **킹 (King)** | 전방향 1칸 이동 (전멸전 룰로 일반 기물과 동일 취급) |
+| **변형 기물** | **아마존 (Amazon)** | **퀸 + 나이트**의 이동 능력을 겸비한 최상위 기물 |
+| (6종) | **대주교 (Archbishop)** | **비숍 + 나이트**의 이동 능력을 겸비한 복합 기물 |
+| | **챈슬러 (Chancellor)** | **룩 + 나이트**의 이동 능력을 겸비한 복합 기물 |
+| | **켄타우로스 (Centaur)** | **킹(전방향 1칸) + 나이트**의 이동 결합 |
+| | **메뚜기 (Grasshopper)** | 퀸 방향으로 이동하되 경로상의 기물 1개를 뛰어넘어 바로 뒤 칸에 착지 |
+| | **캐논 (Cannon)** | 이동 및 포획 시 경로상 다른 기물(발판) 1개를 뛰어넘는 특수 행마 |
 
-### 인장
+---
 
-인장은 두 층으로 나뉩니다.
+## ⚙️ 핵심 성장 요소 (인장 &amp; 유물)
 
-1. `SealData`: 이름, 희귀도, 설명, 아이콘, 상점 판매 여부, 호환 기물, 동작 프리팹을 정의합니다.
-2. `SealBase` 파생 컴포넌트: 실제 효과를 실행합니다.
+### 1. 인장 (Seal) - 개별 기물 룰 변조
+기물에 직접 장착하여 행마 규칙을 변경하거나 특수 능력을 부여합니다.
+* **반사의 인장 (`ReflectionSeal`)** : 보드 외곽 벽에 부딪힐 때 입사각/반사각에 따라 1회 튕겨 추가 이동
+* **대각선 후퇴 인장 (`DiagonalRetreatSeal`)** : 전진만 가능한 기물(폰 등)에 대각선 후퇴 능력 부여
+* **환영의 인장 (`PhantomSeal`)** : 경로상의 아군 기물을 뛰어넘어 이동 가능
+* **나이트 도약 인장 (`KnightLeapSeal`)** : 기물에 나이트 고유의 L자 도약 이동 경로 추가
+* **카멜레온 인장 (`ChameleonSeal`)** : 적 기물 포획 시 포획한 적 기물로 영구 변신
+* **자폭 인장 (`SelfDestructSeal`)** : 기물 파괴 시 주변 타일에 동귀어진 스플래시 피해 발생
+* **붕괴의 인장 (`CollapseSeal`) / 최후의 저항 인장 (`LastStandSeal`) / 측면 전진 인장 (`LateralAdvanceSeal`)** 등
 
-장착 과정은 다음과 같습니다.
+### 2. 유물 (Artifact) - 전역 패시브 및 액티브 조커
+* **패시브 유물 (Passive)** : 런 전체에 영구 적용되어 덱 시너지를 형성
+  * **끝없는 묘비 (`EndlessTombstone`)** : 아군 기물 파괴 시 무작위 빈칸에 폰 소환
+  * **전령의 나팔 (`HeraldsHorn`)** : 전투 시작 시 최전방 아군 기물에게 1회 보호막 부여
+  * **망자의 호리병 (`GourdOfTheFallen`)** : 파괴된 기물을 회수하여 덱 보존
+  * **단골 손님 (`GoodShoper`)** : 상점 및 보상 선택지 리롤 비용 할인
+* **액티브 유물 (Active)** : 전투 중 내 턴에 클릭하여 1회 소모 발동
+  * **보호/역습/회피/무적 물약 (`Protection/Counterattack/Evasion/InvincibilityPotion`)** : 기물 4대 상태 즉각 부여
+  * **전술적 이동 (`TacticalShift`)** : 아군 기물 2개의 위치를 즉시 교환
+  * **패닉 샷 (`PanicShot`)** : 지정 가로열의 적 기물을 강제로 1칸 후퇴
 
-```text
-SealData
-  → SealManager.TryAttachSealToPiece
-  → 호환 PieceType 검사
-  → PieceController.EquipSeal
-  → sealPrefab 인스턴스화
-  → SealBase.Initialize(data, owner)
-  → OnEquip
-  → PieceController.equippedSeals에 등록
+---
+
+## 🎨 UI &amp; UX 시스템
+
+* **[suspicious link removed] 스타일 컬러 팔레트** : 눈의 피로를 최소화하는 다크 슬레이트(#1E2024) 배경과 세이지 그린(#739552) &amp; 웜 베이지(#EBECD0) 타일 그리드
+* **하스스톤 스타일 카드 툴팁 (`PieceCardTooltipView.cs`)** : 기물 호버 시 기물 일러스트, 5x5 이동 미니 그리드, 장착된 인장 효과를 담은 TCG 트레이딩 카드 팝업 즉시 출력
+* **촉각적 피드백 (DOTween)** : 드래그 시 마우스 방향으로 기물이 기울어지는 흔들림(Wobble), 착지 시 찌그러짐(Squash &amp; Stretch), 적 위협 시 떨림 연출 적용
+* **사이드 패널 레이아웃** : 좌측 유물·대기석 인벤토리 슬롯, 우측 전투 기보(Battle Log) 및 15턴 잔여 카운터 프로그레스 바 배치
+
+---
+
+## 💻 개발 환경 및 기술 스택
+
+| 항목 | 내용 |
+| :--- | :--- |
+| **엔진** | Unity 6000.3.x (또는 Unity 2022.3.x LTS) |
+| **렌더 파이프라인** | Universal Render Pipeline (URP) |
+| **언어** | C# (.NET Standard) |
+| **주요 라이브러리** | DOTween (물리적 피드백 및 UI 트랜지션 연출) |
+| **데이터 설계** | ScriptableObject 기반 데이터 중심 설계 (`PieceData`, `SealData`, `ArtifactData`) |
+| **버전 관리** | Git / GitHub |
+
+---
+
+## 📂 프로젝트 구조
+
 ```
 
-`SealBase`가 제공하는 주요 훅은 다음과 같습니다.
-
-- `ModifyMoves`: 실제 이동 범위 수정
-- `GetPreviewMovementOffsets`: 툴팁 이동 범위 표시
-- `OnBeforeDestroy`: 파괴 거부 또는 생존 효과
-- `OnBeforeMove`: 이동 직전 경로/상태 처리
-- `OnAfterMove`: 이동 완료 후 추가 행동
-- `OnAfterCapture`: 캡처 후 효과
-- `OnOwnerDestroyed`: 소유 기물 파괴 시 효과
-
-장착 해제는 준비 단계에서만 허용되며, 성공하면 `SealInventory`로 반환됩니다. 인벤토리는 빈 슬롯을 `null`로 유지하면서 이동·교환·삽입을 지원합니다.
-
-### 유물
-
-- `ArtifactData`는 ID, 이름, 설명, 희귀도, 가격, 타입, 최대 레벨을 보유합니다.
-- `ArtifactType.Passive`는 보유 중 효과가 적용되고, `Active`는 전투 중 내 턴에 클릭해 1개를 소모합니다.
-- `ArtifactManager.AddArtifact`는 런타임 복제본을 만들어 레벨/스택을 초기화합니다.
-- 패시브 유물은 동일 ID 중복 획득을 막고, 액티브 유물은 동일 슬롯의 스택을 증가시킵니다.
-- 효과 구현은 `ArtifactEffectRegistry`가 ID별 효과 객체를 제공하고, 각 효과 클래스가 실제 동작을 담당합니다.
-- 스테이지 제한 게이지는 `ArtifactEffectHandlers.ResetStageLimitedEffects`를 통해 새 스테이지마다 초기화됩니다.
-- 패시브 유물은 `ArtifactInhanceManager`를 통해 코인을 지불하고 레벨을 올릴 수 있으며, 액티브 유물은 강화 대상이 아닙니다.
-
-## 상점
-
-`ShopManager`는 기본적으로 3개의 슬롯을 만들고 각 슬롯을 다음과 같이 생성합니다.
-
-- 기물 후보: `ShopPieceData`
-- 독립 인장: 설정된 `standaloneSealSlotChance`에 따라 별도 슬롯으로 등장
-- 기물 부착 인장: 진행도에 따라 등장 확률을 굴린 뒤 호환 가능한 인장 중 선택
-- 유물: 별도 `ShopArtifactSlot`에 판매 가능한 유물 1개를 표시
-
-기물에 인장이 붙으면 희귀도별 가격 배율이 적용됩니다.
-
-| 인장 희귀도 | 가격 배율 |
-|---|---:|
-| Common | 1.5x |
-| Rare | 1.7x |
-| Epic | 2.0x |
-| Legendary | 2.5x |
-
-기물 부착 인장 확률은 `15% × 진행도`가 기본이며, A003 유물 레벨마다 보너스가 더해집니다. 희귀도 비율은 코드상 Legendary/Epic/Rare/Common 순으로 `0.5 : 2.5 : 4 : 8`에 해당합니다. 상점 리롤 비용은 기본 5이며 A002 효과와 연결됩니다.
-
-## 개발 시 주의할 점
-
-- 에디터에서는 일부 데이터 목록을 `AssetDatabase`로 찾지만, 빌드에서는 `Resources.LoadAll` 경로를 사용합니다. 실제 빌드에 포함할 데이터는 해당 런타임 로딩 경로와 일치하는지 확인해야 합니다.
-- `ArtifactData.GetDescription`의 동적 수치는 유물 ID 문자열(`A001`~`A005`)과 효과 클래스에 결합되어 있습니다. ID 변경 시 설명과 실제 효과가 함께 깨질 수 있습니다.
-- 인장 효과는 프리팹에 `SealBase` 파생 컴포넌트가 반드시 있어야 합니다. 프리팹 누락 또는 컴포넌트 누락은 장착 실패로 이어집니다.
-- `PieceInventory`는 동종 기물을 타입으로 저장하므로 개별 기물 인스턴스의 상태를 영속화하지 않습니다.
-- `GameManager`, `GameStateManager`, `PieceSpawner` 등은 싱글턴 초기화 순서의 영향을 받습니다. 새 매니저를 추가할 때 `Awake`, `Start`, 씬 로드 이벤트의 순서를 확인하십시오.
-
-## 관련 문서
-
-- [역기획서](REVERSE_GAME_DESIGN.md)
-- [타이틀 시스템 연결 가이드](TitleSystemGuide.md)
-- [기물 합성 디버깅 가이드](pieces-synth.agent.md)
+Assets/ ├── Scenes/ │ ├── TitleScene.unity # 메인 타이틀 및 도감/설정 │ └── GameScene.unity # 6x5 보드 전투 및 보상 메인 씬 ├── Scripts/ │ ├── Manager/ # GameManager, GameStateManager, TurnManager, StageManager │ ├── Piece/ # PieceController, PieceManager, PieceSpawner, 변형 기물 │ │ └── Seal/ # SealBase, AddMoveSeal, 10종 인장 컴포넌트 │ ├── Artifact/ # ArtifactManager, ActiveArtifactController, Effects │ ├── Reward/ # RewardManager, 3지선다 모달 및 리롤 로직 │ ├── Grid/ # GridManager, GridCell (6x5 타일 시스템) │ └── UI/ # PieceCardTooltipView, TurnLogUIManager, HUD ├── Data/ │ ├── Piece/ # PieceData ScriptableObject 에셋 │ ├── Seal/ # 인장 프리팹 및 동작 컴포넌트 │ ├── Artifact/ # ArtifactData 에셋 │ └── Achievement/ # 업적 데이터 에셋 └── Resources/ # 런타임 동적 로딩 에셋 (Pieces, Stages, Seals)
