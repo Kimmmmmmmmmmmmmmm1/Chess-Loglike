@@ -442,7 +442,9 @@ public class BoardEvaluator : MonoBehaviour
                 }
 
                 // 인벤토리에 있는 기물(좌표가 null)은 시뮬레이션에서 제외
-                if (!piece.gridPosition.HasValue)
+                if (piece.CurrentLocation != PieceLocation.Board ||
+                    !piece.gridPosition.HasValue ||
+                    !manager.gridManager.IsInBounds(piece.gridPosition.Value))
                 {
                     continue;
                 }

@@ -235,6 +235,20 @@ public class PieceManager : MonoBehaviour
             return;
         }
 
+        // 1. 기물이 날아가는 중(물리 시뮬레이션/동기화 중)에는 기물 선택 무시
+        if (PieceFlickLauncher.IsPhysicsActive)
+        {
+            return;
+        }
+
+        // 2. 알까기 유물을 보유 중일 때, 내 기물(아군 기물)은 체스 이동 마커를 띄우지 않음 (상대 턴이든 내 턴이든 항상)
+        if (piece != null && !piece.IsEnemy && PieceFlickLauncher.HasAlkkagiArtifact)
+        {
+            selectedPiece = piece;
+            ClearMarkers();
+            return;
+        }
+
         if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.GamePlay)
         {
             if (PiecePromotionManager.Instance != null && PiecePromotionManager.Instance.IsPromoting)
@@ -413,6 +427,163 @@ public class PieceManager : MonoBehaviour
         }
 
         DestroyPieceWithEffects(piece, false, false, null);
+    }
+
+    /// <summary>
+    /// 보드 상태(PieceLocation.Board)이지만 실제 타일 좌표(gridPosition)가 없거나,
+    /// 보드 컨테이너(BoardContainer)의 자식이 아닌 기물(및 인벤토리 슬롯에 속하지 않는 고아 기물)을
+    /// 모든 데이터 및 씬에서 완전히 제거합니다. (상대 턴 시작 전 AI 이동 전에 호출)
+    /// </summary>
+    public int CleanupInvalidBoardPieces()
+    {
+        Transform boardContainer = null;
+        if (gridManager == null)
+        {
+            gridManager = FindFirstObjectByType<GridManager>();
+        }
+
+        if (gridManager != null && gridManager.boardContainer != null)
+        {
+            boardContainer = gridManager.boardContainer;
+        }
+        else
+        {
+            GameObject bcObj = GameObject.Find("BoardContainer");
+            if (bcObj != null)
+            {
+                boardContainer = bcObj.transform;
+            }
+            else if (PieceSpawner.Instance != null && PieceSpawner.Instance.piecesParent != null)
+            {
+                boardContainer = PieceSpawner.Instance.piecesParent;
+            }
+        }
+
+        List<PieceController> toRemove = new List<PieceController>();
+
+        // 씬 내의 모든 PieceController 검사
+        PieceController[] allScenePieces = FindObjectsByType<PieceController>(FindObjectsSortMode.None);
+        foreach (var p in allScenePieces)
+        {
+            if (p == null) continue;
+
+            bool isChildOfBoard = boardContainer != null && p.transform.IsChildOf(boardContainer);
+            bool isUnderInventorySlot = p.GetComponentInParent<InventorySlot>() != null;
+
+            bool shouldRemove = false;
+
+            // 1. 보드 기물인데 타일 좌표가 없거나 보드 컨테이너 자식이 아닌 경우
+            if (p.CurrentLocation == PieceLocation.Board)
+            {
+                if (!p.gridPosition.HasValue || (boardContainer != null && !isChildOfBoard))
+                {
+                    shouldRemove = true;
+                }
+            }
+            // 2. 보드 컨테이너 자식이 아닌데, 정상 인벤토리 슬롯에도 들어있지 않은 경우 (상점/임시/고아 기물)
+            else if (boardContainer != null && !isChildOfBoard && !isUnderInventorySlot)
+            {
+                shouldRemove = true;
+            }
+
+            if (shouldRemove && !toRemove.Contains(p))
+            {
+                toRemove.Add(p);
+            }
+        }
+
+        // PieceManager 등록 목록에서도 이중 검사
+        for (int i = pieces.Count - 1; i >= 0; i--)
+        {
+            PieceController p = pieces[i];
+            if (p == null)
+            {
+                pieces.RemoveAt(i);
+                continue;
+            }
+
+            bool isChildOfBoard = boardContainer != null && p.transform.IsChildOf(boardContainer);
+            bool isUnderInventorySlot = p.GetComponentInParent<InventorySlot>() != null;
+
+            if (p.CurrentLocation == PieceLocation.Board)
+            {
+                if (!p.gridPosition.HasValue || (boardContainer != null && !isChildOfBoard))
+                {
+                    if (!toRemove.Contains(p)) toRemove.Add(p);
+                }
+            }
+            else if (boardContainer != null && !isChildOfBoard && !isUnderInventorySlot)
+            {
+                if (!toRemove.Contains(p)) toRemove.Add(p);
+            }
+        }
+
+        if (toRemove.Count == 0)
+        {
+            return 0;
+        }
+
+        int removedCount = toRemove.Count;
+        foreach (var piece in toRemove)
+        {
+            if (piece == null) continue;
+
+            string parentName = piece.transform.parent != null ? piece.transform.parent.name : "루트";
+            Debug.LogWarning($"[PieceManager] 보드 컨테이너 자식이 아니거나 좌표 없는 비정상 기물 정리: {piece.name} ({piece.Type}, Enemy: {piece.IsEnemy}, Location: {piece.CurrentLocation}, Parent: [{parentName}])");
+
+            UnregisterPiece(piece);
+
+            if (selectedPiece == piece)
+            {
+                ClearSelection();
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(piece.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(piece.gameObject);
+            }
+        }
+
+        MarkPiecePositionCacheDirty();
+        UpdatePieceCountUI();
+        CheckPieceCounts();
+
+        return removedCount;
+    }
+
+    public void RemovePieceFromPhysics(PieceController piece)
+    {
+        if (piece == null)
+        {
+            return;
+        }
+
+        Rigidbody body = piece.GetComponent<Rigidbody>();
+        if (body != null)
+        {
+            Destroy(body);
+        }
+
+        Collider collider = piece.GetComponent<Collider>();
+        if (collider != null)
+        {
+            Destroy(collider);
+        }
+
+        piece.gameObject.SetActive(false);
+        DestroyPieceWithEffects(piece, true, true, null);
+    }
+
+    public IEnumerator WaitForThreatenedStatusReady()
+    {
+        while (threatenedUpdateQueued || threatenedUpdateRunning)
+        {
+            yield return null;
+        }
     }
 
     public void RevertPromotionSealedPiecesToSoldier()
@@ -652,6 +823,7 @@ public class PieceManager : MonoBehaviour
             GameManager.Instance.RecordCapture(piece.IsEnemy, piece.Type);
         }
 
+        piece.SetLocation(PieceLocation.Inventory);
         piece.gridPosition = null;
         UnregisterPiece(piece);
 
@@ -1679,6 +1851,11 @@ public class PieceManager : MonoBehaviour
     {
         ClearMarkers();
 
+        if (PieceFlickLauncher.IsPhysicsActive)
+        {
+            return;
+        }
+
         if (moveMarkerPrefab == null)
         {
             return;
@@ -1694,6 +1871,27 @@ public class PieceManager : MonoBehaviour
         }
 
         SpawnMarkersFromPositions(all, true, true);
+    }
+
+    public void ShowEnemyPieceMoveMarkers(PieceController enemy)
+    {
+        ClearMarkers();
+
+        if (PieceFlickLauncher.IsPhysicsActive)
+        {
+            return;
+        }
+
+        if (moveMarkerPrefab == null ||
+            enemy == null ||
+            !enemy.IsEnemy ||
+            enemy.CurrentLocation != PieceLocation.Board ||
+            !enemy.GridPosition.HasValue)
+        {
+            return;
+        }
+
+        SpawnMarkersFromPositions(enemy.GetCandidateMoves(), true, true);
     }
 
     private void SpawnMarkersFromPositions(IEnumerable<Vector2Int> positions, bool isEnemy, bool dedupe = true)
@@ -1761,6 +1959,19 @@ public class PieceManager : MonoBehaviour
     private void ShowMoveMarkers(List<Vector2Int> moves)
     {
         ClearMarkers();
+
+        // 1. 기물이 날아가는 중(물리 활성/동기화 중)이면 어떤 마커도 표시하지 않음
+        if (PieceFlickLauncher.IsPhysicsActive)
+        {
+            return;
+        }
+
+        // 2. 알까기 유물을 보유 중일 때, 내 기물(아군 기물)의 이동 마커는 절대로 표시하지 않음 (상대 턴이든 내 턴이든 항상)
+        if (selectedPiece != null && !selectedPiece.IsEnemy && PieceFlickLauncher.HasAlkkagiArtifact)
+        {
+            return;
+        }
+
         SpawnMarkersFromPositions(moves, selectedPiece != null && selectedPiece.IsEnemy, true);
     }
 

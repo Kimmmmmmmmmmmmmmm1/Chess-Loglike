@@ -1,68 +1,9 @@
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using UnityEngine;
 
-public enum CheatArtifactChoice
-{
-    [InspectorName("A001: 상인의 모자 (상점 기물 수 증가)")]
-    A001_MerchantHat,
 
-    [InspectorName("A002: 상인의 머플러 (리롤 비용 할인)")]
-    A002_MerchantMuffler,
-
-    [InspectorName("A003: 상인의 가족사진 (인장 확률 증가)")]
-    A003_MerchantFamilyPhoto,
-
-    [InspectorName("A004: 망자의 호리병 (기물 파괴 방지)")]
-    A004_GourdOfTheFallen,
-
-    [InspectorName("A005: 끝없는 묘비 (기물 파괴 시 보상)")]
-    A005_EndlessTombstone,
-
-    [InspectorName("AC01: [액티브] 시간의 모래 (적 턴 스킵)")]
-    AC01_HourglassOfTime,
-
-    [InspectorName("AC02: [액티브] 낙뢰의 부적 (적 기물 즉시 파괴)")]
-    AC02_LightningTalisman,
-
-    [InspectorName("AC03: [액티브] 보호의 물약 (아군 기물에 보호 1회)")]
-    AC03_ProtectionPotion,
-
-    [InspectorName("AC04: [액티브] 회피의 물약 (아군 기물에 회피 1회)")]
-    AC04_EvasionPotion,
-
-    [InspectorName("AC05: [액티브] 역공의 물약 (아군 기물에 역공 1회)")]
-    AC05_CounterattackPotion
-}
-
-public enum CheatSealChoice
-{
-    [InspectorName("도약의 인장 (나이트 도약 이동 추가)")]
-    KnightLeap,
-
-    [InspectorName("반사의 인장 (벽 반사 이동)")]
-    Reflection,
-
-    [InspectorName("카멜레온의 인장 (적 기물 처치 시 형태 복제)")]
-    Chameleon,
-
-    [InspectorName("승급의 인장 (퀸/스페셜 기물 승급)")]
-    Promotion,
-
-    [InspectorName("자폭의 인장 (파괴 시 주변 폭발)")]
-    Destruction,
-
-    [InspectorName("붕괴의 인장 (공격 시 타일 붕괴)")]
-    Collapse,
-
-    [InspectorName("측면의 인장 (좌우 수평 이동 추가)")]
-    LateralAdvance,
-
-    [InspectorName("후방 대각선의 인장 (후방 대각선 이동)")]
-    DiagonalRetreat,
-
-    [InspectorName("부서진 비숍 인장 (전방 대각선만)")]
-    Diagnal
-}
 
 /// <summary>
 /// 인스펙터 드롭다운 선택 및 컨텍스트 메뉴/버튼을 통해
@@ -79,16 +20,16 @@ public class CheatManager : MonoBehaviour
     public int addGoldAmount = 1000;
 
     [Header("2. Artifact Cheat")]
-    [Tooltip("지급할 유물을 선택하세요")]
-    public CheatArtifactChoice selectedArtifact = CheatArtifactChoice.AC03_ProtectionPotion;
+    [Tooltip("지급할 유물 에셋")]
+    public ArtifactData selectedArtifactData;
 
     [Header("3. Piece Cheat")]
     [Tooltip("인벤토리에 지급할 기물 종류를 선택하세요")]
     public PieceType selectedPiece = PieceType.Queen;
 
     [Header("4. Seal Cheat")]
-    [Tooltip("지급할 인장을 선택하세요")]
-    public CheatSealChoice selectedSeal = CheatSealChoice.Reflection;
+    [Tooltip("지급할 인장 에셋")]
+    public SealData selectedSealData;
 
     private void Awake()
     {
@@ -152,36 +93,14 @@ public class CheatManager : MonoBehaviour
             return;
         }
 
-        string targetId = GetArtifactId(selectedArtifact);
-        ArtifactData target = null;
-
-#if UNITY_EDITOR
-        string[] guids = UnityEditor.AssetDatabase.FindAssets("t:ArtifactData");
-        foreach (string guid in guids)
+        if (selectedArtifactData != null)
         {
-            string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-            var a = UnityEditor.AssetDatabase.LoadAssetAtPath<ArtifactData>(path);
-            if (a != null && a.id == targetId)
-            {
-                target = a;
-                break;
-            }
-        }
-#endif
-        if (target == null)
-        {
-            ArtifactData[] loaded = Resources.LoadAll<ArtifactData>("Artifact");
-            target = loaded.FirstOrDefault(a => a != null && a.id == targetId);
-        }
-
-        if (target != null)
-        {
-            ArtifactManager.Instance.AddArtifact(target);
-            Debug.Log($"[Cheat] 유물 획득: {target.artifactName} (ID: {target.id})");
+            ArtifactManager.Instance.AddArtifact(selectedArtifactData);
+            Debug.Log($"[Cheat] 유물 획득: {selectedArtifactData.artifactName} (ID: {selectedArtifactData.id})");
         }
         else
         {
-            Debug.LogWarning($"[Cheat] 유물(ID: {targetId})을 찾을 수 없습니다.");
+            Debug.LogWarning("[Cheat] 선택된 유물 에셋이 없습니다.");
         }
     }
 
@@ -225,6 +144,149 @@ public class CheatManager : MonoBehaviour
         }
     }
 
+    [ContextMenu("남은 기물 목록 콘솔 출력 (Print Remaining Pieces)")]
+    public void PrintRemainingPieces()
+    {
+        PieceController[] allPieces = FindObjectsByType<PieceController>(FindObjectsSortMode.None);
+
+        if (allPieces == null || allPieces.Length == 0)
+        {
+            Debug.Log("[Cheat] 씬에 남아있는 기물이 없습니다.");
+            return;
+        }
+
+        // 보드 위 기물은 gridPosition.HasValue가 true인 실제 타일 위 기물만 분류
+        var playerBoardPieces = allPieces
+            .Where(p => !p.IsEnemy && p.CurrentLocation == PieceLocation.Board && p.gridPosition.HasValue)
+            .OrderBy(p => p.gridPosition.Value.y * 10 + p.gridPosition.Value.x)
+            .ToList();
+
+        var enemyBoardPieces = allPieces
+            .Where(p => p.IsEnemy && p.CurrentLocation == PieceLocation.Board && p.gridPosition.HasValue)
+            .OrderBy(p => p.gridPosition.Value.y * 10 + p.gridPosition.Value.x)
+            .ToList();
+
+        var inventoryPieces = allPieces
+            .Where(p => !p.IsEnemy && p.CurrentLocation == PieceLocation.Inventory)
+            .ToList();
+
+        var unplacedPieces = allPieces
+            .Except(playerBoardPieces)
+            .Except(enemyBoardPieces)
+            .Except(inventoryPieces)
+            .ToList();
+
+        StringBuilder sb = new StringBuilder();
+        sb.AppendLine($"[Cheat] ===== 현재 기물 목록 (총 {allPieces.Length}개) =====");
+
+        // 1. 보드 위 플레이어 기물
+        sb.AppendLine($"■ [보드 위 플레이어 기물] ({playerBoardPieces.Count}개)");
+        if (playerBoardPieces.Count == 0)
+        {
+            sb.AppendLine("  (없음)");
+        }
+        else
+        {
+            foreach (var p in playerBoardPieces)
+            {
+                sb.AppendLine($"  - {FormatPieceInfo(p)}");
+            }
+        }
+
+        // 2. 보드 위 적 기물
+        sb.AppendLine($"■ [보드 위 적 기물] ({enemyBoardPieces.Count}개)");
+        if (enemyBoardPieces.Count == 0)
+        {
+            sb.AppendLine("  (없음)");
+        }
+        else
+        {
+            foreach (var p in enemyBoardPieces)
+            {
+                sb.AppendLine($"  - {FormatPieceInfo(p)}");
+            }
+        }
+
+        // 3. 인벤토리 대기 기물
+        sb.AppendLine($"■ [인벤토리 대기 기물] ({inventoryPieces.Count}개)");
+        if (inventoryPieces.Count == 0)
+        {
+            sb.AppendLine("  (없음)");
+        }
+        else
+        {
+            foreach (var p in inventoryPieces)
+            {
+                sb.AppendLine($"  - {FormatPieceInfo(p)}");
+            }
+        }
+
+        // 4. 좌표 없는 기물
+        if (unplacedPieces.Count > 0)
+        {
+            sb.AppendLine($"■ [미배치 / 좌표 없음 / 기타 기물] ({unplacedPieces.Count}개)");
+            foreach (var p in unplacedPieces)
+            {
+                sb.AppendLine($"  - {FormatPieceInfo(p)}");
+            }
+        }
+
+        sb.Append("==================================================");
+
+        Debug.Log(sb.ToString());
+    }
+
+    [ContextMenu("좌표 없는 보드 기물 즉시 정리 (Cleanup Invalid Board Pieces)")]
+    public void CleanupInvalidBoardPieces()
+    {
+        if (PieceManager.Instance != null)
+        {
+            int count = PieceManager.Instance.CleanupInvalidBoardPieces();
+            Debug.Log($"[Cheat] 좌표 없는 보드 기물 정리 완료: 총 {count}개 삭제됨.");
+        }
+        else
+        {
+            Debug.LogWarning("[Cheat] PieceManager 인스턴스를 찾을 수 없습니다.");
+        }
+    }
+
+    private string FormatPieceInfo(PieceController piece)
+    {
+        string posStr;
+        if (piece.gridPosition.HasValue)
+        {
+            posStr = $"위치: ({piece.gridPosition.Value.x}, {piece.gridPosition.Value.y})";
+        }
+        else
+        {
+            string parentName = piece.transform.parent != null ? piece.transform.parent.name : "루트";
+            posStr = $"위치: {piece.CurrentLocation} (좌표 없음, 부모: [{parentName}])";
+        }
+
+        string sealStr = "";
+        if (piece.EquippedSeals != null && piece.EquippedSeals.Count > 0)
+        {
+            var sealNames = piece.EquippedSeals
+                .Where(s => s != null && s.Data != null)
+                .Select(s => s.Data.sealName);
+            string joined = string.Join(", ", sealNames);
+            if (!string.IsNullOrEmpty(joined))
+            {
+                sealStr = $" [인장: {joined}]";
+            }
+        }
+
+        List<string> buffs = new List<string>();
+        if (piece.ProtectionStacks > 0) buffs.Add($"보호x{piece.ProtectionStacks}");
+        if (piece.EvasionStacks > 0) buffs.Add($"회피x{piece.EvasionStacks}");
+        if (piece.CounterattackStacks > 0) buffs.Add($"역공x{piece.CounterattackStacks}");
+        if (piece.IsInvincible) buffs.Add("무적");
+        string buffStr = buffs.Count > 0 ? $" [버프: {string.Join(", ", buffs)}]" : "";
+
+        string side = piece.IsEnemy ? "적" : "아군";
+        return $"[{side}] {piece.gameObject.name} ({piece.Type}) | {posStr}{sealStr}{buffStr}";
+    }
+
     [ContextMenu("선택한 인장 지급 (Give Selected Seal)")]
     public void GiveSeal()
     {
@@ -234,56 +296,19 @@ public class CheatManager : MonoBehaviour
             return;
         }
 
-        string sealFileName = selectedSeal.ToString();
-        SealData target = Resources.Load<SealData>($"Seal/{sealFileName}");
-
-#if UNITY_EDITOR
-        if (target == null)
+        if (selectedSealData != null)
         {
-            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:SealData");
-            foreach (string guid in guids)
-            {
-                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-                var s = UnityEditor.AssetDatabase.LoadAssetAtPath<SealData>(path);
-                if (s != null && s.name == sealFileName)
-                {
-                    target = s;
-                    break;
-                }
-            }
-        }
-#endif
-
-        if (target != null)
-        {
-            SealInventory.Instance.AddSeal(target);
+            SealInventory.Instance.AddSeal(selectedSealData);
 
             SealInventoryPanel panel = FindAnyObjectByType<SealInventoryPanel>(FindObjectsInactive.Include);
             panel?.RefreshSealItems();
 
-            Debug.Log($"[Cheat] 인장 획득: {target.sealName} ({target.name})");
+            Debug.Log($"[Cheat] 인장 획득: {selectedSealData.sealName} ({selectedSealData.name})");
         }
         else
         {
-            Debug.LogWarning($"[Cheat] 인장 에셋({sealFileName})을 찾을 수 없습니다.");
+            Debug.LogWarning("[Cheat] 선택된 인장 에셋이 없습니다.");
         }
     }
 
-    public static string GetArtifactId(CheatArtifactChoice choice)
-    {
-        return choice switch
-        {
-            CheatArtifactChoice.A001_MerchantHat => "A001",
-            CheatArtifactChoice.A002_MerchantMuffler => "A002",
-            CheatArtifactChoice.A003_MerchantFamilyPhoto => "A003",
-            CheatArtifactChoice.A004_GourdOfTheFallen => "A004",
-            CheatArtifactChoice.A005_EndlessTombstone => "A005",
-            CheatArtifactChoice.AC01_HourglassOfTime => "AC01",
-            CheatArtifactChoice.AC02_LightningTalisman => "AC02",
-            CheatArtifactChoice.AC03_ProtectionPotion => "AC03",
-            CheatArtifactChoice.AC04_EvasionPotion => "AC04",
-            CheatArtifactChoice.AC05_CounterattackPotion => "AC05",
-            _ => "A001"
-        };
-    }
 }

@@ -344,6 +344,11 @@ public class GridManager : MonoBehaviour
         return null;
     }
 
+    public Vector2Int? GetNearestCell(Vector2 localPosition)
+    {
+        return GetNearestGridPosition(localPosition);
+    }
+
     public bool IsInBounds(Vector2Int gridPosition)
     {
         return gridPosition.x >= gridMinBounds.x && gridPosition.x < gridMinBounds.x + boardWidth &&

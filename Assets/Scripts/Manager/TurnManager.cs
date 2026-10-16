@@ -27,6 +27,11 @@ public class TurnManager : MonoBehaviour
 
     public bool IsOpponentTurnSkipPending => skipNextOpponentTurn;
 
+    public void EndTurn()
+    {
+        AdvanceTurn(true);
+    }
+
     /// <summary>
     /// 상대의 다음 턴을 1회 건너뛰도록 예약합니다. (액티브 유물 등)
     /// </summary>
@@ -266,9 +271,10 @@ public class TurnManager : MonoBehaviour
 
     private IEnumerator StartOpponentTurn()
     {
-        // 캐시 프리워밍: 적 턴 시작 전에 위치 캐시를 미리 구축하여 BoardEvaluator의 성능 개선
+        // 상대 턴 시작 시 (AI 이동 전): 보드 상태이나 타일 좌표가 없는 비정상 기물 일괄 제거
         if (PieceManager.Instance != null)
         {
+            PieceManager.Instance.CleanupInvalidBoardPieces();
             PieceManager.Instance.EnsurePositionCacheReady();
         }
 
@@ -279,6 +285,13 @@ public class TurnManager : MonoBehaviour
 
         if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameStateManager.GameState.GamePlay)
             yield break;
+
+        // 대기 시간 후 AI 기물 평가 및 이동 직전 재검증/정리
+        if (PieceManager.Instance != null)
+        {
+            PieceManager.Instance.CleanupInvalidBoardPieces();
+            PieceManager.Instance.EnsurePositionCacheReady();
+        }
         
         OnOpponentTurnStarted?.Invoke();
 

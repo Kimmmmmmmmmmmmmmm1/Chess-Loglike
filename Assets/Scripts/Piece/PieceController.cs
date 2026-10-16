@@ -591,7 +591,14 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         {
             if (PieceManager.Instance != null && currentLocation == PieceLocation.Board)
             {
-                PieceManager.Instance.SelectPiece(this);
+                if (PieceFlickLauncher.IsFlickMode)
+                {
+                    PieceManager.Instance.ShowEnemyPieceMoveMarkers(this);
+                }
+                else
+                {
+                    PieceManager.Instance.SelectPiece(this);
+                }
             }
             if (TooltipManager.Instance != null)
             {
@@ -677,6 +684,11 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             TooltipManager.Instance.HideTooltip(gameObject);
         }
 
+        if (isEnemy && PieceFlickLauncher.IsFlickMode)
+        {
+            PieceManager.Instance?.HideMoveMarkers();
+        }
+
         if (PieceManager.Instance != null && PieceManager.Instance.IsSelected(this))
         {
             PieceManager.Instance.ClearSelection();
@@ -703,6 +715,11 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     public void OnPointerClick(PointerEventData eventData)
     {
+        if (PieceFlickLauncher.IsFlickMode)
+        {
+            return;
+        }
+
         // 액티브 유물 대상 선택 중이면 클릭을 유물 대상 지정으로 사용 (우클릭은 취소용)
         if (ActiveArtifactController.IsTargeting)
         {
@@ -718,6 +735,11 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        if (PieceFlickLauncher.IsFlickMode)
+        {
+            return;
+        }
+
         if (isEnemy)
         {
             return;
@@ -2775,6 +2797,23 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     public void ClearGridPosition()
     {
         gridPosition = null;
+    }
+
+    public void SetPhysicsGridPosition(Vector2Int target)
+    {
+        gridPosition = target;
+        currentLocation = PieceLocation.Board;
+        PieceManager.Instance?.MarkPiecePositionCacheDirty();
+    }
+
+    public void Die()
+    {
+        PieceManager.Instance?.RemovePiece(this);
+    }
+
+    public void Capture(PieceController killer = null)
+    {
+        PieceManager.Instance?.RemovePiece(this);
     }
 
     /// <summary>

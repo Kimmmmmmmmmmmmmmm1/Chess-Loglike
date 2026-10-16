@@ -91,6 +91,11 @@
   * **보호/역습/회피/무적 물약 (`Protection/Counterattack/Evasion/InvincibilityPotion`)** : 기물 4대 상태 즉각 부여
   * **전술적 이동 (`TacticalShift`)** : 아군 기물 2개의 위치를 즉시 교환
   * **패닉 샷 (`PanicShot`)** : 지정 가로열의 적 기물을 강제로 1칸 후퇴
+  * **반상의 척력 (`ALKKAGI`)** : 패시브 유물. 보유 중 모든 플레이어 턴에 체스 이동 대신 아군 기물을 역방향 드래그해 물리적으로 발사합니다. 발사 중에는 보드의 모든 기물을 Dynamic 물리 바디로 활성화하고, 마찰과 기물 간 충돌을 거쳐 정지하면 가장 가까운 셀로 스냅합니다. 스냅 시 보드 범위를 벗어난 기물은 파괴되며, 스냅과 보드 데이터 갱신이 끝나면 물리 컴포넌트를 제거하고 상대 턴을 시작합니다. 겹침은 BFS로 빈 셀에 재배치됩니다.
+
+#### 반상의 척력 씬 설정
+
+`ArtifactData`에 `id = ALKKAGI`와 `ArtifactType = Passive`를 설정하면 보유 즉시 플레이어 턴마다 `PieceFlickLauncher`가 대기합니다. 기물 프리팹에는 UI Raycast가 유지되도록 합니다. 드래그 중에는 기물과 마우스를 잇는 `LineRenderer` 조준선이 표시됩니다. 발사 시 `PieceFlickLauncher`가 기물에 3D `Rigidbody`와 Collider를 보충하며 `PhysicsGridSynchronizer`가 4초 안전 타임아웃, 회전 고정, 그리드 점유 갱신, 턴 종료를 처리합니다.
 
 ---
 
