@@ -75,8 +75,10 @@ public class DraggableSeal : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
     {
         DropHandledSuccessfully = false;
         originalInventoryIndex = -1;
-        // 전투 준비 단계가 아니면 드래그 불가
-        if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameStateManager.GameState.Prepare)
+        // 전투 준비 단계 또는 상점이 아니면 드래그 불가
+        bool isPrepare = GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare;
+        bool isShop = GameManager.Instance != null && GameManager.Instance.CurrentFlowState == GameFlowState.Shop;
+        if (!isPrepare && !isShop)
         {
             eventData.pointerDrag = null;
             return;

@@ -104,6 +104,9 @@ public class PieceManager : MonoBehaviour
     private bool whiteMovedInTurn = false;
     private bool blackMovedInTurn = false;
 
+    public event System.Action<PieceController> OnPieceRegistered;
+    public event System.Action<PieceController> OnPieceUnregistered;
+
     public PieceController SelectedPiece => selectedPiece;
     public IReadOnlyList<PieceController> Pieces => pieces;
     public IReadOnlyList<PieceController> PlayerPieces => playerPieces;
@@ -278,6 +281,7 @@ public class PieceManager : MonoBehaviour
         }
         MarkPiecePositionCacheDirty();
         UpdatePieceCountUI();
+        OnPieceRegistered?.Invoke(piece);
     }
 
     public void UnregisterPiece(PieceController piece)
@@ -299,6 +303,7 @@ public class PieceManager : MonoBehaviour
         MarkPiecePositionCacheDirty();
         UpdatePieceCountUI();
         CheckPieceCounts();
+        OnPieceUnregistered?.Invoke(piece);
     }
 
     public PieceController GetPieceAt(Vector2Int gridPosition)
@@ -1175,9 +1180,9 @@ public class PieceManager : MonoBehaviour
             PieceType.Pawn => "",
             PieceType.Amazon => "A",
             PieceType.Chancellor => "C",
-            PieceType.Archbishop => "H",
+            PieceType.Archbishop => "AB",
             PieceType.Centaur => "T",
-            PieceType.Cannon => "X",
+            PieceType.Cannon => "CN",
             PieceType.Grasshopper => "G",
             _ => ""
         };

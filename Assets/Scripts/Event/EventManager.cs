@@ -1019,24 +1019,43 @@ public class EventManager : MonoBehaviour
         
         #if UNITY_EDITOR
         // 에디터 환경: AssetDatabase 사용
-        string folderPath = "Assets/Data/Seal";
-        string[] guids = UnityEditor.AssetDatabase.FindAssets("t:SealData", new[] { folderPath });
-        
-        foreach (string guid in guids)
+        List<string> searchFolders = new List<string>();
+        if (UnityEditor.AssetDatabase.IsValidFolder("Assets/Data/Seal"))
         {
-            string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-            SealData seal = UnityEditor.AssetDatabase.LoadAssetAtPath<SealData>(assetPath);
-            if (seal != null)
+            searchFolders.Add("Assets/Data/Seal");
+        }
+        if (UnityEditor.AssetDatabase.IsValidFolder("Assets/Resources/Seal"))
+        {
+            searchFolders.Add("Assets/Resources/Seal");
+        }
+
+        if (searchFolders.Count > 0)
+        {
+            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:SealData", searchFolders.ToArray());
+            foreach (string guid in guids)
             {
-                availableSeals.Add(seal);
+                string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                SealData seal = UnityEditor.AssetDatabase.LoadAssetAtPath<SealData>(assetPath);
+                if (seal != null && !availableSeals.Contains(seal))
+                {
+                    availableSeals.Add(seal);
+                }
             }
         }
-        #else
-        // 런타임 환경: Resources 폴더 사용
-        SealData[] loadedSeals = Resources.LoadAll<SealData>("Seal");
-        availableSeals.AddRange(loadedSeals);
         #endif
 
+        // 런타임 및 폴백: Resources 폴더 사용
+        SealData[] loadedSeals = Resources.LoadAll<SealData>("Seal");
+        if (loadedSeals != null)
+        {
+            foreach (SealData seal in loadedSeals)
+            {
+                if (seal != null && !availableSeals.Contains(seal))
+                {
+                    availableSeals.Add(seal);
+                }
+            }
+        }
     }
 
     /// <summary>

@@ -24,14 +24,19 @@ public class SealTooltipHandler : MonoBehaviour, IPointerEnterHandler, IPointerE
 
     private string BuildDescription()
     {
-        if (sealData == null) return string.Empty;
+        return BuildDescription(sealData);
+    }
 
-        string desc = sealData.description;
+    public static string BuildDescription(SealData data)
+    {
+        if (data == null) return string.Empty;
 
-        if (sealData.compatiblePieces != null && sealData.compatiblePieces.Count > 0)
+        string desc = data.description;
+
+        if (data.compatiblePieces != null && data.compatiblePieces.Count > 0)
         {
             List<string> names = new List<string>();
-            foreach (PieceType pt in sealData.compatiblePieces)
+            foreach (PieceType pt in data.compatiblePieces)
             {
                 names.Add(PieceKoreanNames.TryGetValue(pt, out string n) ? n : pt.ToString());
             }

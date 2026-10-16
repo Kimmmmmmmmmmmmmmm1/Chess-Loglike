@@ -19,6 +19,11 @@ public abstract class SealBase : MonoBehaviour
     public virtual void OnUnequip() { }
 
     /// <summary>
+    /// 인장이 소유 기물에게 무적 상태를 부여하는지 여부
+    /// </summary>
+    public virtual bool IsInvincible => false;
+
+    /// <summary>
     /// Case A: 이동 경로 수정 훅
     /// </summary>
     public virtual void ModifyMoves(ref List<Vector2Int> moves, Vector2Int currentPos, bool isEnemy, System.Func<Vector2Int, bool> validator = null, System.Func<Vector2Int, bool> isOccupied = null) { }

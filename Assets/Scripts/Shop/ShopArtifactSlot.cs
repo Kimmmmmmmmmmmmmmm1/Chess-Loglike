@@ -23,6 +23,10 @@ public class ShopArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExi
         {
             buyButton.onClick.AddListener(OnBuyClick);
         }
+        if (iconImage != null)
+        {
+            iconImage.preserveAspect = true;
+        }
         UpdateUI();
     }
 
@@ -133,8 +137,13 @@ public class ShopArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExi
 
         Image img = flyingIcon.AddComponent<Image>();
         img.sprite = iconImage.sprite;
+        img.preserveAspect = true;
         img.color = iconImage.color;
         img.raycastTarget = false;
+        if (flyingIcon.transform is RectTransform flyingRect && iconImage.rectTransform != null)
+        {
+            flyingRect.sizeDelta = iconImage.rectTransform.sizeDelta;
+        }
 
         // 2. Find target position
         Vector3 targetPos = transform.position; 

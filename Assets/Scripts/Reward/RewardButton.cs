@@ -143,6 +143,7 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
                 {
                     Sprite s = PieceManager.Instance.GetSpriteFor(pieceType);
                     iconImage.sprite = s;
+                    iconImage.preserveAspect = true;
                     iconImage.color = s != null ? Color.white : new Color(0f, 0.12f, 0f, 0.9f);
                 }
             }

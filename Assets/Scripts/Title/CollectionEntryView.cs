@@ -238,6 +238,7 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
         {
             iconImage.rectTransform.anchoredPosition = new Vector2(0f, 68f);
             iconImage.rectTransform.sizeDelta = new Vector2(84f, 84f);
+            iconImage.preserveAspect = true;
         }
 
         if (rarityImage != null && rarityImage.rectTransform != null)
@@ -275,6 +276,7 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
 
         bool hasCustomSprite = sprite != null && unlocked;
         iconImage.sprite = hasCustomSprite ? sprite : null;
+        iconImage.preserveAspect = hasCustomSprite;
         iconImage.enabled = true;
 
         if (hasCustomSprite)

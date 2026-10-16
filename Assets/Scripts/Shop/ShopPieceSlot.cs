@@ -22,7 +22,16 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     private TextMeshProUGUI asciiPieceLabel;
     private bool isSoldOut = false;
     private SealData attachedSeal;
+    private bool isStandaloneSeal = false;
+    private SealData standaloneSeal;
+    private bool isArtifact = false;
+    private ArtifactData artifactData;
+
     public SealData AttachedSeal => attachedSeal;
+    public bool IsStandaloneSeal => isStandaloneSeal;
+    public SealData StandaloneSeal => standaloneSeal;
+    public bool IsArtifact => isArtifact;
+    public ArtifactData ArtifactData => artifactData;
 
     private void Start()
     {
@@ -65,11 +74,66 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
             return;
         }
 
-        if (costText != null) costText.text = $"{cost}";
+        Image activeRootImg = GetComponent<Image>();
+        if (activeRootImg != null)
+        {
+            activeRootImg.enabled = true;
+        }
+
+        if (costText != null)
+        {
+            costText.text = $"{cost}";
+            Image parentImg = costText.GetComponentInParent<Image>();
+            if (parentImg != null) parentImg.enabled = true;
+        }
+
+        if (isArtifact)
+        {
+            if (pieceIconImage != null)
+            {
+                pieceIconImage.enabled = true;
+                pieceIconImage.sprite = artifactData != null ? artifactData.icon : null;
+                pieceIconImage.preserveAspect = true;
+                Color c = pieceIconImage.color;
+                c.a = 1f;
+                pieceIconImage.color = c;
+            }
+
+            if (sealIconImage != null)
+            {
+                sealIconImage.enabled = false;
+            }
+
+            if (buyButton != null) buyButton.interactable = true;
+            return;
+        }
+
+        if (isStandaloneSeal)
+        {
+            if (pieceIconImage != null)
+            {
+                pieceIconImage.enabled = true;
+                pieceIconImage.sprite = standaloneSeal != null ? standaloneSeal.icon : null;
+                pieceIconImage.preserveAspect = true;
+                Color c = pieceIconImage.color;
+                c.a = 1f;
+                pieceIconImage.color = c;
+            }
+
+            if (sealIconImage != null)
+            {
+                sealIconImage.enabled = false;
+            }
+
+            if (buyButton != null) buyButton.interactable = true;
+            return;
+        }
 
         if (pieceIconImage != null && PieceManager.Instance != null)
         {
+            pieceIconImage.enabled = true;
             pieceIconImage.sprite = PieceManager.Instance.GetSpriteFor(pieceType);
+            pieceIconImage.preserveAspect = true;
             Color c = pieceIconImage.color;
             c.a = 1f;
             pieceIconImage.color = c;
@@ -111,6 +175,54 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
             return;
         }
 
+        if (isArtifact)
+        {
+            if (artifactData == null || ArtifactManager.Instance == null)
+            {
+                if (buyButton != null)
+                {
+                    ShakeUI();
+                }
+                return;
+            }
+
+            if (GameManager.Instance.UseCoin(cost))
+            {
+                GameManager.Instance.RecordPurchase();
+                BuyArtifact();
+                SetSoldOut();
+                if (TooltipManager.Instance != null)
+                {
+                    TooltipManager.Instance.HideTooltip(gameObject);
+                }
+            }
+            return;
+        }
+
+        if (isStandaloneSeal)
+        {
+            if (standaloneSeal == null || SealInventory.Instance == null || !CanAcceptSeal())
+            {
+                if (buyButton != null)
+                {
+                    ShakeUI();
+                }
+                return;
+            }
+
+            if (GameManager.Instance.UseCoin(cost))
+            {
+                GameManager.Instance.RecordPurchase();
+                BuyStandaloneSeal();
+                SetSoldOut();
+                if (TooltipManager.Instance != null)
+                {
+                    TooltipManager.Instance.HideTooltip(gameObject);
+                }
+            }
+            return;
+        }
+
         InventorySlot emptySlot = FindEmptyInventorySlot();
         if (emptySlot == null)
         {
@@ -126,7 +238,151 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
             GameManager.Instance.RecordPurchase();
             CreatePieceInSlot(emptySlot);
             SetSoldOut();
+            if (TooltipManager.Instance != null)
+            {
+                TooltipManager.Instance.HideTooltip(gameObject);
+            }
         }
+    }
+
+    private void BuyArtifact()
+    {
+        if (artifactData == null || ArtifactManager.Instance == null) return;
+
+        ArtifactData purchasedArtifact = artifactData;
+
+        if (pieceIconImage == null || purchasedArtifact.icon == null)
+        {
+            ArtifactManager.Instance.AddArtifact(purchasedArtifact);
+            return;
+        }
+
+        GameObject flyingIcon = new GameObject("FlyingArtifact");
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas != null)
+        {
+            flyingIcon.transform.SetParent(canvas.transform, true);
+        }
+        else
+        {
+            flyingIcon.transform.SetParent(transform.root, true);
+        }
+
+        flyingIcon.transform.position = pieceIconImage.transform.position;
+        flyingIcon.transform.localScale = pieceIconImage.transform.localScale;
+
+        Image img = flyingIcon.AddComponent<Image>();
+        img.sprite = purchasedArtifact.icon;
+        img.preserveAspect = true;
+        img.color = Color.white;
+        img.raycastTarget = false;
+
+        if (flyingIcon.transform is RectTransform flyingRect && pieceIconImage.rectTransform != null)
+        {
+            flyingRect.sizeDelta = pieceIconImage.rectTransform.sizeDelta;
+        }
+
+        Vector3 targetPos = transform.position;
+        ArtifactSlot incomingSlot = ArtifactManager.Instance.GetIncomingSlot(purchasedArtifact);
+        if (incomingSlot != null)
+        {
+            targetPos = incomingSlot.transform.position;
+        }
+
+        Sequence seq = DOTween.Sequence();
+        seq.Append(flyingIcon.transform.DOMove(targetPos, 0.7f).SetEase(Ease.InOutQuad));
+        seq.Join(flyingIcon.transform.DOScale(0.3f, 0.7f));
+        seq.OnComplete(() =>
+        {
+            if (ArtifactManager.Instance != null)
+            {
+                ArtifactManager.Instance.AddArtifact(purchasedArtifact);
+            }
+            if (flyingIcon != null)
+            {
+                Destroy(flyingIcon);
+            }
+        });
+    }
+
+    private bool CanAcceptSeal()
+    {
+        if (SealInventory.Instance == null) return false;
+
+        var sealSlots = FindObjectsByType<SealInventorySlot>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (sealSlots != null && sealSlots.Length > 0)
+        {
+            int currentCount = SealInventory.Instance.OwnedSeals.Count(s => s != null);
+            return currentCount < sealSlots.Length;
+        }
+
+        return true;
+    }
+
+    private void BuyStandaloneSeal()
+    {
+        if (standaloneSeal == null || SealInventory.Instance == null) return;
+
+        SealData purchasedSeal = standaloneSeal;
+        SealInventory.Instance.AddSeal(purchasedSeal);
+        int targetIndex = SealInventory.Instance.GetSealIndex(purchasedSeal);
+
+        var sealSlots = FindObjectsByType<SealInventorySlot>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .OrderBy(s => s.transform.GetSiblingIndex())
+            .ToArray();
+
+        Vector3 targetPos = transform.position;
+        if (targetIndex >= 0 && targetIndex < sealSlots.Length)
+        {
+            targetPos = sealSlots[targetIndex].transform.position;
+        }
+        else if (sealSlots.Length > 0)
+        {
+            targetPos = sealSlots[0].transform.position;
+        }
+
+        if (pieceIconImage == null || purchasedSeal.icon == null)
+        {
+            FindFirstObjectByType<SealInventoryPanel>(FindObjectsInactive.Include)?.RefreshSealItems();
+            return;
+        }
+
+        GameObject flyingIcon = new GameObject("FlyingSeal");
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas != null)
+        {
+            flyingIcon.transform.SetParent(canvas.transform, true);
+        }
+        else
+        {
+            flyingIcon.transform.SetParent(transform.root, true);
+        }
+
+        flyingIcon.transform.position = pieceIconImage.transform.position;
+        flyingIcon.transform.localScale = pieceIconImage.transform.localScale;
+
+        Image img = flyingIcon.AddComponent<Image>();
+        img.sprite = purchasedSeal.icon;
+        img.preserveAspect = true;
+        img.color = Color.white;
+        img.raycastTarget = false;
+
+        if (flyingIcon.transform is RectTransform flyingRect && pieceIconImage.rectTransform != null)
+        {
+            flyingRect.sizeDelta = pieceIconImage.rectTransform.sizeDelta;
+        }
+
+        Sequence seq = DOTween.Sequence();
+        seq.Append(flyingIcon.transform.DOMove(targetPos, 0.55f).SetEase(Ease.InOutQuad));
+        seq.Join(flyingIcon.transform.DOScale(0.6f, 0.55f));
+        seq.OnComplete(() =>
+        {
+            FindFirstObjectByType<SealInventoryPanel>(FindObjectsInactive.Include)?.RefreshSealItems();
+            if (flyingIcon != null)
+            {
+                Destroy(flyingIcon);
+            }
+        });
     }
 
     private void ShakeUI()
@@ -183,6 +439,10 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void Setup(PieceType type, int itemCost, SealData seal = null)
     {
+        isArtifact = false;
+        artifactData = null;
+        isStandaloneSeal = false;
+        standaloneSeal = null;
         pieceType = type;
         cost = itemCost;
         attachedSeal = seal;
@@ -195,6 +455,38 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         UpdateUI();
     }
 
+    public void SetupSeal(SealData seal, int itemCost)
+    {
+        isArtifact = false;
+        artifactData = null;
+        isStandaloneSeal = true;
+        standaloneSeal = seal;
+        attachedSeal = null;
+        cost = itemCost;
+        isSoldOut = false;
+        if (seal != null)
+        {
+            CollectionManager.EnsureInstance()?.RecordSealSeen(seal);
+        }
+        UpdateUI();
+    }
+
+    public void SetupArtifact(ArtifactData artifact, int itemCost)
+    {
+        isArtifact = true;
+        artifactData = artifact;
+        isStandaloneSeal = false;
+        standaloneSeal = null;
+        attachedSeal = null;
+        cost = itemCost;
+        isSoldOut = false;
+        if (artifact != null)
+        {
+            CollectionManager.EnsureInstance()?.RecordArtifactSeen(artifact);
+        }
+        UpdateUI();
+    }
+
     public void SetSoldOut()
     {
         isSoldOut = true;
@@ -203,48 +495,52 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void PlaySealEffect(SealRarity rarity)
     {
-        if (sealIconImage == null) return;
+        Image targetIcon = isStandaloneSeal ? pieceIconImage : sealIconImage;
+        if (targetIcon == null) return;
 
         // 초기화
-        sealIconImage.transform.DOKill();
-        sealIconImage.transform.localScale = Vector3.one;
-        sealIconImage.color = Color.white;
+        targetIcon.transform.DOKill();
+        targetIcon.transform.localScale = Vector3.one;
+        targetIcon.color = Color.white;
 
         switch (rarity)
         {
             case SealRarity.Common:
-                sealIconImage.transform.DOPunchScale(Vector3.one * 0.3f, 0.5f, 10, 1);
+                targetIcon.transform.DOPunchScale(Vector3.one * 0.3f, 0.5f, 10, 1);
                 break;
             case SealRarity.Rare:
-                sealIconImage.transform.DOPunchScale(Vector3.one * 0.4f, 0.6f, 10, 1);
-                SpawnParticles(6, new Color(0f, 0.5f, 1f), 60f, 0.6f);
+                targetIcon.transform.DOPunchScale(Vector3.one * 0.4f, 0.6f, 10, 1);
+                SpawnParticles(targetIcon, 6, new Color(0f, 0.5f, 1f), 60f, 0.6f);
                 break;
             case SealRarity.Epic:
-                sealIconImage.transform.DOPunchScale(Vector3.one * 0.5f, 0.8f, 10, 1);
-                sealIconImage.transform.DOShakeRotation(0.8f, 30f, 10, 90);
-                SpawnParticles(12, new Color(0.8f, 0f, 1f), 90f, 0.8f);
+                targetIcon.transform.DOPunchScale(Vector3.one * 0.5f, 0.8f, 10, 1);
+                targetIcon.transform.DOShakeRotation(0.8f, 30f, 10, 90);
+                SpawnParticles(targetIcon, 12, new Color(0.8f, 0f, 1f), 90f, 0.8f);
                 break;
             case SealRarity.Legendary:
                 Sequence seq = DOTween.Sequence();
-                seq.Append(sealIconImage.transform.DOPunchScale(Vector3.one * 0.7f, 1.0f, 10, 1));
-                seq.Join(sealIconImage.transform.DOShakeRotation(1.0f, 45f, 10, 90));
-                seq.Join(sealIconImage.DOColor(new Color(1f, 0.8f, 0f), 0.2f).SetLoops(6, LoopType.Yoyo));
-                seq.OnComplete(() => sealIconImage.color = Color.white);
-                SpawnParticles(20, new Color(1f, 0.9f, 0.2f), 130f, 1.2f);
+                seq.Append(targetIcon.transform.DOPunchScale(Vector3.one * 0.7f, 1.0f, 10, 1));
+                seq.Join(targetIcon.transform.DOShakeRotation(1.0f, 45f, 10, 90));
+                seq.Join(targetIcon.DOColor(new Color(1f, 0.8f, 0f), 0.2f).SetLoops(6, LoopType.Yoyo));
+                seq.OnComplete(() => targetIcon.color = Color.white);
+                SpawnParticles(targetIcon, 20, new Color(1f, 0.9f, 0.2f), 130f, 1.2f);
                 break;
         }
     }
 
-    private void SpawnParticles(int count, Color color, float distance, float duration)
+    private void SpawnParticles(Image sourceIcon, int count, Color color, float distance, float duration)
     {
+        if (sourceIcon == null) return;
+
         for (int i = 0; i < count; i++)
         {
             GameObject p = new GameObject("SealParticle");
             p.transform.SetParent(transform, true); // 슬롯을 부모로 설정
-            p.transform.position = sealIconImage.transform.position;
+            p.transform.position = sourceIcon.transform.position;
             
             Image img = p.AddComponent<Image>();
-            if (sealIconImage.sprite != null) img.sprite = sealIconImage.sprite;
+            if (sourceIcon.sprite != null) img.sprite = sourceIcon.sprite;
+            img.preserveAspect = true;
             img.color = color;
             img.raycastTarget = false;
 
@@ -265,7 +561,30 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     {
         if (TooltipManager.Instance != null && !isSoldOut)
         {
-            TooltipManager.Instance.ShowPieceTooltip(pieceType, attachedSeal, transform.position, gameObject);
+            if (isArtifact && artifactData != null)
+            {
+                TooltipManager.Instance.ShowTooltip(
+                    artifactData.GetTooltipTitle(),
+                    artifactData.GetTooltipDescription(),
+                    transform.position,
+                    artifactData.flavorText,
+                    TooltipManager.TooltipPriorityDefault,
+                    gameObject);
+            }
+            else if (isStandaloneSeal && standaloneSeal != null)
+            {
+                TooltipManager.Instance.ShowTooltip(
+                    standaloneSeal.sealName,
+                    SealTooltipHandler.BuildDescription(standaloneSeal),
+                    transform.position,
+                    standaloneSeal.flavorText,
+                    TooltipManager.TooltipPriorityDefault,
+                    gameObject);
+            }
+            else
+            {
+                TooltipManager.Instance.ShowPieceTooltip(pieceType, attachedSeal, transform.position, gameObject);
+            }
         }
     }
 

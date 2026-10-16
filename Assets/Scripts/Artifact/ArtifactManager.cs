@@ -288,15 +288,21 @@ public class ArtifactManager : MonoBehaviour
     /// <summary>
     /// 상점에서 판매 가능한 유물 중에서 랜덤으로 선택
     /// </summary>
-    public ArtifactData GetRandomArtifactForShop()
+    public ArtifactData GetRandomArtifactForShop(ISet<string> excludePassiveIds = null)
     {
+        if (allArtifacts == null || allArtifacts.Count == 0)
+        {
+            LoadAllArtifactsFromFolder();
+        }
+
         if (allArtifacts == null || allArtifacts.Count == 0) return null;
 
         // 상점에서 판매 가능하고, 소유하지 않은 아티팩트 중에서 랜덤 선택
         var shopAvailableArtifacts = allArtifacts
             .Where(candidate => candidate != null && 
                    candidate.isSoldInShop && 
-                   IsObtainable(candidate))
+                   IsObtainable(candidate) &&
+                   (excludePassiveIds == null || candidate.IsActive || !excludePassiveIds.Contains(candidate.id)))
             .ToList();
         
         if (shopAvailableArtifacts.Count == 0) return null;

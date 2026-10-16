@@ -137,7 +137,21 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     public int EvasionStacks => evasionStacks;
     public int CounterattackStacks => counterattackStacks;
     public int InvincibilityTurns => invincibilityTurns;
-    public bool IsInvincible => invincibilityTurns != 0;
+    public bool IsInvincible
+    {
+        get
+        {
+            if (invincibilityTurns != 0) return true;
+            if (equippedSeals != null)
+            {
+                for (int i = 0; i < equippedSeals.Count; i++)
+                {
+                    if (equippedSeals[i] != null && equippedSeals[i].IsInvincible) return true;
+                }
+            }
+            return false;
+        }
+    }
 
     [Header("Drag Wobble Settings")]
     [SerializeField] private float maxTiltAngle = 30f;
@@ -434,9 +448,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceType.Pawn => "[P]",
             PieceType.Amazon => "[A]",
             PieceType.Chancellor => "[C]",
-            PieceType.Archbishop => "[H]",
+            PieceType.Archbishop => "[AB]",
             PieceType.Centaur => "[T]",
-            PieceType.Cannon => "[X]",
+            PieceType.Cannon => "[CN]",
             PieceType.Grasshopper => "[G]",
             _ => "[?]"
         };
@@ -454,9 +468,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceType.Pawn => enemy ? "(P!)" : "(P)",
             PieceType.Amazon => enemy ? "{A!}" : "{A}",
             PieceType.Chancellor => enemy ? "[C!]" : "[C]",
-            PieceType.Archbishop => enemy ? "<H!>" : "<H>",
+            PieceType.Archbishop => enemy ? "<AB!>" : "<AB>",
             PieceType.Centaur => enemy ? "{T!}" : "{T}",
-            PieceType.Cannon => enemy ? "[X!]" : "[X]",
+            PieceType.Cannon => enemy ? "[CN!]" : "[CN]",
             PieceType.Grasshopper => enemy ? "<G!>" : "<G>",
             _ => "[?]"
         };
@@ -1043,8 +1057,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     // ISealDropTarget 인터페이스의 HandleSealDrop 메서드
     public void HandleSealDrop(DraggableSeal draggableSeal)
     {
-        // 전투 준비 단계가 아니면 드롭 불가
-        if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameStateManager.GameState.Prepare)
+        // 전투 준비 단계 또는 상점이 아니면 드롭 불가
+        bool isPrepare = GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare;
+        bool isShop = GameManager.Instance != null && GameManager.Instance.CurrentFlowState == GameFlowState.Shop;
+        if (!isPrepare && !isShop)
         {
             return;
         }
@@ -2736,7 +2752,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
     }
 
-    private void RefreshBuffAuraVisuals()
+    public void RefreshBuffAuraVisuals()
     {
         if (buffAuraImages[0] == null)
         {

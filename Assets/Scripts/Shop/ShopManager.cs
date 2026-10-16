@@ -15,6 +15,8 @@ public class ShopManager : MonoBehaviour
     [Header("UI")]
     public GameObject shopPanel; // 인스펙터에서 상점 UI 패널을 연결하세요
     public Button confirmButton;
+    public Button viewBoardButton;
+    public TextMeshProUGUI viewBoardButtonText;
     public Button rerollButton;
     public TextMeshProUGUI rerollCostText;
     public Button pieceLimitUpgradeButton;
@@ -30,9 +32,13 @@ public class ShopManager : MonoBehaviour
     public List<SealData> allSeals; // 등장 가능한 모든 인장 목록
     public float sealDropChance = 15f; // 인장 등장 확률 (기본 15%)
     public float artifactSealChanceBonus = 10f; // 유물(A003) 보유 시 추가 확률
+    [Header("Shop Slot Weights (기물 : 인장 : 유물 = 5 : 3 : 2)")]
+    public float pieceSlotWeight = 5f;
+    public float sealSlotWeight = 3f;
+    public float artifactSlotWeight = 2f;
     public GameObject shopSlotPrefab;
     public Transform shopItemsContainer;
-    public int itemsToDisplay = 2;
+    public int itemsToDisplay = 3;
     public int rerollCost = 5;
     public int pieceLimitUpgradeCost = 200;
     public int pieceLimitUpgradeAmount = 1;
@@ -50,7 +56,12 @@ public class ShopManager : MonoBehaviour
     public Ease closeEase = Ease.InQuad;
     public float shopCollapsedWidth = 72f;
     public float shopExpandedWidth = 512f;
+    public float shopBoardViewAnchoredY = 216f;
+    public float boardViewSlideDuration = 0.35f;
 
+    private Vector2 shopShownAnchoredPosition;
+    private bool shopPositionCached = false;
+    private bool isViewingBoard = false;
     private Tween closeDelayTween;
     private string lastRestoredInventoryScene = null;
     private GameObject merchantObject;
@@ -82,6 +93,16 @@ public class ShopManager : MonoBehaviour
         if (shopPanel != null)
         {
             shopPanelRect = shopPanel.GetComponent<RectTransform>();
+            CacheShopPanelPosition();
+        }
+    }
+
+    private void CacheShopPanelPosition()
+    {
+        if (shopPanelRect != null && !shopPositionCached)
+        {
+            shopShownAnchoredPosition = shopPanelRect.anchoredPosition;
+            shopPositionCached = true;
         }
     }
 
@@ -113,6 +134,7 @@ public class ShopManager : MonoBehaviour
         {
             confirmButton.onClick.AddListener(OnConfirmButtonClick);
         }
+        EnsureViewBoardButton();
         if (rerollButton != null)
         {
             rerollButton.onClick.AddListener(OnRerollButtonClick);
@@ -123,6 +145,11 @@ public class ShopManager : MonoBehaviour
             pieceLimitUpgradeButton.onClick.AddListener(OnPieceLimitUpgradeClick);
             RecalculateUpgradeCost();
             UpdatePieceLimitUpgradeUI();
+        }
+
+        if (shopArtifactSlot != null)
+        {
+            shopArtifactSlot.gameObject.SetActive(false);
         }
 
         // 자동으로 폴더에서 모든 인장 데이터 로드
@@ -175,6 +202,8 @@ public class ShopManager : MonoBehaviour
             if (shopPanel != null)
             {
                 shopPanelRect = shopPanel.GetComponent<RectTransform>();
+                shopPositionCached = false;
+                CacheShopPanelPosition();
                 shopPanel.SetActive(false);
             }
         }
@@ -189,6 +218,8 @@ public class ShopManager : MonoBehaviour
                 confirmButton.onClick.AddListener(OnConfirmButtonClick);
             }
         }
+
+        EnsureViewBoardButton();
 
         if (rerollButton == null)
         {
@@ -239,8 +270,85 @@ public class ShopManager : MonoBehaviour
         {
             shopArtifactSlot = FindFirstObjectByType<ShopArtifactSlot>();
         }
+        if (shopArtifactSlot != null)
+        {
+            shopArtifactSlot.gameObject.SetActive(false);
+        }
 
         //TryRestoreInventoryForScene(scene);
+    }
+
+    private void EnsureViewBoardButton()
+    {
+        if (shopPanel == null) return;
+
+        if (viewBoardButton == null)
+        {
+            Transform existing = shopPanel.transform.Find("ViewBoardBtn");
+            if (existing != null)
+            {
+                viewBoardButton = existing.GetComponent<Button>();
+            }
+            else if (confirmButton != null)
+            {
+                GameObject btnObj = Instantiate(confirmButton.gameObject, shopPanel.transform);
+                btnObj.name = "ViewBoardBtn";
+                RectTransform rect = btnObj.GetComponent<RectTransform>();
+                if (rect != null)
+                {
+                    rect.anchorMin = new Vector2(0.5f, 0f);
+                    rect.anchorMax = new Vector2(0.5f, 0f);
+                    rect.pivot = new Vector2(0.5f, 0.5f);
+                    rect.anchoredPosition = new Vector2(106f, 64f);
+                    rect.sizeDelta = new Vector2(84f, 16f);
+                    rect.localScale = Vector3.one;
+                }
+                viewBoardButton = btnObj.GetComponent<Button>();
+            }
+        }
+
+        if (viewBoardButton != null)
+        {
+            if (viewBoardButtonText == null)
+            {
+                viewBoardButtonText = viewBoardButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            }
+
+            foreach (var graphic in viewBoardButton.GetComponentsInChildren<MaskableGraphic>(true))
+            {
+                graphic.maskable = false;
+            }
+
+            viewBoardButton.onClick.RemoveAllListeners();
+            viewBoardButton.onClick.AddListener(ToggleBoardView);
+            UpdateViewBoardButtonText();
+        }
+    }
+
+    private void UpdateViewBoardButtonText()
+    {
+        if (viewBoardButtonText != null)
+        {
+            viewBoardButtonText.text = isViewingBoard ? "> 상점 보기" : "> 보드 보기";
+        }
+    }
+
+    public void ToggleBoardView()
+    {
+        if (shopPanelRect == null) return;
+
+        CacheShopPanelPosition();
+        isViewingBoard = !isViewingBoard;
+        UpdateViewBoardButtonText();
+
+        if (TooltipManager.Instance != null)
+        {
+            TooltipManager.Instance.HideTooltip();
+        }
+
+        float targetY = isViewingBoard ? shopBoardViewAnchoredY : shopShownAnchoredPosition.y;
+        shopPanelRect.DOKill();
+        shopPanelRect.DOAnchorPosY(targetY, boardViewSlideDuration).SetEase(Ease.OutCubic);
     }
 
     private void TryRestoreInventoryForScene(Scene scene)
@@ -329,49 +437,46 @@ public class ShopManager : MonoBehaviour
         Transform oldSlotTrans = slots[2].transform;
         GameObject oldSlotObj = oldSlotTrans.gameObject;
         int originalSiblingIndex = oldSlotTrans.GetSiblingIndex(); // 원래 계층 순서 저장
+
+        // 연출: 기존 슬롯이 사라지고 새로운 슬롯이 생성됨
+        oldSlotTrans.DOKill();
+        Sequence seq = DOTween.Sequence();
         
-        var pieceInfo = shopPieceData.GetRandomPiece();
-        if (pieceInfo != null)
+        // 1. 기존 슬롯 축소
+        seq.Append(oldSlotTrans.DOScale(Vector3.zero, 0.3f).SetEase(Ease.InBack));
+        
+        // 2. 교체 작업
+        seq.AppendCallback(() => 
         {
-            SealData seal = GetRandomSeal(pieceInfo.pieceType);
-            int finalPrice = CalculatePriceWithSeal(pieceInfo.Price, seal);
+            // 부모에서 분리하여 레이아웃 및 인덱스 영향 제거
+            oldSlotTrans.SetParent(null);
+            Destroy(oldSlotObj);
 
-            // 연출: 기존 슬롯이 사라지고 새로운 슬롯이 생성됨
-            oldSlotTrans.DOKill();
-            Sequence seq = DOTween.Sequence();
-            
-            // 1. 기존 슬롯 축소
-            seq.Append(oldSlotTrans.DOScale(Vector3.zero, 0.3f).SetEase(Ease.InBack));
-            
-            // 2. 교체 작업
-            seq.AppendCallback(() => 
+            // 새 슬롯 생성
+            GameObject newSlotObj = Instantiate(shopSlotPrefab, shopItemsContainer);
+            newSlotObj.transform.SetSiblingIndex(originalSiblingIndex); // 원래 위치 유지
+            newSlotObj.transform.localScale = Vector3.zero;
+
+            ShopPieceSlot newSlot = newSlotObj.GetComponent<ShopPieceSlot>();
+            if (newSlot != null)
             {
-                // 부모에서 분리하여 레이아웃 및 인덱스 영향 제거
-                oldSlotTrans.SetParent(null);
-                Destroy(oldSlotObj);
-
-                // 새 슬롯 생성
-                GameObject newSlotObj = Instantiate(shopSlotPrefab, shopItemsContainer);
-                newSlotObj.transform.SetSiblingIndex(originalSiblingIndex); // 원래 위치 유지
-                newSlotObj.transform.localScale = Vector3.zero;
-
-                ShopPieceSlot newSlot = newSlotObj.GetComponent<ShopPieceSlot>();
-                if (newSlot != null)
-                {
-                    newSlot.Setup(pieceInfo.pieceType, finalPrice, seal);
-                    
-                    // 3. 새 슬롯 확대 등장
-                    newSlotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack)
-                        .OnComplete(() => 
+                SetupRandomShopSlot(newSlot);
+                
+                // 3. 새 슬롯 확대 등장
+                newSlotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack)
+                    .OnComplete(() => 
+                    {
+                        if (newSlot.IsStandaloneSeal && newSlot.StandaloneSeal != null)
                         {
-                            if (newSlot.AttachedSeal != null)
-                            {
-                                newSlot.PlaySealEffect(newSlot.AttachedSeal.rarity);
-                            }
-                        });
-                }
-            });
-        }
+                            newSlot.PlaySealEffect(newSlot.StandaloneSeal.rarity);
+                        }
+                        else if (newSlot.AttachedSeal != null)
+                        {
+                            newSlot.PlaySealEffect(newSlot.AttachedSeal.rarity);
+                        }
+                    });
+            }
+        });
     }
 
     private void AnimateRerollCostChange()
@@ -440,12 +545,20 @@ public class ShopManager : MonoBehaviour
         if (shopPanel != null)
         {
             shopPanel.SetActive(true);
+            EnsureViewBoardButton();
+            isViewingBoard = false;
+            UpdateViewBoardButtonText();
+            if (shopArtifactSlot != null)
+            {
+                shopArtifactSlot.gameObject.SetActive(false);
+            }
             GenerateShopItems();
-            GenerateShopArtifact(); // 상점이 열릴 때 유물 생성 (리롤 시에는 호출되지 않음)
 
             if (shopPanelRect != null)
             {
+                CacheShopPanelPosition();
                 shopPanelRect.DOKill();
+                shopPanelRect.anchoredPosition = shopShownAnchoredPosition;
                 SetShopPanelWidth(shopExpandedWidth);
             }
         }
@@ -493,9 +606,14 @@ public class ShopManager : MonoBehaviour
 
         closeDelayTween = DOVirtual.DelayedCall(0f, () =>
         {
+            isViewingBoard = false;
+            UpdateViewBoardButtonText();
+
             if (shopPanelRect != null)
             {
+                CacheShopPanelPosition();
                 shopPanelRect.DOKill();
+                shopPanelRect.anchoredPosition = shopShownAnchoredPosition;
                 SetShopPanelWidth(shopExpandedWidth);
             }
 
@@ -843,14 +961,16 @@ public class ShopManager : MonoBehaviour
             }
         }
 
-        int currentItemsToDisplay = itemsToDisplay;
+        int currentItemsToDisplay = Mathf.Clamp(Mathf.Max(3, itemsToDisplay), 0, 3);
         if (ArtifactManager.Instance != null)
         {
             ArtifactManager.Instance.ApplyArtifactWithLevel("A001", level =>
             {
-                currentItemsToDisplay = Mathf.Clamp(itemsToDisplay + level, 0, 3);
+                currentItemsToDisplay = Mathf.Clamp(currentItemsToDisplay + level, 0, 3);
             });
         }
+
+        HashSet<string> usedPassiveArtifactIds = new HashSet<string>();
 
         // 새 아이템 생성
         for (int i = 0; i < 3; i++)
@@ -862,13 +982,7 @@ public class ShopManager : MonoBehaviour
             {
                 if (i < currentItemsToDisplay)
                 {
-                    var pieceInfo = shopPieceData.GetRandomPiece();
-                    if (pieceInfo != null)
-                    {
-                        SealData seal = GetRandomSeal(pieceInfo.pieceType);
-                        int finalPrice = CalculatePriceWithSeal(pieceInfo.Price, seal);
-                        slot.Setup(pieceInfo.pieceType, finalPrice, seal);
-                    }
+                    SetupRandomShopSlot(slot, usedPassiveArtifactIds);
                 }
                 else
                 {
@@ -880,26 +994,153 @@ public class ShopManager : MonoBehaviour
             slotObj.transform.localScale = Vector3.zero;
             slotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack).SetDelay(i * 0.1f)
                 .OnComplete(() => {
-                    if (slot != null && slot.AttachedSeal != null)
+                    if (slot != null)
                     {
-                        slot.PlaySealEffect(slot.AttachedSeal.rarity);
+                        if (slot.IsStandaloneSeal && slot.StandaloneSeal != null)
+                        {
+                            slot.PlaySealEffect(slot.StandaloneSeal.rarity);
+                        }
+                        else if (slot.AttachedSeal != null)
+                        {
+                            slot.PlaySealEffect(slot.AttachedSeal.rarity);
+                        }
                     }
                 });
         }
     }
 
+    private void SetupRandomShopSlot(ShopPieceSlot slot, HashSet<string> usedPassiveArtifactIds = null)
+    {
+        if (slot == null) return;
+
+        if (allSeals == null || allSeals.Count == 0)
+        {
+            LoadAllSealsFromFolder();
+        }
+
+        bool canSpawnPiece = shopPieceData != null && shopPieceData.pieceList != null && shopPieceData.pieceList.Count > 0;
+        SealData candidateSeal = GetRandomStandaloneSeal();
+        bool canSpawnSeal = candidateSeal != null;
+        ArtifactData candidateArtifact = ArtifactManager.Instance != null
+            ? ArtifactManager.Instance.GetRandomArtifactForShop(usedPassiveArtifactIds)
+            : null;
+        bool canSpawnArtifact = candidateArtifact != null;
+
+        float pWeight = canSpawnPiece ? Mathf.Max(0f, pieceSlotWeight) : 0f;
+        float sWeight = canSpawnSeal ? Mathf.Max(0f, sealSlotWeight) : 0f;
+        float aWeight = canSpawnArtifact ? Mathf.Max(0f, artifactSlotWeight) : 0f;
+        float totalWeight = pWeight + sWeight + aWeight;
+
+        if (totalWeight <= 0f)
+        {
+            slot.SetSoldOut();
+            return;
+        }
+
+        float roll = UnityEngine.Random.Range(0f, totalWeight);
+        if (roll < pWeight && canSpawnPiece)
+        {
+            var pieceInfo = shopPieceData.GetRandomPiece();
+            if (pieceInfo != null)
+            {
+                SealData seal = GetRandomSeal(pieceInfo.pieceType);
+                int finalPrice = CalculatePriceWithSeal(pieceInfo.Price, seal);
+                slot.Setup(pieceInfo.pieceType, finalPrice, seal);
+                return;
+            }
+        }
+        else if (roll < pWeight + sWeight && canSpawnSeal)
+        {
+            int sealPrice = GetStandaloneSealPrice(candidateSeal);
+            slot.SetupSeal(candidateSeal, sealPrice);
+            return;
+        }
+        else if (canSpawnArtifact)
+        {
+            if (!candidateArtifact.IsActive && usedPassiveArtifactIds != null)
+            {
+                usedPassiveArtifactIds.Add(candidateArtifact.id);
+            }
+            slot.SetupArtifact(candidateArtifact, candidateArtifact.price);
+            return;
+        }
+
+        // Fallback
+        if (canSpawnPiece)
+        {
+            var pieceInfo = shopPieceData.GetRandomPiece();
+            if (pieceInfo != null)
+            {
+                SealData seal = GetRandomSeal(pieceInfo.pieceType);
+                int finalPrice = CalculatePriceWithSeal(pieceInfo.Price, seal);
+                slot.Setup(pieceInfo.pieceType, finalPrice, seal);
+            }
+        }
+        else if (canSpawnSeal)
+        {
+            slot.SetupSeal(candidateSeal, GetStandaloneSealPrice(candidateSeal));
+        }
+        else if (canSpawnArtifact)
+        {
+            if (!candidateArtifact.IsActive && usedPassiveArtifactIds != null)
+            {
+                usedPassiveArtifactIds.Add(candidateArtifact.id);
+            }
+            slot.SetupArtifact(candidateArtifact, candidateArtifact.price);
+        }
+    }
+
+    private SealData GetRandomStandaloneSeal()
+    {
+        if (allSeals == null || allSeals.Count == 0)
+        {
+            return null;
+        }
+
+        var shopSeals = allSeals.Where(s => s != null && s.isSoldInShop).ToList();
+        if (shopSeals.Count == 0)
+        {
+            return null;
+        }
+
+        float roll = UnityEngine.Random.Range(0f, 15f);
+        SealRarity rarity;
+        if (roll < 0.5f) rarity = SealRarity.Legendary;
+        else if (roll < 3.0f) rarity = SealRarity.Epic;
+        else if (roll < 7.0f) rarity = SealRarity.Rare;
+        else rarity = SealRarity.Common;
+
+        var candidates = shopSeals.Where(s => s.rarity == rarity).ToList();
+        if (candidates.Count == 0)
+        {
+            candidates = shopSeals;
+        }
+
+        return candidates[UnityEngine.Random.Range(0, candidates.Count)];
+    }
+
+    private int GetStandaloneSealPrice(SealData seal)
+    {
+        if (seal == null) return 30;
+
+        switch (seal.rarity)
+        {
+            case SealRarity.Common:
+                return 30;
+            case SealRarity.Rare:
+                return 50;
+            case SealRarity.Epic:
+                return 80;
+            case SealRarity.Legendary:
+                return 120;
+            default:
+                return 30;
+        }
+    }
+
     private void GenerateShopArtifact()
     {
-        if (shopArtifactSlot == null || ArtifactManager.Instance == null) return;
-
-        // 상점에서 판매 가능한 유물 중 랜덤으로 하나 가져오기
-        ArtifactData artifact = ArtifactManager.Instance.GetRandomArtifactForShop();
-        if (artifact != null)
-        {
-            shopArtifactSlot.gameObject.SetActive(true);
-            shopArtifactSlot.Setup(artifact);
-        }
-        else
+        if (shopArtifactSlot != null)
         {
             shopArtifactSlot.gameObject.SetActive(false);
         }
@@ -1028,25 +1269,43 @@ public class ShopManager : MonoBehaviour
         
         #if UNITY_EDITOR
         // 에디터 환경: AssetDatabase 사용
-        string folderPath = "Assets/Data/Seal";
-        string[] guids = UnityEditor.AssetDatabase.FindAssets("t:SealData", new[] { folderPath });
-        
-        foreach (string guid in guids)
+        List<string> searchFolders = new List<string>();
+        if (UnityEditor.AssetDatabase.IsValidFolder("Assets/Data/Seal"))
         {
-            string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-            
-            SealData seal = UnityEditor.AssetDatabase.LoadAssetAtPath<SealData>(assetPath);
-            if (seal != null)
+            searchFolders.Add("Assets/Data/Seal");
+        }
+        if (UnityEditor.AssetDatabase.IsValidFolder("Assets/Resources/Seal"))
+        {
+            searchFolders.Add("Assets/Resources/Seal");
+        }
+
+        if (searchFolders.Count > 0)
+        {
+            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:SealData", searchFolders.ToArray());
+            foreach (string guid in guids)
             {
-                allSeals.Add(seal);
+                string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                SealData seal = UnityEditor.AssetDatabase.LoadAssetAtPath<SealData>(assetPath);
+                if (seal != null && !allSeals.Contains(seal))
+                {
+                    allSeals.Add(seal);
+                }
             }
         }
-        #else
-        // 런타임 환경: Resources 폴더 사용
-        SealData[] loadedSeals = Resources.LoadAll<SealData>("Seal");
-        allSeals.AddRange(loadedSeals);
         #endif
 
+        // 런타임 및 폴백: Resources 폴더 사용
+        SealData[] loadedSeals = Resources.LoadAll<SealData>("Seal");
+        if (loadedSeals != null)
+        {
+            foreach (SealData seal in loadedSeals)
+            {
+                if (seal != null && !allSeals.Contains(seal))
+                {
+                    allSeals.Add(seal);
+                }
+            }
+        }
     }
 }
 

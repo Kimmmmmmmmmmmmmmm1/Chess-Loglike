@@ -7209,7 +7209,7 @@ MonoBehaviour:
   artifactSealChanceBonus: 100
   shopSlotPrefab: {fileID: 327450683304821757, guid: 7994a685d342b40b2b897f7e1ac7eedb, type: 3}
   shopItemsContainer: {fileID: 945871837}
-  itemsToDisplay: 2
+  itemsToDisplay: 3
   rerollCost: 5
   pieceLimitUpgradeCost: 200
   pieceLimitUpgradeAmount: 1
@@ -18431,7 +18431,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!1 &5303549696532478113
 GameObject:
   m_ObjectHideFlags: 0
@@ -18930,7 +18930,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 0}
   m_Type: 0
-  m_PreserveAspect: 0
+  m_PreserveAspect: 1
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
