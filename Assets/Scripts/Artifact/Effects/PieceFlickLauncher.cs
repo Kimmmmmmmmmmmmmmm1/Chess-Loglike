@@ -6,10 +6,26 @@ using UnityEngine.UI;
 public sealed class PieceFlickLauncher : MonoBehaviour
 {
     public static PieceFlickLauncher Instance { get; private set; }
+
+    [Header("발사 힘 / 드래그 설정")]
+    [Tooltip("최대 발사 힘 (Impulse 기준값)")]
     [SerializeField] private float power = 60f;
+    [Tooltip("최대로 당길 수 있는 드래그 거리 (픽셀/UI 단위)")]
     [SerializeField] private float maxDragDistance = 220f;
+    [Tooltip("발사로 인정되는 최소 드래그 거리 (이보다 짧게 당기고 놓으면 취소)")]
+    [SerializeField] private float minDragDistance = 5f;
+    [Tooltip("가장 살짝 당겼을 때 적용되는 최소 힘 비율 (0~1)")]
+    [Range(0f, 1f)]
+    [SerializeField] private float minChargeRatio = 0.35f;
+    [Tooltip("최대로 당겼을 때 적용되는 최대 힘 비율 (0~2)")]
+    [Range(0f, 2f)]
+    [SerializeField] private float maxChargeRatio = 1.0f;
+
+    [Header("참조 및 조준선 설정")]
     [SerializeField] private LineRenderer aimLine;
     [SerializeField] private PhysicsGridSynchronizer synchronizer;
+    [Tooltip("UI 조준선 두께")]
+    [SerializeField] private float uiAimLineThickness = 16f;
 
     private PieceController selectedPiece;
     private Vector3 dragStart;
@@ -190,7 +206,7 @@ public sealed class PieceFlickLauncher : MonoBehaviour
             if (Input.GetMouseButtonUp(0))
             {
                 dragging = false;
-                if (delta.sqrMagnitude > 25f) Launch(selectedPiece, delta);
+                if (delta.sqrMagnitude > minDragDistance * minDragDistance) Launch(selectedPiece, delta);
                 else Cancel();
             }
         }
@@ -268,7 +284,7 @@ public sealed class PieceFlickLauncher : MonoBehaviour
         Vector2 delta = end - start;
         float length = delta.magnitude;
         uiAimLine.anchoredPosition = start;
-        uiAimLine.sizeDelta = new Vector2(length, 16f);
+        uiAimLine.sizeDelta = new Vector2(length, uiAimLineThickness);
         uiAimLine.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
         uiAimLine.SetAsLastSibling();
         uiAimLine.gameObject.SetActive(length > 0.01f);
@@ -289,7 +305,7 @@ public sealed class PieceFlickLauncher : MonoBehaviour
         if (body == null) body = piece.gameObject.AddComponent<Rigidbody>();
         if (piece.GetComponent<Collider>() == null) piece.gameObject.AddComponent<BoxCollider>();
 
-        body.mass = PhysicsGridSynchronizer.GetMass(piece.PieceType);
+        body.mass = synchronizer != null ? synchronizer.GetPieceMass(piece.PieceType) : PhysicsGridSynchronizer.GetMass(piece.PieceType);
         body.useGravity = false;
         body.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
         body.isKinematic = false;
@@ -298,7 +314,7 @@ public sealed class PieceFlickLauncher : MonoBehaviour
         Vector3 planarDelta = new Vector3(screenDelta.x, screenDelta.y, 0f);
         Vector3 direction = planarDelta.normalized;
         float dragRatio = Mathf.Clamp01(planarDelta.magnitude / Mathf.Max(1f, maxDragDistance));
-        float chargeRatio = Mathf.Lerp(0.35f, 1f, dragRatio);
+        float chargeRatio = Mathf.Lerp(minChargeRatio, maxChargeRatio, dragRatio);
         body.AddForce(direction * (power * chargeRatio), ForceMode.Impulse);
     }
 
