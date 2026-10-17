@@ -8,8 +8,8 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
     [SerializeField] private float stopVelocity = 0.05f;
     [SerializeField] private float timeout = 4f;
     [SerializeField] private float snapDuration = 0.2f;
-    [SerializeField] private float linearDamping = 1.2f;
-    [SerializeField] private float pieceBounciness = 0.2f;
+    [SerializeField] private float linearDamping = 1.4f;
+    [SerializeField] private float pieceBounciness = 0.65f;
     private Coroutine monitorRoutine;
     private PhysicsMaterial pieceMaterial;
     private bool synchronizing;
@@ -20,12 +20,14 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
         int score = PieceData.GetPieceScore(type);
         return score switch
         {
-            1 => 1f,
-            3 => 2.2f,
-            4 => 4f,
-            5 => 3.5f,
-            9 => 5f,
-            _ => Mathf.Max(1f, score * 0.55f)
+            1 => 1f,       // Pawn
+            3 => 2.5f,     // Knight, Bishop, Grasshopper
+            4 => 4.2f,     // King
+            5 => 4.8f,     // Rook, Centaur, Cannon
+            6 => 5.8f,     // Archbishop
+            7 => 6.8f,     // Chancellor
+            9 => 8.5f,     // Queen
+            _ => Mathf.Max(1f, score * 0.95f)
         };
     }
 
@@ -92,11 +94,11 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
     {
         return new PhysicsMaterial("AlkkagiPieceMaterial")
         {
-            dynamicFriction = 0.8f,
-            staticFriction = 0.8f,
+            dynamicFriction = 0.35f,
+            staticFriction = 0.35f,
             bounciness = pieceBounciness,
             frictionCombine = PhysicsMaterialCombine.Average,
-            bounceCombine = PhysicsMaterialCombine.Average
+            bounceCombine = PhysicsMaterialCombine.Maximum
         };
     }
 
@@ -111,10 +113,18 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
 
             SoundManager.Instance?.PlaySFX(SFXType.Move);
 
-            float lighterMass = Mathf.Min(body.mass, other.mass);
-            float massBias = Mathf.Clamp(other.mass / Mathf.Max(0.01f, body.mass), 0.5f, 2f);
+            // 두 기물의 질량 비율이 확실히 느껴지도록 탄성 운동량 보존 기반의 보조 충격량 적용
+            // reducedMass = (m1 * m2) / (m1 + m2) -> 무거운 기물은 덜 밀리고 가벼운 기물은 크게 튕겨나감
+            float totalMass = Mathf.Max(0.01f, body.mass + other.mass);
+            float reducedMass = (body.mass * other.mass) / totalMass;
             Vector3 direction = (other.worldCenterOfMass - body.worldCenterOfMass).normalized;
-            float impulse = collision.relativeVelocity.magnitude * lighterMass * 0.12f * massBias;
+            float closingSpeed = Vector3.Dot(collision.relativeVelocity, direction);
+            if (closingSpeed <= 0f)
+            {
+                closingSpeed = collision.relativeVelocity.magnitude;
+            }
+
+            float impulse = closingSpeed * reducedMass * 0.45f;
             Vector3 extraImpulse = direction * impulse;
             body.AddForce(-extraImpulse, ForceMode.Impulse);
             other.AddForce(extraImpulse, ForceMode.Impulse);
@@ -189,7 +199,14 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
             PieceManager.Instance.RemovePieceFromPhysics(piecesToDestroy[i]);
         }
 
-        for (int i = 0; i < pending.Count; i++) yield return pending[i].WaitForCompletion();
+        for (int i = 0; i < pending.Count; i++)
+        {
+            Tween t = pending[i];
+            if (t != null && t.IsActive() && t.IsPlaying())
+            {
+                yield return t.WaitForCompletion();
+            }
+        }
         foreach (PieceController piece in uniquePieces)
         {
             if (piece == null || piece.CurrentLocation != PieceLocation.Board) continue;

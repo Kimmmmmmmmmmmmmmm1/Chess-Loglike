@@ -1246,6 +1246,7 @@ public class ShopManager : MonoBehaviour
             if (targetSlot != null)
             {
                 GameObject pieceObj = Instantiate(PieceSpawner.Instance.piecePrefab, targetSlot.transform);
+                pieceObj.name = $"PiecePrefab(Clone)@ShopRestoreInventory[{pieceInfo.pieceType}_{targetSlot.name}]";
                 PieceController piece = pieceObj.GetComponent<PieceController>();
                 
                 if (piece != null)

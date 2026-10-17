@@ -6,7 +6,7 @@ using UnityEngine.UI;
 public sealed class PieceFlickLauncher : MonoBehaviour
 {
     public static PieceFlickLauncher Instance { get; private set; }
-    [SerializeField] private float power = 120f;
+    [SerializeField] private float power = 60f;
     [SerializeField] private float maxDragDistance = 220f;
     [SerializeField] private LineRenderer aimLine;
     [SerializeField] private PhysicsGridSynchronizer synchronizer;
@@ -21,7 +21,7 @@ public sealed class PieceFlickLauncher : MonoBehaviour
     private Image uiAimImage;
 
     public bool IsBusy => IsFlickMode || IsFlying;
-    public bool IsFlying => launched || (synchronizer != null && synchronizer.IsSynchronizing);
+    public bool IsFlying => HasAlkkagiArtifact && (launched || (synchronizer != null && synchronizer.IsSynchronizing));
 
     public static bool HasAlkkagiArtifact =>
         ArtifactManager.Instance != null &&
@@ -86,18 +86,52 @@ public sealed class PieceFlickLauncher : MonoBehaviour
         }
         if (TurnManager.Instance != null)
         {
+            TurnManager.Instance.OnTurnAdvanced -= HandleTurnAdvanced;
             TurnManager.Instance.OnTurnAdvanced += HandleTurnAdvanced;
+            TurnManager.Instance.OnPlayerTurnStarted -= HandlePlayerTurnStarted;
+            TurnManager.Instance.OnPlayerTurnStarted += HandlePlayerTurnStarted;
         }
     }
 
     private void Start()
     {
         enabled = true;
+        if (TurnManager.Instance != null)
+        {
+            TurnManager.Instance.OnTurnAdvanced -= HandleTurnAdvanced;
+            TurnManager.Instance.OnTurnAdvanced += HandleTurnAdvanced;
+            TurnManager.Instance.OnPlayerTurnStarted -= HandlePlayerTurnStarted;
+            TurnManager.Instance.OnPlayerTurnStarted += HandlePlayerTurnStarted;
+        }
+        if (GameStateManager.Instance != null)
+        {
+            GameStateManager.Instance.OnStateChanged -= HandleGameStateChanged;
+            GameStateManager.Instance.OnStateChanged += HandleGameStateChanged;
+        }
+    }
+
+    private void HandleGameStateChanged(GameStateManager.GameState state)
+    {
+        if (state == GameStateManager.GameState.Prepare || state == GameStateManager.GameState.GamePlay)
+        {
+            launched = false;
+            selectedPiece = null;
+            dragging = false;
+            if (aimLine != null) aimLine.positionCount = 0;
+            if (uiAimLine != null) uiAimLine.gameObject.SetActive(false);
+        }
+    }
+
+    private void HandlePlayerTurnStarted()
+    {
+        launched = false;
+        selectedPiece = null;
+        dragging = false;
     }
 
     private void HandleTurnAdvanced(TurnOwner owner)
     {
-        if (owner == TurnOwner.Player && HasPassiveArtifact)
+        if (owner == TurnOwner.Player)
         {
             launched = false;
             selectedPiece = null;
@@ -111,10 +145,29 @@ public sealed class PieceFlickLauncher : MonoBehaviour
 
     private void Update()
     {
-        if (!HasPassiveArtifact || !IsPlayerTurn ||
+        // 알까기 유물이 없으면 이 컴포넌트는 아무 것도 하지 않음 (일반 이동 마커를 지우지 않도록)
+        if (!HasPassiveArtifact)
+        {
+            launched = false;
+            if (selectedPiece != null || dragging)
+            {
+                selectedPiece = null;
+                dragging = false;
+                if (aimLine != null) aimLine.positionCount = 0;
+                if (uiAimLine != null) uiAimLine.gameObject.SetActive(false);
+            }
+            return;
+        }
+
+        if (!IsPlayerTurn ||
             GameStateManager.Instance == null ||
             GameStateManager.Instance.CurrentState != GameStateManager.GameState.GamePlay)
         {
+            // 플레이어 턴이 아니거나 전투 중이 아닐 때는 launched 플래그도 초기화하여 다음 플레이어 턴에 막히지 않도록 보장
+            if (synchronizer == null || !synchronizer.IsSynchronizing)
+            {
+                launched = false;
+            }
             Cancel();
             return;
         }
@@ -223,6 +276,15 @@ public sealed class PieceFlickLauncher : MonoBehaviour
 
     private void Launch(PieceController piece, Vector3 screenDelta)
     {
+        launched = true;
+        if (aimLine != null) aimLine.positionCount = 0;
+        if (uiAimLine != null) uiAimLine.gameObject.SetActive(false);
+        PieceManager.Instance?.ClearSelection();
+        PieceManager.Instance?.HideMoveMarkers();
+
+        // 모든 보드 기물의 물리 설정을 먼저 초기화한 뒤 발사 힘을 가함 (velocity가 0으로 덮어써지지 않도록)
+        synchronizer.BeginMonitoring();
+
         Rigidbody body = piece.GetComponent<Rigidbody>();
         if (body == null) body = piece.gameObject.AddComponent<Rigidbody>();
         if (piece.GetComponent<Collider>() == null) piece.gameObject.AddComponent<BoxCollider>();
@@ -232,14 +294,12 @@ public sealed class PieceFlickLauncher : MonoBehaviour
         body.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
         body.isKinematic = false;
         body.linearVelocity = Vector3.zero;
-        Vector3 direction = new Vector3(screenDelta.x, screenDelta.y, 0f).normalized;
-        body.AddForce(direction * power, ForceMode.Impulse);
-        launched = true;
-        if (aimLine != null) aimLine.positionCount = 0;
-        if (uiAimLine != null) uiAimLine.gameObject.SetActive(false);
-        PieceManager.Instance?.ClearSelection();
-        PieceManager.Instance?.HideMoveMarkers();
-        synchronizer.BeginMonitoring();
+
+        Vector3 planarDelta = new Vector3(screenDelta.x, screenDelta.y, 0f);
+        Vector3 direction = planarDelta.normalized;
+        float dragRatio = Mathf.Clamp01(planarDelta.magnitude / Mathf.Max(1f, maxDragDistance));
+        float chargeRatio = Mathf.Lerp(0.35f, 1f, dragRatio);
+        body.AddForce(direction * (power * chargeRatio), ForceMode.Impulse);
     }
 
     private void Cancel()
@@ -256,6 +316,11 @@ public sealed class PieceFlickLauncher : MonoBehaviour
         if (TurnManager.Instance != null)
         {
             TurnManager.Instance.OnTurnAdvanced -= HandleTurnAdvanced;
+            TurnManager.Instance.OnPlayerTurnStarted -= HandlePlayerTurnStarted;
+        }
+        if (GameStateManager.Instance != null)
+        {
+            GameStateManager.Instance.OnStateChanged -= HandleGameStateChanged;
         }
         if (Instance == this) Instance = null;
     }

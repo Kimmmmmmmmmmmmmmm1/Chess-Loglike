@@ -557,6 +557,7 @@ public class PiecePromotionManager : MonoBehaviour
 
             if (newPieceObj != null)
             {
+                newPieceObj.name = $"PiecePrefab(Clone)@Promotion[{promotedType}_{pos}]";
                 newPiece = newPieceObj.GetComponent<PieceController>();
                 if (newPiece != null)
                 {

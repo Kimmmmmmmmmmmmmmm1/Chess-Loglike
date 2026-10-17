@@ -656,6 +656,7 @@ public class PieceManager : MonoBehaviour
             Quaternion.identity,
             PieceSpawner.Instance.piecesParent
         );
+        if (newPieceObj != null) newPieceObj.name = $"PiecePrefab(Clone)@ReplaceBoardSoldier[{position}]";
 
         PieceController newPiece = newPieceObj != null ? newPieceObj.GetComponent<PieceController>() : null;
         if (newPiece != null)
@@ -709,6 +710,7 @@ public class PieceManager : MonoBehaviour
         else DestroyImmediate(piece.gameObject);
 
         GameObject newPieceObj = Instantiate(PieceSpawner.Instance.piecePrefab, slotTransform);
+        if (newPieceObj != null) newPieceObj.name = $"PiecePrefab(Clone)@ReplaceInvSoldier[{slotTransform.name}]";
         PieceController newPiece = newPieceObj != null ? newPieceObj.GetComponent<PieceController>() : null;
         if (newPiece != null)
         {
@@ -908,7 +910,16 @@ public class PieceManager : MonoBehaviour
 
         if (destructionEffectPrefab != null)
         {
-            Instantiate(destructionEffectPrefab, piece.GetComponent<RectTransform>().position, Quaternion.identity);
+            // 씬 하이어라키 오브젝트(예: Pieces 컨테이너)가 잘못 할당된 경우 클론 생성을 차단합니다.
+            if (destructionEffectPrefab.scene.IsValid())
+            {
+                Debug.LogWarning($"[PieceManager] destructionEffectPrefab에 프리팹이 아닌 씬 오브젝트({destructionEffectPrefab.name})가 할당되어 있어 해제합니다.");
+                destructionEffectPrefab = null;
+            }
+            else
+            {
+                Instantiate(destructionEffectPrefab, piece.GetComponent<RectTransform>().position, Quaternion.identity);
+            }
         }
     }
 

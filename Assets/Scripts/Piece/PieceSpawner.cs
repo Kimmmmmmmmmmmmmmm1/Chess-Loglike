@@ -282,7 +282,7 @@ public class PieceSpawner : MonoBehaviour
         return revealSprite;
     }
 
-    public void SpawnPieceAndFlyToInventory(PieceType pieceType, Vector3 startWorldPos, InventorySlot targetSlot, SealData attachedSeal = null, System.Action<PieceController> onComplete = null, Transform flyParentOverride = null)
+    public void SpawnPieceAndFlyToInventory(PieceType pieceType, Vector3 startWorldPos, InventorySlot targetSlot, SealData attachedSeal = null, System.Action<PieceController> onComplete = null, Transform flyParentOverride = null, [System.Runtime.CompilerServices.CallerMemberName] string caller = "")
     {
         if (piecePrefab == null) return;
 
@@ -290,6 +290,7 @@ public class PieceSpawner : MonoBehaviour
         Canvas rootCanvas = targetSlot.GetComponentInParent<Canvas>();
         Transform spawnParent = rootCanvas != null ? rootCanvas.transform : targetSlot.transform.root;
         GameObject pieceObj = Instantiate(piecePrefab, spawnParent);
+        pieceObj.name = $"PiecePrefab(Clone)@FlyToInventory[{caller}_{pieceType}]";
         PieceController piece = pieceObj.GetComponent<PieceController>();
         
         if (piece != null)
@@ -338,6 +339,7 @@ public class PieceSpawner : MonoBehaviour
         foreach (var info in pieces)
         {
             GameObject pieceObj = Instantiate(piecePrefab, parent);
+            pieceObj.name = $"PiecePrefab(Clone)@SpawnGroup[{(isEnemy ? "Enemy" : "Ally")}_{info.pieceType}_{info.gridCoordinate}]";
             
             if (pieceObj.TryGetComponent<PieceController>(out var piece))
             {

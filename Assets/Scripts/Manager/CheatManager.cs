@@ -129,6 +129,7 @@ public class CheatManager : MonoBehaviour
         if (PieceSpawner.Instance != null && PieceSpawner.Instance.piecePrefab != null)
         {
             GameObject obj = Instantiate(PieceSpawner.Instance.piecePrefab, emptySlot.transform);
+            obj.name = $"PiecePrefab(Clone)@CheatGivePiece[{selectedPiece}_{emptySlot.name}]";
             PieceController piece = obj.GetComponent<PieceController>();
             if (piece != null)
             {

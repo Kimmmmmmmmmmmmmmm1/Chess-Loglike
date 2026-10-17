@@ -247,7 +247,8 @@ public class TurnManager : MonoBehaviour
             yield break;
         }
 
-        if (PieceManager.Instance != null && !PieceManager.Instance.HasAnyPlayerMoves())
+        // 알까기 유물 보유 시에는 체스 행마법상 이동 가능한 칸이 없어도 알까기로 튕길 수 있으므로 턴을 자동 스킵하지 않음
+        if (PieceManager.Instance != null && !PieceFlickLauncher.HasAlkkagiArtifact && !PieceManager.Instance.HasAnyPlayerMoves())
         {
             int playerPieceCount = 0;
             foreach (var p in PieceManager.Instance.PlayerPieces)
