@@ -43,15 +43,36 @@ public class PieceCardTooltipView : MonoBehaviour
     [SerializeField] private TextMeshProUGUI sealInfoText;
     [SerializeField] private TextMeshProUGUI flavorText;
 
-    // Procedural Sprites (Solid, Hatched/Dotted Pattern, Origin Ring, Cross)
+    // Procedural Sprites (Solid, Hatched/Dotted Pattern, Origin Ring, Cross, Default Emblem)
     private static Sprite solidWhiteSprite;
     private static Sprite hatchedPatternSprite;
     private static Sprite originMarkerSprite;
     private static Sprite pawnCaptureSprite;
+    private static Sprite defaultEmblemSprite;
+
+    private static readonly Dictionary<PieceType, string> PieceKoreanNames = new Dictionary<PieceType, string>
+    {
+        { PieceType.King,        "킹" },
+        { PieceType.Rook,        "룩" },
+        { PieceType.Knight,      "나이트" },
+        { PieceType.Bishop,      "비숍" },
+        { PieceType.Queen,       "퀸" },
+        { PieceType.Pawn,        "폰" },
+        { PieceType.Amazon,      "아마존" },
+        { PieceType.Chancellor,  "챈슬러" },
+        { PieceType.Archbishop,  "아치비숍" },
+        { PieceType.Centaur,     "켄타우로스" },
+        { PieceType.Cannon,      "캐논" },
+        { PieceType.Grasshopper, "그래스호퍼" }
+    };
 
     private Tweener popScaleTween;
     private Tweener popFadeTween;
     private RectTransform cachedRectTransform;
+    private RectTransform shadowRectTransform;
+    private RectTransform footerRectTransform;
+    private GameObject divider3Object;
+    private bool isHierarchyInitialized;
 
     public RectTransform RectTransform
     {
@@ -81,7 +102,7 @@ public class PieceCardTooltipView : MonoBehaviour
     }
 
     /// <summary>
-    /// 절차적 텍스처 및 스프라이트 생성 (도트 빗금 패턴, 원형 링, 캡처 마크)
+    /// 절차적 텍스처 및 스프라이트 생성 (도트 빗금 패턴, 원형 링, 캡처 마크, 기본 엠블럼)
     /// </summary>
     private static void EnsureProceduralSprites()
     {
@@ -160,14 +181,44 @@ public class PieceCardTooltipView : MonoBehaviour
             tex.Apply();
             pawnCaptureSprite = Sprite.Create(tex, new Rect(0, 0, 32, 32), new Vector2(0.5f, 0.5f), 32f);
         }
+
+        if (defaultEmblemSprite == null)
+        {
+            // 일러스트가 없는 일반 툴팁용 미니멀 다이아몬드 스타 엠블럼 (64x64)
+            Texture2D tex = new Texture2D(64, 64, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point;
+            Vector2 center = new Vector2(31.5f, 31.5f);
+            for (int y = 0; y < 64; y++)
+            {
+                for (int x = 0; x < 64; x++)
+                {
+                    float dx = Mathf.Abs(x - center.x);
+                    float dy = Mathf.Abs(y - center.y);
+                    float manhattan = dx + dy;
+                    bool outerRing = manhattan >= 22f && manhattan <= 25f;
+                    bool innerStar = (dx * 0.45f + dy <= 10f) || (dy * 0.45f + dx <= 10f);
+                    bool centerHole = manhattan <= 4f;
+                    if ((outerRing || innerStar) && !centerHole)
+                    {
+                        tex.SetPixel(x, y, Color.white);
+                    }
+                    else
+                    {
+                        tex.SetPixel(x, y, Color.clear);
+                    }
+                }
+            }
+            tex.Apply();
+            defaultEmblemSprite = Sprite.Create(tex, new Rect(0, 0, 64, 64), new Vector2(0.5f, 0.5f), 64f);
+        }
     }
 
     /// <summary>
-    /// UI 계층 구조가 비어있을 경우 코드로 자동 구성
+    /// UI 계층 구조가 비어있거나 초기화되지 않았을 경우 코드로 자동 구성
     /// </summary>
     public void EnsureUIHierarchy()
     {
-        if (cardRoot != null && boardCells[0, 0] != null) return;
+        if (isHierarchyInitialized && cardRoot != null && boardCells[0, 0] != null) return;
 
         EnsureProceduralSprites();
         TMP_FontAsset font = Resources.Load<TMP_FontAsset>("Fonts/NeoDunggeunmoPro-Regular SDF");
@@ -202,9 +253,9 @@ public class PieceCardTooltipView : MonoBehaviour
         Transform shadowT = transform.Find("Shadow");
         GameObject shadowObj = shadowT != null ? shadowT.gameObject : new GameObject("Shadow", typeof(RectTransform));
         shadowObj.transform.SetParent(transform, false);
-        RectTransform shadowRt = shadowObj.GetComponent<RectTransform>();
-        shadowRt.sizeDelta = new Vector2(392, 652);
-        shadowRt.anchoredPosition = new Vector2(10, -12);
+        shadowRectTransform = shadowObj.GetComponent<RectTransform>();
+        shadowRectTransform.sizeDelta = new Vector2(392, 652);
+        shadowRectTransform.anchoredPosition = new Vector2(10, -12);
         shadowImage = shadowObj.GetComponent<Image>() ?? shadowObj.AddComponent<Image>();
         shadowImage.sprite = solidWhiteSprite;
         shadowImage.color = new Color(0f, 0f, 0f, 0.82f);
@@ -235,40 +286,66 @@ public class PieceCardTooltipView : MonoBehaviour
         cardBodyImage.color = new Color(0.065f, 0.065f, 0.075f, 1f); // #111113 매끄러운 흑단목 딥 블랙
         cardBodyImage.raycastTarget = false;
 
+        // 프리팹에 기존 하위 오브젝트가 남아있다면 중복 생성을 막기 위해 정리
+        for (int i = bodyRt.childCount - 1; i >= 0; i--)
+        {
+            Transform child = bodyRt.GetChild(i);
+            child.SetParent(null, false);
+            if (Application.isPlaying)
+            {
+                Destroy(child.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(child.gameObject);
+            }
+        }
+
         // --- 상단 헤더 (Header) ---
         // 높이: 68px, Y: 0 ~ -68
         GameObject headerObj = CreateSubPanel("Header", bodyRt, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, -34), new Vector2(0, 68));
         
-        // 가치(점수) 뱃지 (좌측 상단 모서리, 50x50)
+        // 가치(점수/등급) 뱃지 (좌측 상단 모서리, 50x50)
         GameObject badgeObj = CreateSubPanel("ValueBadge", headerObj.GetComponent<RectTransform>(), new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(38, 0), new Vector2(50, 50));
         valueBadgeBg = badgeObj.AddComponent<Image>();
         valueBadgeBg.sprite = solidWhiteSprite;
         valueBadgeBg.color = new Color(0.18f, 0.18f, 0.22f, 1f);
+        valueBadgeBg.raycastTarget = false;
         
         GameObject badgeInner = CreateSubPanel("BadgeInner", badgeObj.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-4, -4));
         Image badgeInnerImg = badgeInner.AddComponent<Image>();
         badgeInnerImg.sprite = solidWhiteSprite;
         badgeInnerImg.color = new Color(0.08f, 0.08f, 0.1f, 1f);
+        badgeInnerImg.raycastTarget = false;
 
-        // 폰트 크기: 32
-        valueText = CreateTMPText("ValueText", badgeInner.GetComponent<RectTransform>(), font, 32f, FontStyles.Bold, Color.white, TextAlignmentOptions.Center);
+        // 폰트 크기: 28 (자동 크기 조절 지원)
+        valueText = CreateTMPText("ValueText", badgeInner.GetComponent<RectTransform>(), font, 28f, FontStyles.Bold, Color.white, TextAlignmentOptions.Center);
+        valueText.enableAutoSizing = true;
+        valueText.fontSizeMin = 14f;
+        valueText.fontSizeMax = 30f;
         valueText.text = "1";
 
-        // 기물 이름 & 등급 텍스트 (상단 중앙~우측, 뱃지 오른쪽 x: 74부터 시작)
+        // 이름 & 등급 텍스트 (상단 중앙~우측, 뱃지 오른쪽 x: 74부터 시작)
         GameObject titlePanel = CreateSubPanel("TitlePanel", headerObj.GetComponent<RectTransform>(), new Vector2(0, 0), new Vector2(1, 1), new Vector2(38, 0), new Vector2(-76, 0));
         RectTransform titlePanelRt = titlePanel.GetComponent<RectTransform>();
         titlePanelRt.offsetMin = new Vector2(74, 0);
         titlePanelRt.offsetMax = new Vector2(-16, 0);
 
-        // 기물 이름 (폰트: 26)
+        // 타이틀 이름 (폰트: 26)
         titleText = CreateTMPText("TitleText", titlePanelRt, font, 26f, FontStyles.Bold, Color.white, TextAlignmentOptions.Left);
+        titleText.enableAutoSizing = true;
+        titleText.fontSizeMin = 16f;
+        titleText.fontSizeMax = 26f;
         RectTransform titleRt = titleText.rectTransform;
         titleRt.anchorMin = new Vector2(0, 0.48f);
         titleRt.anchorMax = new Vector2(1, 1);
         titleRt.offsetMin = titleRt.offsetMax = Vector2.zero;
 
-        // 등급 (폰트: 18)
+        // 등급/분류 (폰트: 18)
         tierText = CreateTMPText("TierText", titlePanelRt, font, 18f, FontStyles.Normal, new Color(0.75f, 0.75f, 0.82f, 1f), TextAlignmentOptions.Left);
+        tierText.enableAutoSizing = true;
+        tierText.fontSizeMin = 12f;
+        tierText.fontSizeMax = 18f;
         RectTransform tierRt = tierText.rectTransform;
         tierRt.anchorMin = new Vector2(0, 0);
         tierRt.anchorMax = new Vector2(1, 0.48f);
@@ -283,15 +360,18 @@ public class PieceCardTooltipView : MonoBehaviour
         portraitFrame = portraitPanel.AddComponent<Image>();
         portraitFrame.sprite = solidWhiteSprite;
         portraitFrame.color = new Color(0.28f, 0.28f, 0.32f, 1f);
+        portraitFrame.raycastTarget = false;
 
         GameObject portraitInner = CreateSubPanel("PortraitInner", portraitPanel.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-2, -2));
         Image portraitInnerImg = portraitInner.AddComponent<Image>();
         portraitInnerImg.sprite = solidWhiteSprite;
         portraitInnerImg.color = new Color(0.1f, 0.1f, 0.12f, 1f);
+        portraitInnerImg.raycastTarget = false;
 
-        GameObject portraitImgObj = CreateSubPanel("PortraitImage", portraitInner.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-8, -8));
+        GameObject portraitImgObj = CreateSubPanel("PortraitImage", portraitInner.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-10, -10));
         portraitImage = portraitImgObj.AddComponent<Image>();
         portraitImage.preserveAspect = true;
+        portraitImage.raycastTarget = false;
 
         // 구분선 2 (Y: -201)
         CreateDividerLine(bodyRt, -201);
@@ -315,11 +395,13 @@ public class PieceCardTooltipView : MonoBehaviour
         Image gridBoxBorder = gridBox.AddComponent<Image>();
         gridBoxBorder.sprite = solidWhiteSprite;
         gridBoxBorder.color = new Color(0.25f, 0.25f, 0.3f, 1f);
+        gridBoxBorder.raycastTarget = false;
 
         GameObject gridInner = CreateSubPanel("GridInner", gridBox.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-3, -3));
         Image gridInnerBg = gridInner.AddComponent<Image>();
         gridInnerBg.sprite = solidWhiteSprite;
         gridInnerBg.color = new Color(0.08f, 0.08f, 0.1f, 1f);
+        gridInnerBg.raycastTarget = false;
 
         // 30개 타일 생성 (열 6, 행 5, 각 33px)
         float tileW = 33f;
@@ -345,15 +427,18 @@ public class PieceCardTooltipView : MonoBehaviour
         }
 
         // 구분선 3 (Y: -411)
-        CreateDividerLine(bodyRt, -411);
+        divider3Object = CreateDividerLine(bodyRt, -411);
 
         // --- 하단 푸터 (Rules & Seal & Flavor) ---
         // Y: -413 ~ -636 (높이: 223px, 바닥 정렬)
         GameObject footerObj = CreateSubPanel("FooterPanel", bodyRt, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 111.5f), new Vector2(0, 223));
-        RectTransform footerRt = footerObj.GetComponent<RectTransform>();
+        footerRectTransform = footerObj.GetComponent<RectTransform>();
 
-        // 특수 룰 텍스트 (상단 55%, 폰트: 20)
-        ruleText = CreateTMPText("RuleText", footerRt, font, 20f, FontStyles.Normal, new Color(0.92f, 0.92f, 0.94f, 1f), TextAlignmentOptions.TopLeft);
+        // 특수 룰 / 메인 설명 텍스트 (상단 55%, 폰트: 20)
+        ruleText = CreateTMPText("RuleText", footerRectTransform, font, 20f, FontStyles.Normal, new Color(0.92f, 0.92f, 0.94f, 1f), TextAlignmentOptions.TopLeft);
+        ruleText.enableAutoSizing = true;
+        ruleText.fontSizeMin = 13f;
+        ruleText.fontSizeMax = 20f;
         RectTransform ruleRt = ruleText.rectTransform;
         ruleRt.anchorMin = new Vector2(0, 0.56f);
         ruleRt.anchorMax = new Vector2(1, 1);
@@ -361,18 +446,22 @@ public class PieceCardTooltipView : MonoBehaviour
         ruleRt.offsetMax = new Vector2(-16, -6);
         ruleText.text = "특수 룰 설명";
 
-        // 인장 슬롯 행 (중간 28%~56%)
-        sealRowObject = CreateSubPanel("SealRow", footerRt, new Vector2(0, 0.28f), new Vector2(1, 0.56f), Vector2.zero, Vector2.zero);
+        // 인장 / 부가 정보 슬롯 행 (중간 28%~56%)
+        sealRowObject = CreateSubPanel("SealRow", footerRectTransform, new Vector2(0, 0.28f), new Vector2(1, 0.56f), Vector2.zero, Vector2.zero);
         RectTransform sealRowRt = sealRowObject.GetComponent<RectTransform>();
         sealRowRt.offsetMin = new Vector2(16, 0);
         sealRowRt.offsetMax = new Vector2(-16, 0);
 
-        GameObject sealIconObj = CreateSubPanel("SealIcon", sealRowRt, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(16, 0), new Vector2(28, 28));
+        GameObject sealIconObj = CreateSubPanel("SealIcon", sealRowRt, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(14, 0), new Vector2(28, 28));
         sealIconImage = sealIconObj.AddComponent<Image>();
         sealIconImage.preserveAspect = true;
+        sealIconImage.raycastTarget = false;
 
-        // 인장 텍스트 (폰트: 18)
+        // 인장 / 부가 정보 텍스트 (폰트: 18)
         sealInfoText = CreateTMPText("SealInfo", sealRowRt, font, 18f, FontStyles.Normal, Color.white, TextAlignmentOptions.Left);
+        sealInfoText.enableAutoSizing = true;
+        sealInfoText.fontSizeMin = 12f;
+        sealInfoText.fontSizeMax = 18f;
         RectTransform sealInfoRt = sealInfoText.rectTransform;
         sealInfoRt.anchorMin = new Vector2(0, 0);
         sealInfoRt.anchorMax = new Vector2(1, 1);
@@ -380,13 +469,18 @@ public class PieceCardTooltipView : MonoBehaviour
         sealInfoRt.offsetMax = Vector2.zero;
 
         // 플레이버 텍스트 (하단 0%~28%, 폰트: 16)
-        flavorText = CreateTMPText("FlavorText", footerRt, font, 16f, FontStyles.Italic, new Color(0.58f, 0.58f, 0.65f, 1f), TextAlignmentOptions.BottomLeft);
+        flavorText = CreateTMPText("FlavorText", footerRectTransform, font, 16f, FontStyles.Italic, new Color(0.58f, 0.58f, 0.65f, 1f), TextAlignmentOptions.BottomLeft);
+        flavorText.enableAutoSizing = true;
+        flavorText.fontSizeMin = 12f;
+        flavorText.fontSizeMax = 16f;
         RectTransform flavorRt = flavorText.rectTransform;
         flavorRt.anchorMin = new Vector2(0, 0);
         flavorRt.anchorMax = new Vector2(1, 0.28f);
         flavorRt.offsetMin = new Vector2(16, 6);
         flavorRt.offsetMax = new Vector2(-16, 0);
         flavorText.text = "플레이버 텍스트";
+
+        isHierarchyInitialized = true;
     }
 
     private GameObject CreateSubPanel(string name, RectTransform parent, Vector2 anchorMin, Vector2 anchorMax, Vector2 anchoredPos, Vector2 sizeDelta)
@@ -401,13 +495,14 @@ public class PieceCardTooltipView : MonoBehaviour
         return go;
     }
 
-    private void CreateDividerLine(RectTransform parent, float yPos)
+    private GameObject CreateDividerLine(RectTransform parent, float yPos)
     {
         GameObject div = CreateSubPanel("Divider", parent, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, yPos), new Vector2(348, 1));
         Image img = div.AddComponent<Image>();
         img.sprite = solidWhiteSprite;
         img.color = new Color(0.22f, 0.22f, 0.26f, 1f);
         img.raycastTarget = false;
+        return div;
     }
 
     private TextMeshProUGUI CreateTMPText(string name, RectTransform parent, TMP_FontAsset font, float size, FontStyles style, Color color, TextAlignmentOptions align)
@@ -425,12 +520,95 @@ public class PieceCardTooltipView : MonoBehaviour
         return tmp;
     }
 
+    private void SetMiniBoardVisible(bool visible)
+    {
+        float cardH = visible ? 640f : 430f;
+        RectTransform.sizeDelta = new Vector2(380f, cardH);
+        if (cardRoot != null)
+        {
+            cardRoot.sizeDelta = new Vector2(380f, cardH);
+        }
+        if (shadowRectTransform != null)
+        {
+            shadowRectTransform.sizeDelta = new Vector2(392f, cardH + 12f);
+        }
+        if (miniBoardContainer != null)
+        {
+            miniBoardContainer.gameObject.SetActive(visible);
+        }
+        if (divider3Object != null)
+        {
+            divider3Object.SetActive(visible);
+        }
+    }
+
+    private void UpdateFooterRowLayout(bool showSealRow, bool showFlavorRow, bool hasSealIcon)
+    {
+        if (sealRowObject != null)
+        {
+            sealRowObject.SetActive(showSealRow);
+        }
+
+        if (flavorText != null)
+        {
+            flavorText.gameObject.SetActive(showFlavorRow);
+        }
+
+        if (sealInfoText != null)
+        {
+            RectTransform sealInfoRt = sealInfoText.rectTransform;
+            sealInfoRt.offsetMin = new Vector2(hasSealIcon ? 36f : 0f, 0f);
+            sealInfoRt.offsetMax = Vector2.zero;
+        }
+
+        if (ruleText != null)
+        {
+            RectTransform ruleRt = ruleText.rectTransform;
+            float minAnchorY = 0.06f;
+            if (showSealRow && showFlavorRow)
+            {
+                minAnchorY = 0.56f;
+            }
+            else if (showSealRow || showFlavorRow)
+            {
+                minAnchorY = 0.30f;
+            }
+
+            ruleRt.anchorMin = new Vector2(0f, minAnchorY);
+            ruleRt.anchorMax = new Vector2(1f, 1f);
+            ruleRt.offsetMin = new Vector2(16f, 0f);
+            ruleRt.offsetMax = new Vector2(-16f, -6f);
+        }
+
+        if (sealRowObject != null && showSealRow)
+        {
+            RectTransform sealRowRt = sealRowObject.GetComponent<RectTransform>();
+            if (showFlavorRow)
+            {
+                sealRowRt.anchorMin = new Vector2(0f, 0.28f);
+                sealRowRt.anchorMax = new Vector2(1f, 0.56f);
+            }
+            else
+            {
+                sealRowRt.anchorMin = new Vector2(0f, 0.04f);
+                sealRowRt.anchorMax = new Vector2(1f, 0.30f);
+            }
+            sealRowRt.offsetMin = new Vector2(16f, 0f);
+            sealRowRt.offsetMax = new Vector2(-16f, 0f);
+        }
+    }
+
     /// <summary>
-    /// 카드 데이터 설정 및 미니 보드 렌더링
+    /// 기물 카드 데이터 설정 및 미니 보드 렌더링
     /// </summary>
     public void SetPieceData(PieceType pieceType, SealData attachedSeal, bool isEnemy)
     {
         EnsureUIHierarchy();
+        SetMiniBoardVisible(true);
+        if (boardLabel != null)
+        {
+            boardLabel.text = "── 6×5 MOVEMENT BOARD ──";
+        }
 
         // 1. 체스 기물 가치 (점수)
         int chessValue = PieceController.GetChessValueForType(pieceType);
@@ -462,9 +640,22 @@ public class PieceCardTooltipView : MonoBehaviour
         }
 
         // 3. 중앙 포트레이트 일러스트
-        if (portraitImage != null && PieceSpriteData.Instance != null)
+        if (portraitImage != null)
         {
-            portraitImage.sprite = PieceSpriteData.Instance.GetSprite(pieceType, isEnemy);
+            Sprite pieceSprite = PieceSpriteData.Instance != null
+                ? PieceSpriteData.Instance.GetSprite(pieceType, isEnemy)
+                : null;
+            if (pieceSprite == null && PieceManager.Instance != null)
+            {
+                pieceSprite = PieceManager.Instance.GetSpriteFor(pieceType);
+            }
+            if (pieceSprite == null)
+            {
+                PieceData pd = Resources.Load<PieceData>($"Piece/Piece_{pieceType}");
+                if (pd != null) pieceSprite = pd.icon;
+            }
+            portraitImage.sprite = pieceSprite != null ? pieceSprite : defaultEmblemSprite;
+            portraitImage.color = Color.white;
             portraitImage.enabled = portraitImage.sprite != null;
         }
 
@@ -478,16 +669,17 @@ public class PieceCardTooltipView : MonoBehaviour
         }
 
         // 6. 장착된 인장 정보
+        bool hasSealIcon = false;
         if (sealRowObject != null)
         {
             if (attachedSeal != null)
             {
-                sealRowObject.SetActive(true);
+                hasSealIcon = attachedSeal.icon != null;
                 if (sealIconImage != null)
                 {
                     sealIconImage.sprite = attachedSeal.icon;
                     sealIconImage.preserveAspect = true;
-                    sealIconImage.enabled = attachedSeal.icon != null;
+                    sealIconImage.enabled = hasSealIcon;
                 }
                 if (sealInfoText != null)
                 {
@@ -496,7 +688,6 @@ public class PieceCardTooltipView : MonoBehaviour
             }
             else
             {
-                sealRowObject.SetActive(true);
                 if (sealIconImage != null) sealIconImage.enabled = false;
                 if (sealInfoText != null)
                 {
@@ -512,7 +703,368 @@ public class PieceCardTooltipView : MonoBehaviour
             string flavor = pieceData != null && !string.IsNullOrEmpty(pieceData.flavorText)
                 ? pieceData.flavorText
                 : GetDefaultFlavorText(pieceType);
-            flavorText.text = $"\"{flavor}\"";
+            flavorText.text = FormatFlavorText(flavor);
+        }
+
+        UpdateFooterRowLayout(true, true, hasSealIcon);
+    }
+
+    /// <summary>
+    /// 유물 카드 데이터 설정
+    /// </summary>
+    public void SetArtifactData(ArtifactData artifact, int overrideLevel = -1)
+    {
+        if (artifact == null) return;
+
+        EnsureUIHierarchy();
+        SetMiniBoardVisible(false);
+
+        int level = overrideLevel > 0 ? overrideLevel : artifact.Level;
+
+        if (valueText != null)
+        {
+            if (artifact.IsActive)
+            {
+                valueText.text = artifact.StackCount > 1 ? $"×{artifact.StackCount}" : "A";
+            }
+            else
+            {
+                valueText.text = artifact.MaxLevel > 1 ? $"L{level}" : "★";
+            }
+        }
+
+        if (titleText != null)
+        {
+            titleText.text = artifact.artifactName;
+        }
+
+        int rarityTier = artifact.rarity switch
+        {
+            ArtifactRarity.Legendary => 4,
+            ArtifactRarity.Epic => 3,
+            ArtifactRarity.Rare => 2,
+            _ => 1
+        };
+        if (tierText != null)
+        {
+            string stars = new string('★', rarityTier);
+            string typeLabel = artifact.IsActive
+                ? "액티브 유물"
+                : (artifact.MaxLevel > 1 ? $"패시브 유물 Lv.{level}" : "패시브 유물");
+            tierText.text = $"<color=#FFFFFF>{stars}</color>  <size=85%>{artifact.rarity} ({typeLabel})</size>";
+        }
+
+        if (portraitImage != null)
+        {
+            portraitImage.sprite = artifact.icon != null ? artifact.icon : defaultEmblemSprite;
+            portraitImage.color = Color.white;
+            portraitImage.enabled = true;
+        }
+
+        if (ruleText != null)
+        {
+            ruleText.text = artifact.GetDescription(level);
+        }
+
+        bool hasIcon = artifact.icon != null;
+        if (sealIconImage != null)
+        {
+            sealIconImage.sprite = artifact.icon;
+            sealIconImage.preserveAspect = true;
+            sealIconImage.enabled = hasIcon;
+        }
+
+        if (sealInfoText != null)
+        {
+            if (artifact.IsActive)
+            {
+                string stackLabel = artifact.StackCount > 1 ? $" (보유 {artifact.StackCount}개)" : string.Empty;
+                sealInfoText.text = $"<color=#FFFFFF>[액티브 사용{stackLabel}]</color> <size=90%>내 턴에 클릭하여 발동 (1회용, 턴 소모)</size>";
+            }
+            else if (artifact.MaxLevel > 1)
+            {
+                sealInfoText.text = $"<color=#FFFFFF>[강화 등급]</color> <size=90%>현재 Lv.{level} / 최대 Lv.{artifact.MaxLevel}</size>";
+            }
+            else
+            {
+                sealInfoText.text = "<color=#FFFFFF>[패시브 효과]</color> <size=90%>보유하는 동안 상시 발동</size>";
+            }
+        }
+
+        bool hasFlavor = !string.IsNullOrEmpty(artifact.flavorText);
+        if (flavorText != null && hasFlavor)
+        {
+            flavorText.text = FormatFlavorText(artifact.flavorText);
+        }
+
+        UpdateFooterRowLayout(true, hasFlavor, hasIcon);
+    }
+
+    /// <summary>
+    /// 인장 카드 데이터 설정 (이동 추가/변경 인장일 경우 6x5 보드 표시)
+    /// </summary>
+    public void SetSealData(SealData seal)
+    {
+        if (seal == null) return;
+
+        EnsureUIHierarchy();
+
+        List<Vector2Int> sealMoveOffsets = GetStandaloneSealPreviewOffsets(seal, out bool replacesMovement);
+        bool hasMovementBoard = sealMoveOffsets.Count > 0;
+        SetMiniBoardVisible(hasMovementBoard);
+
+        if (hasMovementBoard)
+        {
+            if (boardLabel != null)
+            {
+                boardLabel.text = replacesMovement
+                    ? "── 6×5 SEAL MOVE (이동 변경) ──"
+                    : "── 6×5 SEAL MOVE (이동 추가) ──";
+            }
+            RenderSealOnlyMiniBoard(sealMoveOffsets);
+        }
+
+        int rarityTier = seal.rarity switch
+        {
+            SealRarity.Legendary => 4,
+            SealRarity.Epic => 3,
+            SealRarity.Rare => 2,
+            _ => 1
+        };
+
+        if (valueText != null)
+        {
+            valueText.text = "◈";
+        }
+
+        if (titleText != null)
+        {
+            titleText.text = seal.sealName;
+        }
+
+        if (tierText != null)
+        {
+            string stars = new string('★', rarityTier);
+            tierText.text = $"<color=#FFFFFF>{stars}</color>  <size=85%>{seal.rarity} (인장)</size>";
+        }
+
+        if (portraitImage != null)
+        {
+            portraitImage.sprite = seal.icon != null ? seal.icon : defaultEmblemSprite;
+            portraitImage.color = Color.white;
+            portraitImage.enabled = true;
+        }
+
+        if (ruleText != null)
+        {
+            ruleText.text = seal.description;
+        }
+
+        bool hasIcon = seal.icon != null;
+        if (sealIconImage != null)
+        {
+            sealIconImage.sprite = seal.icon;
+            sealIconImage.preserveAspect = true;
+            sealIconImage.enabled = hasIcon;
+        }
+
+        if (sealInfoText != null)
+        {
+            string compatibleList = "모든 기물";
+            if (seal.compatiblePieces != null && seal.compatiblePieces.Count > 0)
+            {
+                List<string> names = new List<string>();
+                foreach (PieceType pt in seal.compatiblePieces)
+                {
+                    names.Add(PieceKoreanNames.TryGetValue(pt, out string kor) ? kor : pt.ToString());
+                }
+                compatibleList = string.Join(", ", names);
+            }
+            sealInfoText.text = $"<color=#FFFFFF>[장착 가능]</color> <size=90%>{compatibleList}</size>";
+        }
+
+        bool hasFlavor = !string.IsNullOrEmpty(seal.flavorText);
+        if (flavorText != null && hasFlavor)
+        {
+            flavorText.text = FormatFlavorText(seal.flavorText);
+        }
+
+        UpdateFooterRowLayout(true, hasFlavor, hasIcon);
+    }
+
+    /// <summary>
+    /// 일반 툴팁 카드 데이터 설정 (도감 미해금 항목, 업적, 카운터 등)
+    /// </summary>
+    public void SetGeneralCardData(
+        string title,
+        string description,
+        string flavor = "",
+        Sprite icon = null,
+        string tierOrSubtitle = "",
+        string badgeText = "★",
+        string subInfoText = "",
+        Sprite subInfoIcon = null,
+        Color? portraitColor = null)
+    {
+        EnsureUIHierarchy();
+        SetMiniBoardVisible(false);
+
+        string resolvedTitle = title;
+        string resolvedDescription = description;
+        if (string.IsNullOrWhiteSpace(resolvedTitle) && !string.IsNullOrWhiteSpace(resolvedDescription))
+        {
+            int colonIdx = resolvedDescription.IndexOf(':');
+            if (colonIdx > 0 && colonIdx < 20)
+            {
+                resolvedTitle = resolvedDescription.Substring(0, colonIdx).Trim();
+            }
+            else
+            {
+                resolvedTitle = "상세 정보";
+            }
+        }
+
+        if (valueText != null)
+        {
+            valueText.text = string.IsNullOrEmpty(badgeText) ? "★" : badgeText;
+        }
+
+        if (titleText != null)
+        {
+            titleText.text = string.IsNullOrEmpty(resolvedTitle) ? "정보" : resolvedTitle;
+        }
+
+        if (tierText != null)
+        {
+            tierText.text = string.IsNullOrEmpty(tierOrSubtitle)
+                ? "<color=#FFFFFF>★</color>  <size=85%>INFO</size>"
+                : tierOrSubtitle;
+        }
+
+        if (portraitImage != null)
+        {
+            portraitImage.sprite = icon != null ? icon : defaultEmblemSprite;
+            portraitImage.color = portraitColor ?? Color.white;
+            portraitImage.enabled = true;
+        }
+
+        if (ruleText != null)
+        {
+            ruleText.text = resolvedDescription ?? string.Empty;
+        }
+
+        bool hasSubInfo = !string.IsNullOrEmpty(subInfoText);
+        bool hasSubIcon = hasSubInfo && subInfoIcon != null;
+        if (hasSubInfo)
+        {
+            if (sealIconImage != null)
+            {
+                sealIconImage.sprite = subInfoIcon;
+                sealIconImage.preserveAspect = true;
+                sealIconImage.enabled = hasSubIcon;
+            }
+            if (sealInfoText != null)
+            {
+                sealInfoText.text = subInfoText;
+            }
+        }
+        else if (sealIconImage != null)
+        {
+            sealIconImage.enabled = false;
+        }
+
+        bool hasFlavor = !string.IsNullOrEmpty(flavor);
+        if (flavorText != null && hasFlavor)
+        {
+            flavorText.text = FormatFlavorText(flavor);
+        }
+
+        UpdateFooterRowLayout(hasSubInfo, hasFlavor, hasSubIcon);
+    }
+
+    private static string FormatFlavorText(string flavor)
+    {
+        if (string.IsNullOrWhiteSpace(flavor)) return string.Empty;
+        string trimmed = flavor.Trim();
+        if (trimmed.StartsWith("\"") && trimmed.EndsWith("\""))
+        {
+            return trimmed;
+        }
+        return $"\"{trimmed}\"";
+    }
+
+    private static List<Vector2Int> GetStandaloneSealPreviewOffsets(SealData seal, out bool replacesMovement)
+    {
+        replacesMovement = false;
+        if (seal == null || seal.sealPrefab == null)
+        {
+            return new List<Vector2Int>();
+        }
+
+        SealBase previewSeal = seal.sealPrefab.GetComponent<SealBase>();
+        if (previewSeal == null)
+        {
+            return new List<Vector2Int>();
+        }
+
+        replacesMovement = previewSeal.ReplacesMovementPreview;
+        PieceType samplePiece = (seal.compatiblePieces != null && seal.compatiblePieces.Count > 0)
+            ? seal.compatiblePieces[0]
+            : PieceType.King;
+
+        List<Vector2Int> offsets = replacesMovement
+            ? previewSeal.GetPreviewMovementOffsets(samplePiece, false)
+            : previewSeal.GetPreviewAdditionalMovementOffsets(samplePiece, false);
+
+        return offsets ?? new List<Vector2Int>();
+    }
+
+    private void RenderSealOnlyMiniBoard(List<Vector2Int> sealOffsets)
+    {
+        int originCol = 2;
+        int originRow = 2;
+        HashSet<Vector2Int> sealTiles = new HashSet<Vector2Int>();
+
+        if (sealOffsets != null)
+        {
+            foreach (Vector2Int off in sealOffsets)
+            {
+                int c = originCol + off.x;
+                int r = originRow + off.y;
+                if (c >= 0 && c < BoardCols && r >= 0 && r < BoardRows)
+                {
+                    sealTiles.Add(new Vector2Int(c, r));
+                }
+            }
+        }
+
+        Color darkChecker = new Color(0.13f, 0.13f, 0.16f, 1f);
+        Color lightChecker = new Color(0.21f, 0.21f, 0.25f, 1f);
+
+        for (int r = 0; r < BoardRows; r++)
+        {
+            for (int c = 0; c < BoardCols; c++)
+            {
+                Image cell = boardCells[c, r];
+                if (cell == null) continue;
+
+                Vector2Int pos = new Vector2Int(c, r);
+                if (c == originCol && r == originRow)
+                {
+                    cell.sprite = originMarkerSprite;
+                    cell.color = Color.white;
+                }
+                else if (sealTiles.Contains(pos))
+                {
+                    cell.sprite = hatchedPatternSprite;
+                    cell.color = Color.white;
+                }
+                else
+                {
+                    cell.sprite = solidWhiteSprite;
+                    cell.color = ((c + r) % 2 == 0) ? darkChecker : lightChecker;
+                }
+            }
         }
     }
 
@@ -646,7 +1198,7 @@ public class PieceCardTooltipView : MonoBehaviour
         float minX = float.MaxValue, maxX = float.MinValue;
         float minY = float.MaxValue, maxY = float.MinValue;
 
-        // 2. 소스 기물의 정확한 스크린 바운즈(좌우/상하 끝 지점) 측정
+        // 2. 소스 기물/UI의 정확한 스크린 바운즈(좌우/상하 끝 지점) 측정
         RectTransform sourceRt = source != null ? source.GetComponent<RectTransform>() : null;
         if (sourceRt != null)
         {
@@ -666,7 +1218,18 @@ public class PieceCardTooltipView : MonoBehaviour
         if (float.IsInfinity(minX) || float.IsInfinity(maxX) || maxX <= minX)
         {
             Vector2 center = sourceWorldOrScreenPos;
-            if (sourceCam != null && (Mathf.Abs(sourceWorldOrScreenPos.z) > 0.01f || (sourceWorldOrScreenPos.x < 100f && sourceWorldOrScreenPos.y < 100f)))
+            if (source == null && sourceWorldOrScreenPos.sqrMagnitude < 0.01f)
+            {
+                if (UnityEngine.InputSystem.Mouse.current != null)
+                {
+                    center = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+                }
+                else
+                {
+                    center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+                }
+            }
+            else if (sourceCam != null && (Mathf.Abs(sourceWorldOrScreenPos.z) > 0.01f || (sourceWorldOrScreenPos.x < 100f && sourceWorldOrScreenPos.y < 100f)))
             {
                 center = sourceCam.WorldToScreenPoint(sourceWorldOrScreenPos);
             }
@@ -680,17 +1243,19 @@ public class PieceCardTooltipView : MonoBehaviour
         float screenW = Screen.width;
         float screenH = Screen.height;
 
-        float cardW = (cardRoot != null ? cardRoot.rect.width : 380f) * scaleFactor;
-        float cardH = (cardRoot != null ? cardRoot.rect.height : 640f) * scaleFactor;
+        float rawW = cardRoot != null && cardRoot.sizeDelta.x > 0f ? cardRoot.sizeDelta.x : 380f;
+        float rawH = cardRoot != null && cardRoot.sizeDelta.y > 0f ? cardRoot.sizeDelta.y : 640f;
+        float cardW = rawW * scaleFactor;
+        float cardH = rawH * scaleFactor;
 
-        // 기물 끝에서부터 띄울 간격
+        // 대상 끝에서부터 띄울 간격
         float gap = 24f * scaleFactor;
         float margin = 16f * scaleFactor;
 
-        // 3. 기물의 오른쪽 끝(maxX)보다 gap만큼 더 옆에 카드의 왼쪽 끝이 오도록 배치
+        // 3. 대상의 오른쪽 끝(maxX)보다 gap만큼 더 옆에 카드의 왼쪽 끝이 오도록 배치
         float targetX = maxX + gap + (cardW * 0.5f);
 
-        // 만약 오른쪽으로 배치했을 때 카드가 화면 밖으로 벗어난다면, 기물의 왼쪽 끝(minX)보다 gap만큼 더 왼쪽으로 배치
+        // 만약 오른쪽으로 배치했을 때 카드가 화면 밖으로 벗어난다면, 대상의 왼쪽 끝(minX)보다 gap만큼 더 왼쪽으로 배치
         if (targetX + (cardW * 0.5f) > screenW - margin)
         {
             float leftPlacementX = minX - gap - (cardW * 0.5f);
@@ -705,7 +1270,7 @@ public class PieceCardTooltipView : MonoBehaviour
             }
         }
 
-        // 4. Y축 정렬: 기물 중심 높이에 맞추되 화면 상하로 잘리지 않게 클램핑
+        // 4. Y축 정렬: 대상 중심 높이에 맞추되 화면 상하로 잘리지 않게 클램핑
         float pieceCenterY = (minY + maxY) * 0.5f;
         float targetY = Mathf.Clamp(pieceCenterY, margin + (cardH * 0.5f), screenH - margin - (cardH * 0.5f));
 
@@ -718,11 +1283,11 @@ public class PieceCardTooltipView : MonoBehaviour
     public void Show()
     {
         EnsureUIHierarchy();
-        gameObject.SetActive(true);
 
         popScaleTween?.Kill();
         popFadeTween?.Kill();
 
+        gameObject.SetActive(true);
         transform.localScale = Vector3.one * 0.88f;
         canvasGroup.alpha = 0f;
 
@@ -736,23 +1301,22 @@ public class PieceCardTooltipView : MonoBehaviour
     }
 
     /// <summary>
-    /// 닫기 애니메이션
+    /// 즉시 닫기 (호버 해제 시 잔류 버그 방지)
     /// </summary>
     public void Hide()
     {
         popScaleTween?.Kill();
         popFadeTween?.Kill();
 
-        popScaleTween = transform.DOScale(Vector3.one * 0.92f, 0.12f)
-            .SetEase(Ease.InQuad)
-            .SetUpdate(true);
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 0f;
+        }
 
-        popFadeTween = canvasGroup.DOFade(0f, 0.12f)
-            .SetUpdate(true)
-            .OnComplete(() =>
-            {
-                gameObject.SetActive(false);
-            });
+        if (gameObject.activeSelf)
+        {
+            gameObject.SetActive(false);
+        }
     }
 
     private string GetDefaultFlavorText(PieceType type)

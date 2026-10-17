@@ -132,7 +132,7 @@ public class AchievementEntryView : MonoBehaviour
                 }
             }
 
-            progressTooltipTrigger.SetProgressText(progressTextValue);
+            progressTooltipTrigger.SetProgressText(progressTextValue, achievement);
         }
 
         // color the difficulty icon according to the difficulty value

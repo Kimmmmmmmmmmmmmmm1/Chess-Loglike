@@ -35,6 +35,8 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
     private string tooltipDescription;
     private string tooltipFlavorText;
     private PieceData currentPieceData;
+    private ArtifactData currentArtifactData;
+    private SealData currentSealData;
     private CollectionDiscoveryState currentState;
     private TextMeshProUGUI iconFallbackLabel;
     private TextMeshProUGUI typeTagLabel;
@@ -56,6 +58,8 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
 
         NormalizeCardLayout();
         currentPieceData = null;
+        currentArtifactData = artifact;
+        currentSealData = null;
         currentState = state;
 
         bool hasSeen = state >= CollectionDiscoveryState.Seen;
@@ -105,6 +109,8 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
 
         NormalizeCardLayout();
         currentPieceData = null;
+        currentArtifactData = null;
+        currentSealData = seal;
         currentState = state;
 
         bool hasSeen = state >= CollectionDiscoveryState.Seen;
@@ -151,6 +157,8 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
 
         NormalizeCardLayout();
         currentPieceData = piece;
+        currentArtifactData = null;
+        currentSealData = null;
         currentState = state;
 
         bool hasSeen = state >= CollectionDiscoveryState.Seen;
@@ -209,18 +217,53 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
             return;
         }
 
-        if (currentPieceData != null && currentState == CollectionDiscoveryState.Acquired)
+        if (currentState == CollectionDiscoveryState.Acquired)
         {
-            TooltipManager.Instance.ShowPieceTooltip(currentPieceData.pieceType, null, transform.position, gameObject);
-            return;
+            if (currentPieceData != null)
+            {
+                TooltipManager.Instance.ShowPieceTooltip(currentPieceData.pieceType, null, transform.position, gameObject);
+                return;
+            }
+            if (currentArtifactData != null)
+            {
+                TooltipManager.Instance.ShowArtifactTooltip(currentArtifactData, transform.position, gameObject);
+                return;
+            }
+            if (currentSealData != null)
+            {
+                TooltipManager.Instance.ShowSealTooltip(currentSealData, transform.position, gameObject);
+                return;
+            }
         }
 
-        TooltipManager.Instance.ShowTooltip(tooltipTitle, tooltipDescription, transform.position, tooltipFlavorText);
+        Sprite entryIcon = iconImage != null ? iconImage.sprite : null;
+        Color? entryColor = iconImage != null ? iconImage.color : null;
+        string categoryLabel = currentPieceData != null ? "기물" : (currentArtifactData != null ? "유물" : "인장");
+        string stateLabel = currentState == CollectionDiscoveryState.Seen ? "발견됨" : "미발견";
+        string subtitle = $"<color=#FFFFFF>★</color>  <size=85%>도감 · {categoryLabel} ({stateLabel})</size>";
+        string badge = currentState == CollectionDiscoveryState.Seen ? "★" : "?";
+
+        TooltipManager.Instance.ShowTooltip(
+            tooltipTitle,
+            tooltipDescription,
+            transform.position,
+            tooltipFlavorText,
+            TooltipManager.TooltipPriorityDefault,
+            gameObject,
+            entryIcon,
+            subtitle,
+            badge,
+            entryColor);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        TooltipManager.Instance?.HideTooltip();
+        TooltipManager.Instance?.HideTooltip(gameObject);
+    }
+
+    private void OnDisable()
+    {
+        TooltipManager.Instance?.HideTooltip(gameObject);
     }
 
     private void NormalizeCardLayout()

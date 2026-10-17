@@ -391,23 +391,19 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             }
             else if (type == RewardType.Artifact && artifactReward != null)
             {
-                TooltipManager.Instance.ShowTooltip(
-                    artifactReward.artifactName,
-                    artifactReward.description,
+                TooltipManager.Instance.ShowArtifactTooltip(
+                    artifactReward,
                     transform.position,
-                    $"유물 (Lv.{artifactReward.Level})",
-                    TooltipManager.TooltipPriorityDefault,
-                    gameObject);
+                    gameObject,
+                    TooltipManager.TooltipPriorityDefault);
             }
             else if (type == RewardType.Seal && attachedSeal != null)
             {
-                TooltipManager.Instance.ShowTooltip(
-                    attachedSeal.sealName,
-                    attachedSeal.description,
+                TooltipManager.Instance.ShowSealTooltip(
+                    attachedSeal,
                     transform.position,
-                    $"인장 ({attachedSeal.rarity})",
-                    TooltipManager.TooltipPriorityDefault,
-                    gameObject);
+                    gameObject,
+                    TooltipManager.TooltipPriorityDefault);
             }
         }
     }

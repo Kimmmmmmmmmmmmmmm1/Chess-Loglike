@@ -46,22 +46,37 @@ public class SealTooltipHandler : MonoBehaviour, IPointerEnterHandler, IPointerE
         return desc;
     }
 
+    private bool HasParentPieceCardHandler()
+    {
+        return GetComponentInParent<PieceController>() != null
+            || GetComponentInParent<ShopPieceSlot>() != null
+            || GetComponentInParent<RewardButton>() != null;
+    }
+
     public void OnPointerEnter(PointerEventData eventData)
     {
+        if (HasParentPieceCardHandler())
+        {
+            return;
+        }
+
         if (sealData != null && TooltipManager.Instance != null)
         {
-            TooltipManager.Instance.ShowTooltip(
-                sealData.sealName,
-                BuildDescription(),
+            TooltipManager.Instance.ShowSealTooltip(
+                sealData,
                 transform.position,
-                sealData.flavorText,
-                TooltipManager.TooltipPrioritySeal,
-                gameObject);
+                gameObject,
+                TooltipManager.TooltipPrioritySeal);
         }
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        if (HasParentPieceCardHandler())
+        {
+            return;
+        }
+
         if (TooltipManager.Instance != null)
         {
             TooltipManager.Instance.HideTooltip(gameObject);
@@ -70,6 +85,11 @@ public class SealTooltipHandler : MonoBehaviour, IPointerEnterHandler, IPointerE
 
     private void OnDisable()
     {
+        if (HasParentPieceCardHandler())
+        {
+            return;
+        }
+
         if (TooltipManager.Instance != null)
         {
             TooltipManager.Instance.HideTooltip(gameObject);

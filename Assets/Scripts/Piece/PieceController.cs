@@ -663,6 +663,11 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
         }
 
+        if (TooltipManager.Instance != null)
+        {
+            TooltipManager.Instance.HideTooltip(gameObject);
+        }
+
         // 상점 상태일 때 판매 버튼 숨기기 처리
         if (activeSellButton != null)
         {
@@ -671,18 +676,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             {
                 return;
             }
-            // 마우스가 기물 자신 또는 기물의 자식(그림자, 기물 이미지, 인장 등)으로 이동했다면 숨기지 않음
-            if (eventData.pointerEnter != null && (eventData.pointerEnter == gameObject || eventData.pointerEnter.transform.IsChildOf(transform)))
-            {
-                return;
-            }
             // 즉시 닫지 않고 지연을 줌 (버튼으로 이동할 시간 확보)
             activeSellButton.Close(0.25f);
-        }
-
-        if (TooltipManager.Instance != null)
-        {
-            TooltipManager.Instance.HideTooltip(gameObject);
         }
 
         if (isEnemy && PieceFlickLauncher.IsFlickMode)

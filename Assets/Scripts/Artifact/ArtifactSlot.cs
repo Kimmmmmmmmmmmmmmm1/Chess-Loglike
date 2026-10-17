@@ -176,10 +176,7 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
     {
         if (data != null && TooltipManager.Instance != null)
         {
-            string title = data.GetTooltipTitle();
-            string description = data.GetTooltipDescription();
-
-            TooltipManager.Instance.ShowTooltip(title, description, transform.position, data.flavorText, TooltipManager.TooltipPriorityDefault, gameObject);
+            TooltipManager.Instance.ShowArtifactTooltip(data, transform.position, gameObject, TooltipManager.TooltipPriorityDefault);
         }
     }
 
@@ -190,6 +187,8 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             TooltipManager.Instance.HideTooltip(gameObject);
         }
     }
+
+    private void OnDisable() => HideTooltip();
 
     public void OnPointerEnter(PointerEventData eventData) => ShowTooltip();
 

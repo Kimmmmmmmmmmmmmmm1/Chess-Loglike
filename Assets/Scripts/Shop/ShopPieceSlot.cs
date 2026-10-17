@@ -563,23 +563,19 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         {
             if (isArtifact && artifactData != null)
             {
-                TooltipManager.Instance.ShowTooltip(
-                    artifactData.GetTooltipTitle(),
-                    artifactData.GetTooltipDescription(),
+                TooltipManager.Instance.ShowArtifactTooltip(
+                    artifactData,
                     transform.position,
-                    artifactData.flavorText,
-                    TooltipManager.TooltipPriorityDefault,
-                    gameObject);
+                    gameObject,
+                    TooltipManager.TooltipPriorityDefault);
             }
             else if (isStandaloneSeal && standaloneSeal != null)
             {
-                TooltipManager.Instance.ShowTooltip(
-                    standaloneSeal.sealName,
-                    SealTooltipHandler.BuildDescription(standaloneSeal),
+                TooltipManager.Instance.ShowSealTooltip(
+                    standaloneSeal,
                     transform.position,
-                    standaloneSeal.flavorText,
-                    TooltipManager.TooltipPriorityDefault,
-                    gameObject);
+                    gameObject,
+                    TooltipManager.TooltipPriorityDefault);
             }
             else
             {

@@ -182,7 +182,7 @@ public class ShopArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExi
 
         if (artifactData != null && TooltipManager.Instance != null)
         {
-            TooltipManager.Instance.ShowTooltip(artifactData.GetTooltipTitle(), artifactData.GetTooltipDescription(), transform.position, artifactData.flavorText);
+            TooltipManager.Instance.ShowArtifactTooltip(artifactData, transform.position, gameObject, TooltipManager.TooltipPriorityDefault);
         }
     }
 
@@ -190,7 +190,15 @@ public class ShopArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExi
     {
         if (TooltipManager.Instance != null)
         {
-            TooltipManager.Instance.HideTooltip();
+            TooltipManager.Instance.HideTooltip(gameObject);
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (TooltipManager.Instance != null)
+        {
+            TooltipManager.Instance.HideTooltip(gameObject);
         }
     }
 }

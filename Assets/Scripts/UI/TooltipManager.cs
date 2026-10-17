@@ -22,6 +22,15 @@ public class TooltipManager : PersistentManagerBase
     [SerializeField] private GameObject pieceCardTooltipPrefab;
     [SerializeField] private float pieceCardHoverDelay = 1.0f;
     [SerializeField] private Vector3 tooltipOffset = new Vector3(20, 20, 0);
+    private enum PendingCardKind
+    {
+        None,
+        Piece,
+        Artifact,
+        Seal,
+        General
+    }
+
     private RectTransform tooltipRect;
     private Canvas parentCanvas;
     private GameObject runtimeTooltipCanvas;
@@ -30,12 +39,18 @@ public class TooltipManager : PersistentManagerBase
     private Coroutine pendingTooltipCoroutine;
     private GameObject pendingTooltipSource;
     private int pendingTooltipPriority = int.MinValue;
+    private PendingCardKind pendingCardKind = PendingCardKind.None;
     private string pendingTooltipTitle = string.Empty;
     private string pendingTooltipDescription = string.Empty;
     private string pendingTooltipFlavorText = string.Empty;
-    private bool pendingIsPieceCard;
+    private Sprite pendingTooltipIcon;
+    private string pendingTooltipSubtitle = string.Empty;
+    private string pendingTooltipBadgeText = "★";
+    private Color? pendingTooltipIconColor;
     private PieceType pendingPieceType;
     private SealData pendingSealData;
+    private ArtifactData pendingArtifactData;
+    private int pendingArtifactLevel = -1;
     private bool pendingIsEnemy;
     private bool isTooltipVisible;
     private bool isPieceCardActive;
@@ -120,6 +135,11 @@ public class TooltipManager : PersistentManagerBase
 
         if (pieceCardTooltipView != null)
         {
+            if (pieceCardTooltipView.GetComponentInParent<Canvas>() == null)
+            {
+                GameObject canvasObj = GetOrCreateTooltipCanvas();
+                pieceCardTooltipView.transform.SetParent(canvasObj.transform, false);
+            }
             pieceCardTooltipView.EnsureUIHierarchy();
             pieceCardTooltipView.gameObject.SetActive(false);
         }
@@ -219,9 +239,35 @@ public class TooltipManager : PersistentManagerBase
 
     private void Update()
     {
+        if (PieceController.IsAnyDragging)
+        {
+            if (isTooltipVisible || pendingTooltipCoroutine != null)
+            {
+                HideTooltip();
+            }
+            return;
+        }
+
+        if (pendingTooltipCoroutine != null && pendingTooltipSource != null)
+        {
+            if (!pendingTooltipSource.activeInHierarchy || !IsPointerOverSource(pendingTooltipSource))
+            {
+                CancelPendingTooltip();
+            }
+        }
+
+        if (isTooltipVisible)
+        {
+            if (activeTooltipSource != null && (!activeTooltipSource.activeInHierarchy || !IsPointerOverSource(activeTooltipSource)))
+            {
+                HideTooltip();
+                return;
+            }
+        }
+
         if (isPieceCardActive)
         {
-            return; // 마우스 이동 시 보드를 가리지 않도록 위치 고정 유지
+            return; // 카드 툴팁 활성 시 보드나 대상을 가리지 않도록 위치 고정 유지
         }
 
         if (tooltipView != null && tooltipView.gameObject.activeSelf)
@@ -231,7 +277,17 @@ public class TooltipManager : PersistentManagerBase
         }
     }
 
-    public void ShowTooltip(string title, string description, Vector3 position, string flavorText = "", int priority = TooltipPriorityDefault, GameObject source = null)
+    public void ShowTooltip(
+        string title,
+        string description,
+        Vector3 position,
+        string flavorText = "",
+        int priority = TooltipPriorityDefault,
+        GameObject source = null,
+        Sprite icon = null,
+        string subtitle = "",
+        string badgeText = "★",
+        Color? iconColor = null)
     {
         if (source != null)
         {
@@ -253,13 +309,22 @@ public class TooltipManager : PersistentManagerBase
             return;
         }
 
-        if (tooltipView == null)
+        if (pieceCardTooltipView == null)
         {
             InitTooltipView();
-            if (tooltipView == null) return;
+            if (pieceCardTooltipView == null) return;
         }
 
-        ScheduleTooltip(title, description, flavorText, position, priority, source);
+        if (icon == null && source != null)
+        {
+            icon = ExtractIconFromSource(source, out Color extractedColor);
+            if (!iconColor.HasValue && icon != null)
+            {
+                iconColor = extractedColor;
+            }
+        }
+
+        ScheduleGeneralCardTooltip(title, description, flavorText, position, priority, source, icon, subtitle, badgeText, iconColor);
     }
 
     /// <summary>
@@ -287,22 +352,135 @@ public class TooltipManager : PersistentManagerBase
     }
 
     /// <summary>
-    /// 아티팩트 데이터를 받아서 레벨에 맞게 동적 설명을 표시하는 메서드
+    /// 아티팩트 데이터를 받아서 일러스트가 있는 유물 카드 툴팁으로 표시하는 메서드
     /// </summary>
     public void ShowArtifactTooltip(ArtifactData artifact, int level = 1)
+    {
+        ShowArtifactTooltip(artifact, Vector3.zero, null, TooltipPriorityDefault, level);
+    }
+
+    public void ShowArtifactTooltip(ArtifactData artifact, Vector3 position, GameObject source = null, int priority = TooltipPriorityDefault, int overrideLevel = -1)
     {
         if (artifact == null)
         {
             return;
         }
 
-        if (tooltipView == null)
+        if (isTooltipVisible && source != activeTooltipSource && priority < activeTooltipPriority)
         {
-            InitTooltipView();
-            if (tooltipView == null) return;
+            return;
         }
 
-        ScheduleTooltip(artifact.GetTooltipTitle(), artifact.GetDescription(level), artifact.flavorText, Vector3.zero, TooltipPriorityDefault, null);
+        if (pendingTooltipCoroutine != null && source != pendingTooltipSource && priority < pendingTooltipPriority)
+        {
+            return;
+        }
+
+        if (pieceCardTooltipView == null)
+        {
+            InitTooltipView();
+            if (pieceCardTooltipView == null) return;
+        }
+
+        ScheduleArtifactTooltip(artifact, overrideLevel, position, priority, source);
+    }
+
+    /// <summary>
+    /// 인장 데이터를 받아서 일러스트가 있는 인장 카드 툴팁으로 표시하는 메서드
+    /// </summary>
+    public void ShowSealTooltip(SealData seal, Vector3 position, GameObject source = null, int priority = TooltipPrioritySeal)
+    {
+        if (seal == null)
+        {
+            return;
+        }
+
+        if (isTooltipVisible && source != activeTooltipSource && priority < activeTooltipPriority)
+        {
+            return;
+        }
+
+        if (pendingTooltipCoroutine != null && source != pendingTooltipSource && priority < pendingTooltipPriority)
+        {
+            return;
+        }
+
+        if (pieceCardTooltipView == null)
+        {
+            InitTooltipView();
+            if (pieceCardTooltipView == null) return;
+        }
+
+        ScheduleSealTooltip(seal, position, priority, source);
+    }
+
+    private static Sprite ExtractIconFromSource(GameObject source, out Color extractedColor)
+    {
+        extractedColor = Color.white;
+        if (source == null)
+        {
+            return null;
+        }
+
+        // 자식 이미지 중 아이콘 역할을 하는 스프라이트를 우선 탐색
+        Image[] images = source.GetComponentsInChildren<Image>(true);
+        Image fallbackImage = null;
+        for (int i = 0; i < images.Length; i++)
+        {
+            Image img = images[i];
+            if (img == null || img.sprite == null) continue;
+
+            string objName = img.gameObject.name.ToLowerInvariant();
+            if (objName.Contains("icon") || objName.Contains("image") || objName.Contains("portrait") || objName.Contains("piece") || objName.Contains("seal") || objName.Contains("artifact"))
+            {
+                extractedColor = img.color;
+                return img.sprite;
+            }
+
+            if (img.gameObject != source && fallbackImage == null)
+            {
+                fallbackImage = img;
+            }
+        }
+
+        if (fallbackImage != null)
+        {
+            extractedColor = fallbackImage.color;
+            return fallbackImage.sprite;
+        }
+
+        Image rootImg = source.GetComponent<Image>();
+        if (rootImg != null && rootImg.sprite != null)
+        {
+            extractedColor = rootImg.color;
+            return rootImg.sprite;
+        }
+
+        // 부모 계층(예: 업적 게이지 호버 시 부모 AchievementEntryView의 아이콘)에서도 탐색
+        if (source.transform.parent != null)
+        {
+            Image[] parentImages = source.transform.parent.GetComponentsInChildren<Image>(true);
+            for (int i = 0; i < parentImages.Length; i++)
+            {
+                Image img = parentImages[i];
+                if (img == null || img.sprite == null || img.gameObject == source) continue;
+                string objName = img.gameObject.name.ToLowerInvariant();
+                if (objName.Contains("icon") || objName.Contains("image"))
+                {
+                    extractedColor = img.color;
+                    return img.sprite;
+                }
+            }
+        }
+
+        SpriteRenderer sr = source.GetComponentInChildren<SpriteRenderer>();
+        if (sr != null && sr.sprite != null)
+        {
+            extractedColor = sr.color;
+            return sr.sprite;
+        }
+
+        return null;
     }
 
     private Vector2 GetMousePosition()
@@ -418,14 +596,17 @@ public class TooltipManager : PersistentManagerBase
     {
         if (source != null)
         {
-            if (pendingTooltipSource == source)
+            if (pendingTooltipSource == null || pendingTooltipSource == source || pendingTooltipSource.transform.IsChildOf(source.transform) || source.transform.IsChildOf(pendingTooltipSource.transform))
             {
                 CancelPendingTooltip();
             }
 
-            if (activeTooltipSource != null && source != activeTooltipSource)
+            if (activeTooltipSource != null && source != activeTooltipSource && !activeTooltipSource.transform.IsChildOf(source.transform) && !source.transform.IsChildOf(activeTooltipSource.transform))
             {
-                return;
+                if (activeTooltipSource.activeInHierarchy && IsPointerOverSource(activeTooltipSource))
+                {
+                    return;
+                }
             }
         }
         else
@@ -433,6 +614,11 @@ public class TooltipManager : PersistentManagerBase
             CancelPendingTooltip();
         }
 
+        HideActiveCardImmediate();
+    }
+
+    private void HideActiveCardImmediate()
+    {
         if (tooltipView != null)
         {
             tooltipView.SetVisible(false);
@@ -447,6 +633,61 @@ public class TooltipManager : PersistentManagerBase
         activeTooltipSource = null;
     }
 
+    private bool IsPointerOverSource(GameObject source)
+    {
+        if (source == null)
+        {
+            return true;
+        }
+
+        if (!source.activeInHierarchy)
+        {
+            return false;
+        }
+
+        RectTransform rt = source.GetComponent<RectTransform>();
+        if (rt == null)
+        {
+            return true;
+        }
+
+        Canvas sourceCanvas = rt.GetComponentInParent<Canvas>();
+        Camera cam = null;
+        if (sourceCanvas != null)
+        {
+            Canvas root = sourceCanvas.rootCanvas;
+            if (root != null && root.renderMode != RenderMode.ScreenSpaceOverlay)
+            {
+                cam = root.worldCamera;
+            }
+        }
+
+        Vector3[] corners = new Vector3[4];
+        rt.GetWorldCorners(corners);
+
+        float minX = float.MaxValue;
+        float minY = float.MaxValue;
+        float maxX = float.MinValue;
+        float maxY = float.MinValue;
+
+        for (int i = 0; i < 4; i++)
+        {
+            Vector2 sp = RectTransformUtility.WorldToScreenPoint(cam, corners[i]);
+            if (sp.x < minX) minX = sp.x;
+            if (sp.y < minY) minY = sp.y;
+            if (sp.x > maxX) maxX = sp.x;
+            if (sp.y > maxY) maxY = sp.y;
+        }
+
+        // 호버 시 살짝 떠오르는 애니메이션(hoverLiftAmount) 오차 허용
+        const float hoverPadding = 16f;
+        Vector2 mousePos = GetMousePosition();
+        return mousePos.x >= (minX - hoverPadding) &&
+               mousePos.x <= (maxX + hoverPadding) &&
+               mousePos.y >= (minY - hoverPadding) &&
+               mousePos.y <= (maxY + hoverPadding);
+    }
+
     private void RefreshTooltipDelay()
     {
         if (SettingsManager.Instance != null && SettingsManager.Instance.Settings != null)
@@ -455,104 +696,193 @@ public class TooltipManager : PersistentManagerBase
         }
     }
 
-    private float GetTooltipDelaySeconds()
+    private float GetCardHoverDelaySeconds()
     {
         return currentTooltipDelay switch
         {
             SettingsData.TooltipDelay.HalfSecond => 0.5f,
             SettingsData.TooltipDelay.OneSecond => 1f,
-            _ => 0f
+            _ => pieceCardHoverDelay > 0f ? pieceCardHoverDelay : 0.5f
         };
     }
 
-    private void ScheduleTooltip(string title, string description, string flavorText, Vector3 position, int priority, GameObject source)
+    private void ScheduleGeneralCardTooltip(
+        string title,
+        string description,
+        string flavorText,
+        Vector3 position,
+        int priority,
+        GameObject source,
+        Sprite icon,
+        string subtitle,
+        string badgeText,
+        Color? iconColor)
     {
-        CancelPendingTooltip();
-
-        float delaySeconds = GetTooltipDelaySeconds();
-        if (delaySeconds <= 0f)
+        if (isTooltipVisible && source != null && source == activeTooltipSource && pieceCardTooltipView != null)
         {
-            ShowTooltipImmediate(title, description, flavorText, position, priority, source);
+            pieceCardTooltipView.SetGeneralCardData(title, description, flavorText, icon, subtitle, badgeText, string.Empty, null, iconColor);
+            activeTooltipPriority = priority;
             return;
         }
 
+        if (isTooltipVisible && source != activeTooltipSource)
+        {
+            HideActiveCardImmediate();
+        }
+
+        if (pendingTooltipCoroutine != null && source != null && source == pendingTooltipSource && pendingCardKind == PendingCardKind.General)
+        {
+            pendingTooltipTitle = title;
+            pendingTooltipDescription = description;
+            pendingTooltipFlavorText = flavorText;
+            pendingTooltipIcon = icon;
+            pendingTooltipSubtitle = subtitle;
+            pendingTooltipBadgeText = badgeText;
+            pendingTooltipIconColor = iconColor;
+            pendingTooltipPriority = priority;
+            return;
+        }
+
+        CancelPendingTooltip();
+
+        float delaySeconds = GetCardHoverDelaySeconds();
+        if (delaySeconds <= 0f)
+        {
+            ShowGeneralCardTooltipImmediate(title, description, flavorText, position, priority, source, icon, subtitle, badgeText, iconColor);
+            return;
+        }
+
+        pendingCardKind = PendingCardKind.General;
         pendingTooltipTitle = title;
         pendingTooltipDescription = description;
         pendingTooltipFlavorText = flavorText;
+        pendingTooltipIcon = icon;
+        pendingTooltipSubtitle = subtitle;
+        pendingTooltipBadgeText = badgeText;
+        pendingTooltipIconColor = iconColor;
         pendingTooltipSource = source;
         pendingTooltipPriority = priority;
-        pendingTooltipCoroutine = StartCoroutine(ShowTooltipAfterDelay(delaySeconds, position, source));
+        pendingTooltipCoroutine = StartCoroutine(ShowPendingCardTooltipAfterDelay(delaySeconds, position, source));
     }
 
-    private System.Collections.IEnumerator ShowTooltipAfterDelay(float delaySeconds, Vector3 position, GameObject source)
+    private void ScheduleArtifactTooltip(ArtifactData artifact, int overrideLevel, Vector3 position, int priority, GameObject source)
     {
-        yield return new WaitForSecondsRealtime(delaySeconds);
-
-        if (pendingTooltipCoroutine == null || pendingTooltipSource != source)
+        if (isTooltipVisible && source != null && source == activeTooltipSource && pieceCardTooltipView != null)
         {
-            yield break;
-        }
-
-        if (source != null && !source.activeInHierarchy)
-        {
-            CancelPendingTooltip();
-            yield break;
-        }
-
-        ShowTooltipImmediate(pendingTooltipTitle, pendingTooltipDescription, pendingTooltipFlavorText, position, pendingTooltipPriority, source);
-        CancelPendingTooltip();
-    }
-
-    private void ShowTooltipImmediate(string title, string description, string flavorText, Vector3 position, int priority, GameObject source)
-    {
-        if (tooltipView == null)
-        {
+            pieceCardTooltipView.SetArtifactData(artifact, overrideLevel);
+            activeTooltipPriority = priority;
             return;
         }
 
-        if (pieceCardTooltipView != null)
+        if (isTooltipVisible && source != activeTooltipSource)
         {
-            pieceCardTooltipView.Hide();
+            HideActiveCardImmediate();
         }
-        isPieceCardActive = false;
 
-        tooltipView.SetContent(title, description, flavorText);
-        tooltipView.SetVisible(true);
-        isTooltipVisible = true;
-        activeTooltipPriority = priority;
-        activeTooltipSource = source;
-        tooltipView.transform.SetAsLastSibling();
-
-        UpdatePosition(GetMousePosition());
-
-        if (tooltipRect != null)
+        if (pendingTooltipCoroutine != null && source != null && source == pendingTooltipSource && pendingCardKind == PendingCardKind.Artifact)
         {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(tooltipRect);
-            ClampToScreen();
+            pendingArtifactData = artifact;
+            pendingArtifactLevel = overrideLevel;
+            pendingTooltipPriority = priority;
+            return;
         }
+
+        CancelPendingTooltip();
+
+        float delaySeconds = GetCardHoverDelaySeconds();
+        if (delaySeconds <= 0f)
+        {
+            ShowArtifactTooltipImmediate(artifact, overrideLevel, position, priority, source);
+            return;
+        }
+
+        pendingCardKind = PendingCardKind.Artifact;
+        pendingArtifactData = artifact;
+        pendingArtifactLevel = overrideLevel;
+        pendingTooltipSource = source;
+        pendingTooltipPriority = priority;
+        pendingTooltipCoroutine = StartCoroutine(ShowPendingCardTooltipAfterDelay(delaySeconds, position, source));
+    }
+
+    private void ScheduleSealTooltip(SealData seal, Vector3 position, int priority, GameObject source)
+    {
+        if (isTooltipVisible && source != null && source == activeTooltipSource && pieceCardTooltipView != null)
+        {
+            pieceCardTooltipView.SetSealData(seal);
+            activeTooltipPriority = priority;
+            return;
+        }
+
+        if (isTooltipVisible && source != activeTooltipSource)
+        {
+            HideActiveCardImmediate();
+        }
+
+        if (pendingTooltipCoroutine != null && source != null && source == pendingTooltipSource && pendingCardKind == PendingCardKind.Seal)
+        {
+            pendingSealData = seal;
+            pendingTooltipPriority = priority;
+            return;
+        }
+
+        CancelPendingTooltip();
+
+        float delaySeconds = GetCardHoverDelaySeconds();
+        if (delaySeconds <= 0f)
+        {
+            ShowSealTooltipImmediate(seal, position, priority, source);
+            return;
+        }
+
+        pendingCardKind = PendingCardKind.Seal;
+        pendingSealData = seal;
+        pendingTooltipSource = source;
+        pendingTooltipPriority = priority;
+        pendingTooltipCoroutine = StartCoroutine(ShowPendingCardTooltipAfterDelay(delaySeconds, position, source));
     }
 
     private void SchedulePieceTooltip(PieceType pieceType, SealData attachedSeal, bool isEnemy, Vector3 position, int priority, GameObject source)
     {
+        if (isTooltipVisible && source != null && source == activeTooltipSource && pieceCardTooltipView != null)
+        {
+            pieceCardTooltipView.SetPieceData(pieceType, attachedSeal, isEnemy);
+            activeTooltipPriority = priority;
+            return;
+        }
+
+        if (isTooltipVisible && source != activeTooltipSource)
+        {
+            HideActiveCardImmediate();
+        }
+
+        if (pendingTooltipCoroutine != null && source != null && source == pendingTooltipSource && pendingCardKind == PendingCardKind.Piece)
+        {
+            pendingPieceType = pieceType;
+            pendingSealData = attachedSeal;
+            pendingIsEnemy = isEnemy;
+            pendingTooltipPriority = priority;
+            return;
+        }
+
         CancelPendingTooltip();
 
-        float delaySeconds = pieceCardHoverDelay;
+        float delaySeconds = GetCardHoverDelaySeconds();
         if (delaySeconds <= 0f)
         {
             ShowPieceTooltipImmediate(pieceType, attachedSeal, isEnemy, position, priority, source);
             return;
         }
 
-        pendingIsPieceCard = true;
+        pendingCardKind = PendingCardKind.Piece;
         pendingPieceType = pieceType;
         pendingSealData = attachedSeal;
         pendingIsEnemy = isEnemy;
         pendingTooltipSource = source;
         pendingTooltipPriority = priority;
-        pendingTooltipCoroutine = StartCoroutine(ShowPieceTooltipAfterDelay(delaySeconds, position, source));
+        pendingTooltipCoroutine = StartCoroutine(ShowPendingCardTooltipAfterDelay(delaySeconds, position, source));
     }
 
-    private System.Collections.IEnumerator ShowPieceTooltipAfterDelay(float delaySeconds, Vector3 position, GameObject source)
+    private System.Collections.IEnumerator ShowPendingCardTooltipAfterDelay(float delaySeconds, Vector3 position, GameObject source)
     {
         yield return new WaitForSecondsRealtime(delaySeconds);
 
@@ -561,13 +891,41 @@ public class TooltipManager : PersistentManagerBase
             yield break;
         }
 
-        if (source != null && !source.activeInHierarchy)
+        if (PieceController.IsAnyDragging || (source != null && (!source.activeInHierarchy || !IsPointerOverSource(source))))
         {
             CancelPendingTooltip();
             yield break;
         }
 
-        ShowPieceTooltipImmediate(pendingPieceType, pendingSealData, pendingIsEnemy, position, pendingTooltipPriority, source);
+        PendingCardKind kind = pendingCardKind;
+        int priority = pendingTooltipPriority;
+
+        switch (kind)
+        {
+            case PendingCardKind.Piece:
+                ShowPieceTooltipImmediate(pendingPieceType, pendingSealData, pendingIsEnemy, position, priority, source);
+                break;
+            case PendingCardKind.Artifact:
+                ShowArtifactTooltipImmediate(pendingArtifactData, pendingArtifactLevel, position, priority, source);
+                break;
+            case PendingCardKind.Seal:
+                ShowSealTooltipImmediate(pendingSealData, position, priority, source);
+                break;
+            case PendingCardKind.General:
+                ShowGeneralCardTooltipImmediate(
+                    pendingTooltipTitle,
+                    pendingTooltipDescription,
+                    pendingTooltipFlavorText,
+                    position,
+                    priority,
+                    source,
+                    pendingTooltipIcon,
+                    pendingTooltipSubtitle,
+                    pendingTooltipBadgeText,
+                    pendingTooltipIconColor);
+                break;
+        }
+
         CancelPendingTooltip();
     }
 
@@ -594,6 +952,85 @@ public class TooltipManager : PersistentManagerBase
         pieceCardTooltipView.transform.SetAsLastSibling();
     }
 
+    private void ShowArtifactTooltipImmediate(ArtifactData artifact, int overrideLevel, Vector3 position, int priority, GameObject source)
+    {
+        if (pieceCardTooltipView == null || artifact == null)
+        {
+            return;
+        }
+
+        if (tooltipView != null)
+        {
+            tooltipView.SetVisible(false);
+        }
+
+        pieceCardTooltipView.SetArtifactData(artifact, overrideLevel);
+        pieceCardTooltipView.PositionCard(position, source);
+        pieceCardTooltipView.Show();
+
+        isTooltipVisible = true;
+        isPieceCardActive = true;
+        activeTooltipPriority = priority;
+        activeTooltipSource = source;
+        pieceCardTooltipView.transform.SetAsLastSibling();
+    }
+
+    private void ShowSealTooltipImmediate(SealData seal, Vector3 position, int priority, GameObject source)
+    {
+        if (pieceCardTooltipView == null || seal == null)
+        {
+            return;
+        }
+
+        if (tooltipView != null)
+        {
+            tooltipView.SetVisible(false);
+        }
+
+        pieceCardTooltipView.SetSealData(seal);
+        pieceCardTooltipView.PositionCard(position, source);
+        pieceCardTooltipView.Show();
+
+        isTooltipVisible = true;
+        isPieceCardActive = true;
+        activeTooltipPriority = priority;
+        activeTooltipSource = source;
+        pieceCardTooltipView.transform.SetAsLastSibling();
+    }
+
+    private void ShowGeneralCardTooltipImmediate(
+        string title,
+        string description,
+        string flavorText,
+        Vector3 position,
+        int priority,
+        GameObject source,
+        Sprite icon,
+        string subtitle,
+        string badgeText,
+        Color? iconColor)
+    {
+        if (pieceCardTooltipView == null)
+        {
+            return;
+        }
+
+        if (tooltipView != null)
+        {
+            tooltipView.SetVisible(false);
+        }
+
+        pieceCardTooltipView.SetGeneralCardData(title, description, flavorText, icon, subtitle, badgeText, string.Empty, null, iconColor);
+        pieceCardTooltipView.PositionCard(position, source);
+        pieceCardTooltipView.Show();
+
+        isTooltipVisible = true;
+        isPieceCardActive = true;
+        activeTooltipPriority = priority;
+        activeTooltipSource = source;
+        pieceCardTooltipView.transform.SetAsLastSibling();
+    }
+
     private void CancelPendingTooltip()
     {
         if (pendingTooltipCoroutine != null)
@@ -604,11 +1041,17 @@ public class TooltipManager : PersistentManagerBase
 
         pendingTooltipSource = null;
         pendingTooltipPriority = int.MinValue;
+        pendingCardKind = PendingCardKind.None;
         pendingTooltipTitle = string.Empty;
         pendingTooltipDescription = string.Empty;
         pendingTooltipFlavorText = string.Empty;
-        pendingIsPieceCard = false;
+        pendingTooltipIcon = null;
+        pendingTooltipSubtitle = string.Empty;
+        pendingTooltipBadgeText = "★";
+        pendingTooltipIconColor = null;
         pendingSealData = null;
+        pendingArtifactData = null;
+        pendingArtifactLevel = -1;
     }
 
     public void RegisterTooltipSource(GameObject source)

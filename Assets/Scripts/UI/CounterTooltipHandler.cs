@@ -66,13 +66,20 @@ public class CounterTooltipHandler : MonoBehaviour, IPointerEnterHandler, IPoint
         }
 
         lastShownValue = value;
+        string title = counterType == CounterType.Coin ? "보유 코인" : "처치한 적 기물";
+        string subtitle = counterType == CounterType.Coin
+            ? "<color=#FFFFFF>★</color>  <size=85%>재화 정보</size>"
+            : "<color=#FFFFFF>★</color>  <size=85%>전투 기록</size>";
         TooltipManager.Instance.ShowTooltip(
-            "",
-            GetLabel() + value.ToString(),
+            title,
+            $"{GetLabel()} {value}",
             transform.position,
             string.Empty,
             TooltipManager.TooltipPriorityDefault,
-            gameObject);
+            gameObject,
+            null,
+            subtitle,
+            value.ToString());
     }
 
     private string GetLabel()

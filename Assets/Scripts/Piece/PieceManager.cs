@@ -656,6 +656,59 @@ public class PieceManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 15턴 제한 또는 다수결 판정 등으로 전투가 종료될 때 보드에 남아있는 모든 적 기물을 제거합니다.
+    /// </summary>
+    public void RemoveAllEnemyPieces(bool playVfx = true)
+    {
+        PieceController[] allPieces = FindObjectsByType<PieceController>(FindObjectsSortMode.None);
+        bool removedAny = false;
+
+        foreach (PieceController piece in allPieces)
+        {
+            if (piece == null || !piece.IsEnemy)
+            {
+                continue;
+            }
+
+            if (playVfx && Application.isPlaying)
+            {
+                PlayPieceDestroyVfx(piece);
+            }
+
+            pieces.Remove(piece);
+            enemyPieces.Remove(piece);
+            playerPieces.Remove(piece);
+            placementSnapshot.Remove(piece);
+
+            if (selectedPiece == piece)
+            {
+                ClearSelection();
+            }
+
+            piece.gridPosition = null;
+            OnPieceUnregistered?.Invoke(piece);
+
+            if (Application.isPlaying)
+            {
+                Destroy(piece.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(piece.gameObject);
+            }
+
+            removedAny = true;
+        }
+
+        if (removedAny)
+        {
+            MarkPiecePositionCacheDirty();
+            UpdatePieceCountUI();
+            UpdateThreatenedStatus();
+        }
+    }
+
     public void RevertPromotionSealedPiecesToSoldier()
     {
         PieceController[] allPieces = FindObjectsByType<PieceController>(FindObjectsSortMode.None);

@@ -102,11 +102,26 @@ public class OthelloArtifactSystem : MonoBehaviour
             return 0;
         }
 
-        // 포위된 모든 상대 기물을 착지한 기물의 진영으로 전향 실행
+        // 포위된 모든 상대 기물을 착지한 기물의 진영으로 전향 실행 (포획 보상 카운트 반영)
         bool toEnemy = landedPiece.IsEnemy;
         foreach (PieceController targetPiece in piecesToConvert)
         {
+            if (targetPiece == null)
+            {
+                continue;
+            }
+
+            bool wasEnemyPiece = targetPiece.IsEnemy;
+            PieceType convertedType = targetPiece.Type;
+
             ConvertPieceToTeam(targetPiece, toEnemy);
+
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.RecordCapture(wasEnemyPiece, convertedType);
+            }
+
+            landedPiece.OnCapturedPiece(convertedType);
         }
 
         PlayOthelloArtifactPopup();
@@ -183,6 +198,7 @@ public class OthelloArtifactSystem : MonoBehaviour
                 false);
             Debug.Log($"[OthelloArtifactSystem] Majority Victory ({reason}): Ally {allyCount} > Enemy {enemyCount}");
             GameStateManager.Instance.ChangeState(GameStateManager.GameState.Win);
+            PieceManager.Instance.RemoveAllEnemyPieces();
         }
         else
         {
@@ -191,6 +207,7 @@ public class OthelloArtifactSystem : MonoBehaviour
                 true);
             Debug.Log($"[OthelloArtifactSystem] Majority Defeat ({reason}): Ally {allyCount} <= Enemy {enemyCount}");
             GameStateManager.Instance.ChangeState(GameStateManager.GameState.GameOver);
+            PieceManager.Instance.RemoveAllEnemyPieces();
         }
 
         return true;
