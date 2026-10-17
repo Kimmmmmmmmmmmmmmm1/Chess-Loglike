@@ -17,7 +17,7 @@ MonoBehaviour:
   description: "\uD50C\uB808\uC774\uC5B4 \uD134\uC5D0 \uCCB4\uC2A4 \uC774\uB3D9 \uB300\uC2E0 \uC544\uAD70 \uAE30\uBB3C 1\uAC1C\uB97C \uB4DC\uB798\uADF8\uD574 \uBC1C\uC0AC\uD569\uB2C8\uB2E4. \uBAA8\uB4E0 \uAE30\uBB3C\uC774 \uC815\uC9C0\uD558\uBA74 \uAC00\uAE4C\uC6B4 \uCE78\uC5D0 \uC548\uCC29\uD558\uACE0 \uD134\uC774 \uB05D\uB0A9\uB2C8\uB2E4."
   flavorText: "\uBC18\uC0C1\uC758 \uC54C\uB825\uC73C\uB85C \uCDA9\uB3CC\uC744 \uC0DD\uC131\uD55C\uB2E4."
   rarity: 3
-  icon: {fileID: 3286163911610860551, guid: 12e4ef8461c4f492bbe574a826deb63c, type: 3}
+  icon: {fileID: 3286163911610860551, guid: c81a4e52b91d47f3a60e2194b85d3c7a, type: 3}
   price: 300
   isSoldInShop: 1
   isGaugeRequired: 0

@@ -355,6 +355,7 @@ public class GameManager : MonoBehaviour
 
                 if (PieceManager.Instance != null)
                 {
+                    PieceManager.Instance.RemoveConversionSealedPieces();
                     PieceManager.Instance.RevertPromotionSealedPiecesToSoldier();
                 }
 
@@ -402,6 +403,7 @@ public class GameManager : MonoBehaviour
 
         if (pieceManager != null)
         {
+            pieceManager.RemoveConversionSealedPieces();
             pieceManager.RestorePlacementPositions();
         }
 

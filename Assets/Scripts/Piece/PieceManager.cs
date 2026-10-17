@@ -306,18 +306,40 @@ public class PieceManager : MonoBehaviour
         }
 
         pieces.Remove(piece);
-        if (piece.IsEnemy)
-        {
-            enemyPieces.Remove(piece);
-        }
-        else
-        {
-            playerPieces.Remove(piece);
-        }
+        enemyPieces.Remove(piece);
+        playerPieces.Remove(piece);
         MarkPiecePositionCacheDirty();
         UpdatePieceCountUI();
         CheckPieceCounts();
         OnPieceUnregistered?.Invoke(piece);
+    }
+
+    public void NotifyPieceTeamChanged(PieceController piece)
+    {
+        if (piece == null)
+        {
+            return;
+        }
+
+        if (!pieces.Contains(piece) && piece.CurrentLocation == PieceLocation.Board)
+        {
+            pieces.Add(piece);
+        }
+
+        enemyPieces.Remove(piece);
+        playerPieces.Remove(piece);
+
+        if (piece.IsEnemy)
+        {
+            enemyPieces.Add(piece);
+        }
+        else
+        {
+            playerPieces.Add(piece);
+        }
+
+        MarkPiecePositionCacheDirty();
+        UpdatePieceCountUI();
     }
 
     public PieceController GetPieceAt(Vector2Int gridPosition)
@@ -583,6 +605,54 @@ public class PieceManager : MonoBehaviour
         while (threatenedUpdateQueued || threatenedUpdateRunning)
         {
             yield return null;
+        }
+    }
+
+    /// <summary>
+    /// 전투 승리 후 [전향의 인장]이 장착된 임시 전향 기물을 소멸시켜 원래 덱 밸런스를 보존합니다.
+    /// </summary>
+    public void RemoveConversionSealedPieces()
+    {
+        PieceController[] allPieces = FindObjectsByType<PieceController>(FindObjectsSortMode.None);
+        bool removedAny = false;
+
+        foreach (PieceController piece in allPieces)
+        {
+            if (piece == null || !piece.HasConversionSeal())
+            {
+                continue;
+            }
+
+            pieces.Remove(piece);
+            enemyPieces.Remove(piece);
+            playerPieces.Remove(piece);
+            placementSnapshot.Remove(piece);
+
+            if (selectedPiece == piece)
+            {
+                ClearSelection();
+            }
+
+            piece.gridPosition = null;
+            OnPieceUnregistered?.Invoke(piece);
+
+            if (Application.isPlaying)
+            {
+                Destroy(piece.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(piece.gameObject);
+            }
+
+            removedAny = true;
+        }
+
+        if (removedAny)
+        {
+            MarkPiecePositionCacheDirty();
+            UpdatePieceCountUI();
+            UpdateThreatenedStatus();
         }
     }
 
@@ -962,6 +1032,19 @@ public class PieceManager : MonoBehaviour
         return count;
     }
 
+    public int GetEnemyPieceCountOnBoard()
+    {
+        int count = 0;
+        foreach (var piece in enemyPieces)
+        {
+            if (piece != null && piece.CurrentLocation == PieceLocation.Board && piece.gridPosition.HasValue)
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
     public void IncreaseMaxPlayerPieces(int amount)
     {
         maxPlayerPiecesOnBoard += amount;
@@ -1146,6 +1229,8 @@ public class PieceManager : MonoBehaviour
         bool? capturedIsEnemy = targetPiece != null ? targetPiece.IsEnemy : null;
         if (targetPiece != null)
         {
+            // 오셀로의 성역 활성 시에는 빈 타일로만 이동 가능하며 직접 포획 금지
+            if (OthelloArtifactSystem.IsActive) return false;
             if (targetPiece.IsEnemy == piece.IsEnemy) return false;
             if (targetPiece.IsInvincible) return false;
 
@@ -1202,6 +1287,13 @@ public class PieceManager : MonoBehaviour
         if (capturedType.HasValue)
         {
             piece.OnCapturedPiece(capturedType.Value);
+        }
+
+        OthelloArtifactSystem.OnPieceLanded(piece);
+
+        if (OthelloArtifactSystem.IsActive && piece != null && piece.gridPosition.HasValue)
+        {
+            piece.CheckSoldierPromotion();
         }
 
         UpdateThreatenedStatus();
@@ -1680,6 +1772,7 @@ public class PieceManager : MonoBehaviour
 
     private IEnumerator MovePlayerPiecesToSafetyRoutine()
     {
+        RemoveConversionSealedPieces();
         if (gridManager == null) yield break;
         if (hasPlacementSnapshot)
         {
@@ -1687,7 +1780,7 @@ public class PieceManager : MonoBehaviour
             {
                 var piece = kv.Key;
                 var pos = kv.Value;
-                if (piece != null && !piece.IsEnemy)
+                if (piece != null && !piece.IsEnemy && !piece.HasConversionSeal())
                 {
                     piece.MoveToGrid(pos);
                     yield return new WaitForSeconds(0.05f);
@@ -1704,7 +1797,7 @@ public class PieceManager : MonoBehaviour
 
         foreach (var piece in pieces)
         {
-            if (piece == null || piece.CurrentLocation != PieceLocation.Board) continue;
+            if (piece == null || piece.CurrentLocation != PieceLocation.Board || piece.HasConversionSeal()) continue;
 
             if (piece.IsEnemy)
             {
@@ -1768,7 +1861,7 @@ public class PieceManager : MonoBehaviour
         placementSnapshot.Clear();
         foreach (var piece in pieces)
         {
-            if (piece == null || piece.IsEnemy) continue;
+            if (piece == null || piece.IsEnemy || piece.HasConversionSeal()) continue;
             if (piece.CurrentLocation == PieceLocation.Board && piece.gridPosition.HasValue)
             {
                 placementSnapshot[piece] = piece.gridPosition.Value;
@@ -1785,6 +1878,8 @@ public class PieceManager : MonoBehaviour
 
     public bool RestorePlacementPositions(bool logIfEmpty = true)
     {
+        RemoveConversionSealedPieces();
+
         if (!HasPlacementSnapshot)
         {
             return false;
@@ -1799,7 +1894,7 @@ public class PieceManager : MonoBehaviour
         {
             var piece = kv.Key;
             var pos = kv.Value;
-            if (piece != null && !piece.IsEnemy)
+            if (piece != null && !piece.IsEnemy && !piece.HasConversionSeal())
             {
                 piece.MoveToGrid(pos);
                 restoredPieces.Add(piece);
@@ -1817,7 +1912,7 @@ public class PieceManager : MonoBehaviour
             List<PieceController> candidates = new List<PieceController>();
             foreach (var piece in pieces)
             {
-                if (piece == null || piece.IsEnemy)
+                if (piece == null || piece.IsEnemy || piece.HasConversionSeal())
                 {
                     continue;
                 }

@@ -157,13 +157,13 @@ public class PieceInventory : MonoBehaviour
 
         foreach (var piece in PieceManager.Instance.Pieces)
         {
-            // 적 기물이 아니고, 보드(Board) 상태인 기물만 저장
-            if (piece != null && !piece.IsEnemy && piece.CurrentLocation == PieceLocation.Board)
+            // 적 기물이 아니고, 전향된 임시 기물이 아니며, 보드(Board) 상태인 기물만 저장
+            if (piece != null && !piece.IsEnemy && !piece.HasConversionSeal() && piece.CurrentLocation == PieceLocation.Board)
             {
                 // 장착된 인장은 SealInventory로 반환
                 foreach (var sealBase in piece.EquippedSeals)
                 {
-                    if (sealBase != null && sealBase.Data != null && SealInventory.Instance != null)
+                    if (sealBase != null && sealBase.Data != null && !ConversionSeal.IsConversionSealData(sealBase.Data) && SealInventory.Instance != null)
                     {
                         SealInventory.Instance.AddSeal(sealBase.Data);
                     }
@@ -186,7 +186,7 @@ public class PieceInventory : MonoBehaviour
         PieceController[] allPieces = FindObjectsByType<PieceController>(FindObjectsSortMode.None);
         foreach (PieceController piece in allPieces)
         {
-            if (piece == null || piece.IsEnemy)
+            if (piece == null || piece.IsEnemy || piece.HasConversionSeal())
             {
                 continue;
             }

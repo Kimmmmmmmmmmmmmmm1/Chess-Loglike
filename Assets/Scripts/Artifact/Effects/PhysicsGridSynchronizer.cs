@@ -279,6 +279,11 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
             pending.Add(SnapPiece(piece, grid.GridToUiPosition(target), snapDuration));
         }
 
+        if (piecesToDestroy.Count > 0)
+        {
+            ArtifactPopupEffect.Play(AlkkagiArtifact.Id);
+        }
+
         for (int i = 0; i < piecesToDestroy.Count; i++)
         {
             PieceManager.Instance.RemovePieceFromPhysics(piecesToDestroy[i]);

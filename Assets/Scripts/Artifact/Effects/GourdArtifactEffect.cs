@@ -37,7 +37,7 @@ public sealed class GourdArtifactEffect : ArtifactEffectBase
     {
         targetSlot = null;
 
-        if (piece == null || piece.IsEnemy)
+        if (piece == null || piece.IsEnemy || piece.HasConversionSeal())
         {
             return false;
         }
@@ -60,6 +60,7 @@ public sealed class GourdArtifactEffect : ArtifactEffectBase
 
         recoveryCount++;
         ArtifactManager.Instance?.UpdateInventoryUI();
+        PlayActivationEffect();
 
         return true;
     }

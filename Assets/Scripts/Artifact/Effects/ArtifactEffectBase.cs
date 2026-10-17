@@ -10,6 +10,11 @@ public abstract class ArtifactEffectBase
         return ArtifactManager.Instance != null && ArtifactManager.Instance.HasArtifact(ArtifactId, out level);
     }
 
+    protected void PlayActivationEffect(System.Action onComplete = null)
+    {
+        ArtifactPopupEffect.Play(ArtifactId, onComplete);
+    }
+
     public virtual void ResetStageLimitedEffects() { }
     public virtual bool IsExhausted() => false;
     public virtual bool HasRemaining() => true;

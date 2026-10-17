@@ -9,6 +9,7 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
 {
     [SerializeField]
     private Image iconImage;
+    public Image IconImage => iconImage;
     [SerializeField]
     private TextMeshProUGUI nameText;
     [SerializeField]

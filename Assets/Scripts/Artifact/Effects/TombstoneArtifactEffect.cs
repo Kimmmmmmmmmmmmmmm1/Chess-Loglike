@@ -122,5 +122,6 @@ public sealed class TombstoneArtifactEffect : ArtifactEffectBase
         Vector2Int spawnPos = validPositions[Random.Range(0, validPositions.Count)];
 
         randomPiece.MoveToGrid(spawnPos);
+        ArtifactPopupEffect.Play("A005");
     }
 }

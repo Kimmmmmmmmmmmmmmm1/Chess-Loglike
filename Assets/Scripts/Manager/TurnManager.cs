@@ -23,9 +23,11 @@ public class TurnManager : MonoBehaviour
     [SerializeField] private float waitTime = 0.5f;
     private int consecutiveSkips = 0;
     [SerializeField] private int turnsSinceLastCapture = 0;
+    [SerializeField] private int completedBattleTurns = 0;
     private bool skipNextOpponentTurn = false;
 
     public bool IsOpponentTurnSkipPending => skipNextOpponentTurn;
+    public int CompletedBattleTurns => completedBattleTurns;
 
     public void EndTurn()
     {
@@ -80,11 +82,13 @@ public class TurnManager : MonoBehaviour
             currentTurn = TurnOwner.Opponent;
             ClearPositionHistory();
             turnsSinceLastCapture = 0;
+            completedBattleTurns = 0;
             consecutiveSkips = 0;
             skipNextOpponentTurn = false;
         }
         else if (newState == GameStateManager.GameState.GamePlay)
         {
+            completedBattleTurns = 0;
             ArtifactEffectRegistry.OnBattleStarted();
             if (currentTurn == TurnOwner.Player)
             {
@@ -141,6 +145,11 @@ public class TurnManager : MonoBehaviour
             positionHistory[snapshot] = count + 1;
             if (positionHistory[snapshot] >= 3)
             {
+                if (OthelloArtifactSystem.TryResolveMajorityVictory("동형반복 교착 상태"))
+                {
+                    return;
+                }
+
                 // 3회 동형반복 무승부/교착 상태 처리 -> 교착 판정으로 GameOver 처리
                 Debug.LogWarning("[TurnManager] Threefold repetition detected (동형반복 3회 감지: 무승부/교착 상태)");
                 GameStateManager.Instance?.ChangeState(GameStateManager.GameState.GameOver);
@@ -161,6 +170,11 @@ public class TurnManager : MonoBehaviour
 
     public void AdvanceTurn(bool moveMade = true)
     {
+        if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameStateManager.GameState.GamePlay)
+        {
+            return;
+        }
+
         if (moveMade)
         {
             consecutiveSkips = 0;
@@ -175,6 +189,11 @@ public class TurnManager : MonoBehaviour
             consecutiveSkips++;
             if (consecutiveSkips >= 2)
             {
+                if (OthelloArtifactSystem.TryResolveMajorityVictory("유효 이동 불가(교착 상태)"))
+                {
+                    return;
+                }
+
                 // 양측 모두 이동 불가 (스테일메이트/교착)
                 Debug.LogWarning("[TurnManager] Consecutive skips >= 2 (교착 상태/스테일메이트)");
                 GameStateManager.Instance?.ChangeState(GameStateManager.GameState.GameOver);
@@ -185,9 +204,18 @@ public class TurnManager : MonoBehaviour
         if (currentTurn == TurnOwner.Player)
         {
             turnsSinceLastCapture++;
+            completedBattleTurns++;
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.RecordPlayerTurnProgress();
+            }
+
+            if (OthelloArtifactSystem.IsActive && completedBattleTurns >= OthelloArtifactSystem.MaxTurnLimit)
+            {
+                if (OthelloArtifactSystem.TryResolveMajorityVictory($"{OthelloArtifactSystem.MaxTurnLimit}턴 종료"))
+                {
+                    return;
+                }
             }
         }
 
@@ -250,6 +278,12 @@ public class TurnManager : MonoBehaviour
         // 알까기 유물 보유 시에는 체스 행마법상 이동 가능한 칸이 없어도 알까기로 튕길 수 있으므로 턴을 자동 스킵하지 않음
         if (PieceManager.Instance != null && !PieceFlickLauncher.HasAlkkagiArtifact && !PieceManager.Instance.HasAnyPlayerMoves())
         {
+            if (OthelloArtifactSystem.IsActive && !PieceManager.Instance.HasAnyEnemyMoves())
+            {
+                OthelloArtifactSystem.TryResolveMajorityVictory("양측 유효 이동 불가");
+                yield break;
+            }
+
             int playerPieceCount = 0;
             foreach (var p in PieceManager.Instance.PlayerPieces)
             {

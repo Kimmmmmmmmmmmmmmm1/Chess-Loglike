@@ -211,6 +211,8 @@ public class ActiveArtifactController : MonoBehaviour
 
     private void Consume(ArtifactData artifact, ArtifactSlot slot, ActiveArtifactEffectBase effect)
     {
+        ArtifactPopupEffect.Play(artifact);
+
         if (slot != null)
         {
             slot.PlayUseFeedback();

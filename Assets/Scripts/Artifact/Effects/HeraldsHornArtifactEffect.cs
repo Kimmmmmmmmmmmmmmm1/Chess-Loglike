@@ -26,6 +26,7 @@ public static class HeraldsHornArtifactEffect
         if (forward == null) return;
         forward.AddBuff(PieceBuffType.Protection, 1);
         forward.PlayBuffActivationEffect(PieceBuffType.Protection);
+        ArtifactPopupEffect.Play(ArtifactId);
         TurnLogUIManager.Instance?.AddLog("전령의 나팔: 선봉장에게 보호 부여", false);
     }
 }

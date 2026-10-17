@@ -9,6 +9,9 @@ public enum CapturePerspective
 
 public class BoardEvaluator : MonoBehaviour
 {
+    public const int RULE_STANDARD = 0;
+    public const int RULE_OTHELLO = 1;
+
     public static BoardEvaluator Instance { get; private set; }
 
     [Header("Scoring")]
@@ -36,6 +39,16 @@ public class BoardEvaluator : MonoBehaviour
         Instance = this;
     }
 
+    public static int GetActiveRuleMode()
+    {
+        if (OthelloArtifactSystem.IsActive)
+        {
+            return RULE_OTHELLO;
+        }
+
+        return RULE_STANDARD;
+    }
+
     public bool TryPlayBestEnemyMove()
     {
         if (PieceManager.Instance == null)
@@ -57,6 +70,7 @@ public class BoardEvaluator : MonoBehaviour
 
         BestMove bestMove = BestMove.None;
         List<MoveInfo> allPossibleMoves = new List<MoveInfo>();
+        int ruleMode = GetActiveRuleMode();
 
         for (int i = 0; i < baseState.EnemyPieceIds.Count; i++)
         {
@@ -70,49 +84,17 @@ public class BoardEvaluator : MonoBehaviour
 
                 allPossibleMoves.Add(new MoveInfo(pieceId, target));
 
-                bool wasThreatened = IsThreatened(baseState, piece, false);
-
-                BoardState after = baseState.Clone();
-                SimPiece captured = after.MovePiece(pieceId, target);
-                SimPiece movedPiece = after.GetPiece(pieceId);
-
-                int pieceValue = GetPieceValue(piece.Type);
                 float score = 0f;
-
-                if (captured != null && !captured.IsEnemy)
+                switch (ruleMode)
                 {
-                    int capturedValue = GetPieceValue(captured.Type);
-                    score += immediateCaptureScore * capturedValue;
-                }
+                    case RULE_OTHELLO:
+                        score = EvaluateOthelloMove(baseState, piece, target, useIntelligenceScaling: false);
+                        break;
 
-                bool isThreatenedAfter = IsThreatened(after, movedPiece, false);
-                if (wasThreatened && !isThreatenedAfter)
-                {
-                    score += escapeThreatScore * pieceValue;
-                }
-
-                if (isThreatenedAfter)
-                {
-                    score -= threatenedPenalty * pieceValue;
-                }
-
-                // 적 폰 승급(퀸)에 큰 점수 부여
-                if (movedPiece != null && movedPiece.IsEnemy && movedPiece.Type == PieceType.Queen && piece.Type == PieceType.Pawn)
-                {
-                    score += 25f;
-                }
-
-                bool attackerIsEnemy = capturePerspective == CapturePerspective.EnemyCapturesPlayer;
-                bool targetIsEnemy = capturePerspective == CapturePerspective.PlayerCapturesEnemy;
-
-                if (CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 2))
-                {
-                    score += twoTurnCaptureScore;
-                }
-
-                if (CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 3))
-                {
-                    score += threeTurnCaptureScore;
+                    case RULE_STANDARD:
+                    default:
+                        score = EvaluateStandardMove(baseState, piece, target, useIntelligenceScaling: false);
+                        break;
                 }
 
                 if (score > bestMove.Score)
@@ -177,6 +159,7 @@ public class BoardEvaluator : MonoBehaviour
 
         BestMove bestMove = BestMove.None;
         List<MoveInfo> allPossibleMoves = new List<MoveInfo>();
+        int ruleMode = GetActiveRuleMode();
 
         int evaluatedMoves = 0;
         int movesPerFrame = 6;  // 배치 사이즈: 프레임 분산으로 충분하니 6으로 정상화
@@ -203,65 +186,17 @@ public class BoardEvaluator : MonoBehaviour
 
                 allPossibleMoves.Add(new MoveInfo(pieceId, target));
 
-                bool wasThreatened = IsThreatened(baseState, piece, false);
-
-                BoardState after = baseState.Clone();
-                SimPiece captured = after.MovePiece(pieceId, target);
-                SimPiece movedPiece = after.GetPiece(pieceId);
-
-                int pieceValue = GetPieceValue(piece.Type);
                 float score = 0f;
-
-                if (captured != null && !captured.IsEnemy)
+                switch (ruleMode)
                 {
-                    int capturedValue = GetPieceValue(captured.Type);
-                    score += immediateCaptureScore * capturedValue;
-                }
+                    case RULE_OTHELLO:
+                        score = EvaluateOthelloMove(baseState, piece, target, useIntelligenceScaling: true);
+                        break;
 
-                bool isThreatenedAfter = IsThreatened(after, movedPiece, false);
-                if (wasThreatened && !isThreatenedAfter)
-                {
-                    score += escapeThreatScore * pieceValue;
-                }
-
-                if (isThreatenedAfter)
-                {
-                    score -= threatenedPenalty * pieceValue;
-                }
-
-                // 적 폰 승급(퀸)에 큰 점수 부여
-                if (movedPiece != null && movedPiece.IsEnemy && movedPiece.Type == PieceType.Queen && piece.Type == PieceType.Pawn)
-                {
-                    score += 25f;
-                }
-
-                bool attackerIsEnemy = capturePerspective == CapturePerspective.EnemyCapturesPlayer;
-                bool targetIsEnemy = capturePerspective == CapturePerspective.PlayerCapturesEnemy;
-
-                // 난이도별로 lookahead 깊이 조정
-                if (aiIntelligence >= 5)
-                {
-                    if (CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 2))
-                    {
-                        score += twoTurnCaptureScore;
-                    }
-                }
-
-                if (aiIntelligence >= 7)
-                {
-                    if (CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 3))
-                    {
-                        score += threeTurnCaptureScore;
-                    }
-                }
-
-                // 최고 난이도: 4턴 이상 계획 능력
-                if (aiIntelligence >= 9)
-                {
-                    if (CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 4))
-                    {
-                        score += 0.125f;  // 4턴 계획 점수
-                    }
+                    case RULE_STANDARD:
+                    default:
+                        score = EvaluateStandardMove(baseState, piece, target, useIntelligenceScaling: true);
+                        break;
                 }
 
                 if (score > bestMove.Score)
@@ -304,23 +239,193 @@ public class BoardEvaluator : MonoBehaviour
         onCompleted?.Invoke(moved);
     }
 
-    private bool IsThreatened(BoardState state, SimPiece target, bool byEnemy)
+    private float EvaluateStandardMove(
+        BoardState baseState,
+        SimPiece piece,
+        Vector2Int target,
+        bool useIntelligenceScaling)
     {
-        List<int> attackers = byEnemy ? state.EnemyPieceIds : state.PlayerPieceIds;
-        for (int i = 0; i < attackers.Count; i++)
+        bool wasThreatened = IsThreatened(baseState, piece, false);
+
+        BoardState after = baseState.Clone();
+        SimPiece captured = after.MovePiece(piece.Id, target);
+        SimPiece movedPiece = after.GetPiece(piece.Id);
+
+        int pieceValue = GetPieceValue(piece.Type);
+        float score = 0f;
+
+        if (captured != null && !captured.IsEnemy)
         {
-            SimPiece attacker = state.GetPiece(attackers[i]);
-            List<Vector2Int> moves = state.GetLegalMoves(attacker);
-            for (int m = 0; m < moves.Count; m++)
+            int capturedValue = GetPieceValue(captured.Type);
+            score += immediateCaptureScore * capturedValue;
+        }
+
+        bool isThreatenedAfter = IsThreatened(after, movedPiece, false);
+        if (wasThreatened && !isThreatenedAfter)
+        {
+            score += escapeThreatScore * pieceValue;
+        }
+
+        if (isThreatenedAfter)
+        {
+            score -= threatenedPenalty * pieceValue;
+        }
+
+        // 적 폰 승급(퀸)에 큰 점수 부여
+        if (movedPiece != null && movedPiece.IsEnemy && movedPiece.Type == PieceType.Queen && piece.Type == PieceType.Pawn)
+        {
+            score += 25f;
+        }
+
+        bool attackerIsEnemy = capturePerspective == CapturePerspective.EnemyCapturesPlayer;
+        bool targetIsEnemy = capturePerspective == CapturePerspective.PlayerCapturesEnemy;
+
+        if (!useIntelligenceScaling)
+        {
+            if (CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 2))
             {
-                if (moves[m] == target.Position)
-                {
-                    return true;
-                }
+                score += twoTurnCaptureScore;
+            }
+
+            if (CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 3))
+            {
+                score += threeTurnCaptureScore;
+            }
+        }
+        else
+        {
+            if (aiIntelligence >= 5 && CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 2))
+            {
+                score += twoTurnCaptureScore;
+            }
+
+            if (aiIntelligence >= 7 && CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 3))
+            {
+                score += threeTurnCaptureScore;
+            }
+
+            if (aiIntelligence >= 9 && CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 4))
+            {
+                score += 0.125f;
             }
         }
 
-        return false;
+        return score;
+    }
+
+    /// <summary>
+    /// [RULE_OTHELLO] 오셀로의 성역 규칙:
+    /// 기존 일반 체스 AI(EvaluateStandardMove)와 완전히 동일한 판단 수준으로
+    /// 1. 자신이 상대 기물을 뒤집을 수 있는 위치에 가산점
+    /// 2. 자신이 뒤집힐 위기에서 벗어나면 가산점, 뒤집힐 수 있는 위치로 가면 감산점
+    /// 3. 기존 로직과 동일하게 다음 턴(2~4턴) 수읽기 적용
+    /// </summary>
+    private float EvaluateOthelloMove(
+        BoardState baseState,
+        SimPiece piece,
+        Vector2Int target,
+        bool useIntelligenceScaling)
+    {
+        bool wasThreatened = IsThreatened(baseState, piece, false);
+
+        BoardState after = baseState.Clone();
+        int flippedPlayerValue = after.MovePieceAndGetOthelloFlipValue(piece.Id, target);
+        SimPiece movedPiece = after.GetPiece(piece.Id);
+
+        int pieceValue = GetPieceValue(piece.Type);
+        float score = 0f;
+
+        // 1. 자신이 상대 기물을 뒤집을 수 있는 위치에 가산점
+        if (flippedPlayerValue > 0)
+        {
+            score += immediateCaptureScore * flippedPlayerValue;
+        }
+
+        // 2. 자신이 뒤집힐 수 있는 위치에 감산 / 뒤집힐 위치에서 탈출 시 가산
+        bool isThreatenedAfter = IsThreatened(after, movedPiece, false);
+        if (wasThreatened && !isThreatenedAfter)
+        {
+            score += escapeThreatScore * pieceValue;
+        }
+
+        if (isThreatenedAfter)
+        {
+            score -= threatenedPenalty * pieceValue;
+        }
+
+        // 3. 적 폰 승급(퀸)에 큰 점수 부여
+        if (movedPiece != null && movedPiece.IsEnemy && movedPiece.Type == PieceType.Queen && piece.Type == PieceType.Pawn)
+        {
+            score += 25f;
+        }
+
+        // 4. 기존 로직과 동일하게 다음 턴(2~4턴) 수읽기 고려
+        bool attackerIsEnemy = capturePerspective == CapturePerspective.EnemyCapturesPlayer;
+        bool targetIsEnemy = capturePerspective == CapturePerspective.PlayerCapturesEnemy;
+
+        if (!useIntelligenceScaling)
+        {
+            if (CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 2))
+            {
+                score += twoTurnCaptureScore;
+            }
+
+            if (CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 3))
+            {
+                score += threeTurnCaptureScore;
+            }
+        }
+        else
+        {
+            if (aiIntelligence >= 5 && CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 2))
+            {
+                score += twoTurnCaptureScore;
+            }
+
+            if (aiIntelligence >= 7 && CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 3))
+            {
+                score += threeTurnCaptureScore;
+            }
+
+            if (aiIntelligence >= 9 && CanCaptureWithin(after, attackerIsEnemy, targetIsEnemy, 4))
+            {
+                score += 0.125f;
+            }
+        }
+
+        return score;
+    }
+
+    private bool IsThreatened(BoardState state, SimPiece target, bool byEnemy)
+    {
+        if (target == null)
+        {
+            return false;
+        }
+
+        switch (GetActiveRuleMode())
+        {
+            case RULE_OTHELLO:
+                return state.IsThreatenedByOthello(target, byEnemy);
+
+            case RULE_STANDARD:
+            default:
+                List<int> attackers = byEnemy ? state.EnemyPieceIds : state.PlayerPieceIds;
+                for (int i = 0; i < attackers.Count; i++)
+                {
+                    SimPiece attacker = state.GetPiece(attackers[i]);
+                    List<Vector2Int> moves = state.GetLegalMoves(attacker);
+                    for (int m = 0; m < moves.Count; m++)
+                    {
+                        if (moves[m] == target.Position)
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+        }
     }
 
     public static int GetPieceValue(PieceType type)
@@ -606,11 +711,35 @@ public class BoardEvaluator : MonoBehaviour
                 }
             }
 
+            switch (GetActiveRuleMode())
+            {
+                case RULE_OTHELLO:
+                    moves.RemoveAll(target => IsOccupied(target));
+                    break;
+
+                case RULE_STANDARD:
+                default:
+                    break;
+            }
+
             return moves;
         }
 
         public SimPiece MovePiece(int id, Vector2Int target)
         {
+            return MovePieceInternal(id, target, out _);
+        }
+
+        public int MovePieceAndGetOthelloFlipValue(int id, Vector2Int target)
+        {
+            MovePieceInternal(id, target, out int flippedValue);
+            return flippedValue;
+        }
+
+        private SimPiece MovePieceInternal(int id, Vector2Int target, out int flippedValue)
+        {
+            flippedValue = 0;
+
             if (!pieces.TryGetValue(id, out SimPiece piece))
             {
                 return null;
@@ -619,32 +748,201 @@ public class BoardEvaluator : MonoBehaviour
             positions.Remove(piece.Position);
             SimPiece captured = null;
 
-            if (positions.TryGetValue(target, out int capturedId))
+            switch (GetActiveRuleMode())
             {
-                captured = pieces[capturedId];
-                positions.Remove(target);
-                pieces.Remove(capturedId);
-                EnemyPieceIds.Remove(capturedId);
-                PlayerPieceIds.Remove(capturedId);
-            }
+                case RULE_OTHELLO:
+                    piece.Position = target;
+                    positions[target] = id;
+                    ApplyPawnPromotion(piece, target);
 
-            piece.Position = target;
-            positions[target] = id;
+                    List<SimPiece> flipped = new List<SimPiece>();
+                    CollectOthelloFlips(piece, target, flipped, ignoreMoverOldPos: false);
+                    for (int i = 0; i < flipped.Count; i++)
+                    {
+                        SimPiece converted = flipped[i];
+                        int value = GetPieceValue(converted.Type);
+                        flippedValue += value;
 
-            // 폰 승급 시뮬레이션 (퀸으로 승급)
-            if (piece.Type == PieceType.Pawn)
-            {
-                if (piece.IsEnemy && target.y <= minBounds.y)
-                {
-                    piece.Type = PieceType.Queen;
-                }
-                else if (!piece.IsEnemy && target.y >= minBounds.y + boardHeight - 1)
-                {
-                    piece.Type = PieceType.Queen;
-                }
+                        if (captured == null || value > GetPieceValue(captured.Type))
+                        {
+                            // 전향되기 전 원래 진영(IsEnemy) 스냅샷을 보존하여 CanCaptureWithin 판정에 사용
+                            captured = converted.Clone();
+                        }
+
+                        converted.IsEnemy = piece.IsEnemy;
+                        if (piece.IsEnemy)
+                        {
+                            PlayerPieceIds.Remove(converted.Id);
+                            if (!EnemyPieceIds.Contains(converted.Id))
+                            {
+                                EnemyPieceIds.Add(converted.Id);
+                            }
+                        }
+                        else
+                        {
+                            EnemyPieceIds.Remove(converted.Id);
+                            if (!PlayerPieceIds.Contains(converted.Id))
+                            {
+                                PlayerPieceIds.Add(converted.Id);
+                            }
+                        }
+                    }
+                    break;
+
+                case RULE_STANDARD:
+                default:
+                    if (positions.TryGetValue(target, out int capturedId))
+                    {
+                        captured = pieces[capturedId];
+                        positions.Remove(target);
+                        pieces.Remove(capturedId);
+                        EnemyPieceIds.Remove(capturedId);
+                        PlayerPieceIds.Remove(capturedId);
+                    }
+
+                    piece.Position = target;
+                    positions[target] = id;
+                    ApplyPawnPromotion(piece, target);
+                    break;
             }
 
             return captured;
+        }
+
+        private void ApplyPawnPromotion(SimPiece piece, Vector2Int target)
+        {
+            if (piece.Type != PieceType.Pawn)
+            {
+                return;
+            }
+
+            if (piece.IsEnemy && target.y <= minBounds.y)
+            {
+                piece.Type = PieceType.Queen;
+            }
+            else if (!piece.IsEnemy && target.y >= minBounds.y + boardHeight - 1)
+            {
+                piece.Type = PieceType.Queen;
+            }
+        }
+
+        public void CollectOthelloFlips(
+            SimPiece mover,
+            Vector2Int landingPos,
+            List<SimPiece> results,
+            bool ignoreMoverOldPos = true)
+        {
+            List<SimPiece> tempTargets = new List<SimPiece>();
+
+            for (int d = 0; d < kingOffsets.Length; d++)
+            {
+                Vector2Int dir = kingOffsets[d];
+                tempTargets.Clear();
+                Vector2Int current = landingPos + dir;
+
+                while (IsInBounds(current) && !IsDestroyedCell(current))
+                {
+                    if (ignoreMoverOldPos && current == mover.Position)
+                    {
+                        tempTargets.Clear();
+                        break;
+                    }
+
+                    SimPiece target = GetPieceAt(current);
+                    if (target == null)
+                    {
+                        tempTargets.Clear();
+                        break;
+                    }
+
+                    if (target.IsEnemy != mover.IsEnemy)
+                    {
+                        tempTargets.Add(target);
+                    }
+                    else
+                    {
+                        if (tempTargets.Count > 0)
+                        {
+                            for (int i = 0; i < tempTargets.Count; i++)
+                            {
+                                if (!results.Contains(tempTargets[i]))
+                                {
+                                    results.Add(tempTargets[i]);
+                                }
+                            }
+                        }
+                        break;
+                    }
+
+                    current += dir;
+                }
+            }
+        }
+
+        public bool IsThreatenedByOthello(SimPiece target, bool byEnemy)
+        {
+            if (target == null)
+            {
+                return false;
+            }
+
+            List<int> attackers = byEnemy ? EnemyPieceIds : PlayerPieceIds;
+            List<SimPiece> flips = new List<SimPiece>();
+
+            for (int i = 0; i < attackers.Count; i++)
+            {
+                SimPiece attacker = GetPiece(attackers[i]);
+                List<Vector2Int> moves = GetLegalMoves(attacker);
+                for (int m = 0; m < moves.Count; m++)
+                {
+                    flips.Clear();
+                    CollectOthelloFlips(attacker, moves[m], flips);
+                    for (int f = 0; f < flips.Count; f++)
+                    {
+                        if (flips[f].Id == target.Id)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        public int GetMaxImmediateOthelloFlipValue(bool byEnemy)
+        {
+            List<int> attackers = byEnemy ? EnemyPieceIds : PlayerPieceIds;
+            List<SimPiece> flips = new List<SimPiece>();
+            int maxFlipValue = 0;
+
+            for (int i = 0; i < attackers.Count; i++)
+            {
+                SimPiece attacker = GetPiece(attackers[i]);
+                List<Vector2Int> moves = GetLegalMoves(attacker);
+                for (int m = 0; m < moves.Count; m++)
+                {
+                    flips.Clear();
+                    CollectOthelloFlips(attacker, moves[m], flips);
+                    if (flips.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    int value = 0;
+                    for (int f = 0; f < flips.Count; f++)
+                    {
+                        value += GetPieceValue(flips[f].Type);
+                    }
+
+                    if (value > maxFlipValue)
+                    {
+                        maxFlipValue = value;
+                    }
+                }
+            }
+
+            return maxFlipValue;
         }
 
         private void AddStepMoves(List<Vector2Int> moves, SimPiece piece, Vector2Int[] offsets)
@@ -803,25 +1101,34 @@ public class BoardEvaluator : MonoBehaviour
             }
 
             // 3. 대각선 전방 포획
-            Vector2Int[] captureOffsets =
+            switch (GetActiveRuleMode())
             {
-                new Vector2Int(-1, dirY),
-                new Vector2Int(1, dirY)
-            };
+                case RULE_OTHELLO:
+                    break;
 
-            for (int i = 0; i < captureOffsets.Length; i++)
-            {
-                Vector2Int diagTarget = piece.Position + captureOffsets[i];
-                if (!IsInBounds(diagTarget) || IsDestroyedCell(diagTarget))
-                {
-                    continue;
-                }
+                case RULE_STANDARD:
+                default:
+                    Vector2Int[] captureOffsets =
+                    {
+                        new Vector2Int(-1, dirY),
+                        new Vector2Int(1, dirY)
+                    };
 
-                SimPiece pieceAt = GetPieceAt(diagTarget);
-                if (pieceAt != null && pieceAt.IsEnemy != piece.IsEnemy)
-                {
-                    moves.Add(diagTarget);
-                }
+                    for (int i = 0; i < captureOffsets.Length; i++)
+                    {
+                        Vector2Int diagTarget = piece.Position + captureOffsets[i];
+                        if (!IsInBounds(diagTarget) || IsDestroyedCell(diagTarget))
+                        {
+                            continue;
+                        }
+
+                        SimPiece pieceAt = GetPieceAt(diagTarget);
+                        if (pieceAt != null && pieceAt.IsEnemy != piece.IsEnemy)
+                        {
+                            moves.Add(diagTarget);
+                        }
+                    }
+                    break;
             }
         }
 
@@ -855,12 +1162,20 @@ public class BoardEvaluator : MonoBehaviour
                 return true;
             }
 
-            if (pieceAt.IsInvincible)
+            switch (GetActiveRuleMode())
             {
-                return false;
-            }
+                case RULE_OTHELLO:
+                    return false;
 
-            return pieceAt.IsEnemy != piece.IsEnemy;
+                case RULE_STANDARD:
+                default:
+                    if (pieceAt.IsInvincible)
+                    {
+                        return false;
+                    }
+
+                    return pieceAt.IsEnemy != piece.IsEnemy;
+            }
         }
 
         private bool IsOccupied(Vector2Int target)
@@ -907,7 +1222,7 @@ public class BoardEvaluator : MonoBehaviour
     {
         public int Id { get; }
         public PieceType Type { get; set; }
-        public bool IsEnemy { get; }
+        public bool IsEnemy { get; set; }
         public bool IsInvincible { get; }
         public Vector2Int Position { get; set; }
 

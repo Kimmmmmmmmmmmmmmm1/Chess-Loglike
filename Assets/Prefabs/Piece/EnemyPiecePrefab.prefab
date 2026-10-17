@@ -82,7 +82,7 @@ MonoBehaviour:
   enemyColor: {r: 0, g: 0, b: 1, a: 1}
   invalidZoneTint: {r: 1, g: 0.3, b: 0.3, a: 0.7}
   sealIconSize: 20
-  sealIconPrefab: {fileID: 0}
+  sealIconPrefab: {fileID: 8140036974945737951, guid: b4f1d5478d9f6426ebe83144669620ca, type: 3}
   sealIconSpacing: 10
   duplicateSealCycleInterval: 1.2
   duplicateSealSwitchDuration: 0.18

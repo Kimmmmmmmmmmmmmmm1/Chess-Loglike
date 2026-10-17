@@ -124,6 +124,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     [Header("State")]
     [SerializeField] private PieceLocation currentLocation = PieceLocation.Board;
     [SerializeField] private bool promotedByMedalThisStage = false;
+    [SerializeField] private bool convertedByOthelloThisBattle = false;
     [Header("Buff Stacks")]
     [SerializeField] private int protectionStacks;
     [SerializeField] private int evasionStacks;
@@ -1233,8 +1234,12 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             gridPosition = target;
         }
 
-        // 폰(Pawn)이 적 진영 끝 줄에 도달했는지 체크
-        CheckSoldierPromotion();
+        // 오셀로 유물이 활성화되어 있는 경우 착지 후 전향 및 게임 종료 판정 후에 프로모션을 체크하도록 지연
+        if (!OthelloArtifactSystem.IsActive)
+        {
+            // 폰(Pawn)이 적 진영 끝 줄에 도달했는지 체크
+            CheckSoldierPromotion();
+        }
 
         // 이동하는 기물이 다른 기물들 위에 보이도록 순서를 가장 마지막으로 변경
         transform.SetAsLastSibling();
@@ -1264,7 +1269,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
     }
 
-    private void CheckSoldierPromotion()
+    public void CheckSoldierPromotion()
     {
         // 자신이 폰(Pawn)이 아니거나 그리드 위치가 없으면 return
         if (pieceType != PieceType.Pawn || !gridPosition.HasValue)
@@ -1277,6 +1282,13 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             return;
 
         if (PieceManager.Instance == null || PieceManager.Instance.gridManager == null)
+            return;
+
+        // 게임 끝 타이밍 체크: 상대 진영 기물이 0개이거나 게임 종료 조건에 도달한 경우 프로모션 안 됨
+        if (!isEnemy && PieceManager.Instance.GetEnemyPieceCountOnBoard() == 0)
+            return;
+
+        if (isEnemy && PieceManager.Instance.GetPlayerPieceCountOnBoard() == 0)
             return;
 
         GridManager gridManager = PieceManager.Instance.gridManager;
@@ -1402,6 +1414,12 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             foreach (var sealBase in sealsToProcess)
             {
                 if (sealBase == null) continue;
+                if (sealBase is ConversionSeal || ConversionSeal.IsConversionSealData(sealBase.Data))
+                {
+                    if (sealBase.transform.parent != null) Destroy(sealBase.transform.parent.gameObject);
+                    else Destroy(sealBase.gameObject);
+                    continue;
+                }
 
                 // 1. 데이터 반환
                 if (sealBase.Data != null && SealInventory.Instance != null)
@@ -1419,7 +1437,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
             foreach (var sealBase in equippedSeals)
             {
-                if (sealBase != null && sealBase.Data != null && SealInventory.Instance != null) SealInventory.Instance.AddSeal(sealBase.Data);
+                if (sealBase != null && sealBase.Data != null && !ConversionSeal.IsConversionSealData(sealBase.Data) && SealInventory.Instance != null)
+                    SealInventory.Instance.AddSeal(sealBase.Data);
             }
             if (PieceManager.Instance != null)
             {
@@ -1507,9 +1526,19 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
 
         PieceController pieceAt = PieceManager.Instance.GetPieceAt(target);
+        if (IsHiddenEnemyDuringPrepare(pieceAt))
+        {
+            pieceAt = null;
+        }
+
         if (pieceAt == null)
         {
             return true;
+        }
+
+        if (OthelloArtifactSystem.IsActive)
+        {
+            return false;
         }
 
         return pieceAt.IsEnemy != isEnemy;
@@ -1563,6 +1592,16 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         // 📌 Case A Hook: 코드 인젝션(Seal)들에게 이동 경로 수정 요청
         foreach (var seal in equippedSeals) seal.ModifyMoves(ref moves, gridPosition.Value, isEnemy, null, IsOccupied);
+
+        if (OthelloArtifactSystem.IsActive)
+        {
+            moves.RemoveAll(target =>
+            {
+                PieceController targetPiece = PieceManager.Instance?.GetPieceAt(target);
+                return targetPiece != null && !IsHiddenEnemyDuringPrepare(targetPiece);
+            });
+        }
+
         // 무적 기물은 공격 대상 후보에서도 제외합니다.
         moves.RemoveAll(target =>
         {
@@ -1903,25 +1942,28 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             }
         }
 
-        // 3. 대각선 전방 포획 (적 기물이 있을 때만 공격 이동 가능)
-        Vector2Int[] captureOffsets =
+        // 3. 대각선 전방 포획 (적 기물이 있을 때만 공격 이동 가능, 오셀로의 성역 활성 시에는 직접 포획 불가)
+        if (!OthelloArtifactSystem.IsActive)
         {
-            new Vector2Int(-1, dirY),
-            new Vector2Int(1, dirY)
-        };
-
-        for (int i = 0; i < captureOffsets.Length; i++)
-        {
-            Vector2Int diagTarget = gridPosition.Value + captureOffsets[i];
-            if (!IsInBounds(diagTarget) || IsDestroyedCell(diagTarget))
+            Vector2Int[] captureOffsets =
             {
-                continue;
-            }
+                new Vector2Int(-1, dirY),
+                new Vector2Int(1, dirY)
+            };
 
-            PieceController targetPiece = PieceManager.Instance.GetPieceAt(diagTarget);
-            if (targetPiece != null && targetPiece.IsEnemy != isEnemy)
+            for (int i = 0; i < captureOffsets.Length; i++)
             {
-                moves.Add(diagTarget);
+                Vector2Int diagTarget = gridPosition.Value + captureOffsets[i];
+                if (!IsInBounds(diagTarget) || IsDestroyedCell(diagTarget))
+                {
+                    continue;
+                }
+
+                PieceController targetPiece = PieceManager.Instance.GetPieceAt(diagTarget);
+                if (targetPiece != null && targetPiece.IsEnemy != isEnemy)
+                {
+                    moves.Add(diagTarget);
+                }
             }
         }
 
@@ -2352,7 +2394,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             if (rt != null) rt.localScale = Vector3.one;
         }
 
-        if (draggable != null) draggable.enabled = visible;
+        bool isConversion = seal is ConversionSeal || ConversionSeal.IsConversionSealData(seal.Data);
+        if (draggable != null) draggable.enabled = visible && !isConversion;
         SealTooltipHandler tooltip = visual.GetComponent<SealTooltipHandler>();
         if (tooltip != null) tooltip.enabled = visible;
     }
@@ -2365,6 +2408,187 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             duplicateSealCycleCoroutine = null;
         }
     }
+
+    public bool HasConversionSeal()
+    {
+        if (convertedByOthelloThisBattle)
+        {
+            return true;
+        }
+
+        foreach (var seal in equippedSeals)
+        {
+            if (seal == null) continue;
+            if (seal is ConversionSeal || ConversionSeal.IsConversionSealData(seal.Data))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public bool AttachConversionSeal(SealData sealData = null)
+    {
+        if (sealData == null)
+        {
+            sealData = ConversionSeal.GetOrCreateSealData();
+        }
+
+        convertedByOthelloThisBattle = true;
+
+        // 이미 전향의 인장 시각 오브젝트가 부착되어 있는지 확인
+        foreach (var seal in equippedSeals)
+        {
+            if (seal != null && (seal is ConversionSeal || ConversionSeal.IsConversionSealData(seal.Data)))
+            {
+                return true;
+            }
+        }
+
+        if (sealData != null && sealData.sealPrefab != null)
+        {
+            EquipSeal(sealData);
+            foreach (var seal in equippedSeals)
+            {
+                if (seal != null && ConversionSeal.IsConversionSealData(seal.Data))
+                {
+                    return true;
+                }
+            }
+        }
+
+        AttachConversionSealFallbackVisual(sealData);
+        return HasConversionSeal();
+    }
+
+    private void AttachConversionSealFallbackVisual(SealData sealData)
+    {
+        GameObject sealObj = CreateEquippedSealVisual(sealData);
+        if (sealObj == null)
+        {
+            return;
+        }
+
+        DraggableSeal draggable = sealObj.GetComponent<DraggableSeal>();
+        if (draggable != null)
+        {
+            draggable.enabled = false;
+        }
+
+        GameObject logicObj = new GameObject("Logic");
+        logicObj.transform.SetParent(sealObj.transform, false);
+        ConversionSeal conversionSeal = logicObj.AddComponent<ConversionSeal>();
+        conversionSeal.Initialize(sealData, this);
+        equippedSeals.Add(conversionSeal);
+        RefreshEquippedSealVisuals();
+    }
+
+    /// <summary>
+    /// 오셀로의 성역 효과로 적 기물을 아군으로 전향시키고 180도 뒤집기 연출 및 [전향의 인장]을 부여합니다.
+    /// </summary>
+    public void ConvertToAllyWithOthelloSeal()
+    {
+        ConvertToTeamWithOthelloSeal(false);
+    }
+
+    /// <summary>
+    /// 오셀로의 성역 효과로 기물을 지정된 진영(toEnemy)으로 전향시키고 180도 뒤집기 연출 및 [전향의 인장]을 부여합니다.
+    /// </summary>
+    public void ConvertToTeamWithOthelloSeal(bool toEnemy)
+    {
+        convertedByOthelloThisBattle = true;
+        isEnemy = toEnemy;
+        SetHiddenDuringPrepare(false);
+
+        EnemyPieceController enemyController = GetComponent<EnemyPieceController>();
+        if (toEnemy)
+        {
+            if (enemyController != null)
+            {
+                enemyController.enabled = true;
+            }
+        }
+        else
+        {
+            if (enemyController != null)
+            {
+                enemyController.enabled = false;
+                if (Application.isPlaying)
+                {
+                    Destroy(enemyController);
+                }
+                else
+                {
+                    DestroyImmediate(enemyController);
+                }
+            }
+        }
+
+        if (PieceManager.Instance != null)
+        {
+            PieceManager.Instance.NotifyPieceTeamChanged(this);
+        }
+
+        if (!toEnemy && CollectionManager.Instance != null)
+        {
+            CollectionManager.Instance.RecordPiece(pieceType);
+        }
+
+        AnimateFlip();
+    }
+
+    /// <summary>
+    /// 기물이 DOTween을 활용해 부드럽게 180도 뒤집히며(Flip) 진영 스프라이트로 변하고 상단에 [전향의 인장]이 부착됩니다.
+    /// </summary>
+    public void AnimateFlip()
+    {
+        if (rectTransform == null)
+        {
+            ApplySprite();
+            AttachConversionSeal();
+            return;
+        }
+
+        rotationTween?.Kill();
+        scaleTween?.Kill();
+
+        float halfFlipDuration = 0.16f;
+        Sequence flipSequence = DOTween.Sequence();
+
+        // 전반부 90도 회전 (옆면이 되어 두께가 0이 되는 지점까지)
+        flipSequence.Append(rectTransform.DOLocalRotate(new Vector3(0f, 90f, 0f), halfFlipDuration).SetEase(Ease.InQuad));
+        flipSequence.Join(rectTransform.DOScale(originalScale * 1.15f, halfFlipDuration).SetEase(Ease.OutQuad));
+
+        // 90도 지점에서 스프라이트 교체 및 상단 [전향의 인장] 부착
+        flipSequence.AppendCallback(() =>
+        {
+            ApplySprite();
+            ResetPieceColor();
+            AttachConversionSeal();
+
+            if (Application.isPlaying && SoundManager.Instance != null)
+            {
+                SoundManager.Instance.PlaySFX(SFXType.Click);
+            }
+
+            // 좌우 반전이 남지 않도록 -90도에서 0도로 후반부 90도 회전 연결 (총 180도 동일 방향 플립)
+            rectTransform.localEulerAngles = new Vector3(0f, -90f, 0f);
+        });
+
+        // 후반부 90도 회전 및 탄성 착지
+        flipSequence.Append(rectTransform.DOLocalRotate(Vector3.zero, halfFlipDuration * 1.15f).SetEase(Ease.OutBack));
+        flipSequence.Join(rectTransform.DOScale(originalScale, halfFlipDuration * 1.15f).SetEase(Ease.OutBack));
+        flipSequence.OnComplete(() =>
+        {
+            if (rectTransform != null)
+            {
+                rectTransform.localRotation = originalRotation;
+                rectTransform.localScale = originalScale;
+            }
+        });
+    }
+
     public bool AttachPromotionSeal(SealData sealData)
     {
         if (HasPromotionSeal())

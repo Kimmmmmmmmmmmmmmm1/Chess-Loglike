@@ -115,6 +115,49 @@ public class PiecePromotionManager : MonoBehaviour
             cannonButton.onClick.AddListener(() => OnPromotionSelected(PieceType.Queen));
 
         UpdateButtonSprites();
+
+        if (GameStateManager.Instance != null)
+        {
+            GameStateManager.Instance.OnStateChanged += HandleGameStateChanged;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (GameStateManager.Instance != null)
+        {
+            GameStateManager.Instance.OnStateChanged -= HandleGameStateChanged;
+        }
+    }
+
+    private void HandleGameStateChanged(GameStateManager.GameState newState)
+    {
+        if (newState != GameStateManager.GameState.GamePlay)
+        {
+            CancelAndClosePromotion();
+        }
+    }
+
+    public void CancelAndClosePromotion()
+    {
+        StopAllCoroutines();
+        isEnemyPromoting = false;
+        isPlayerPromotingEffectRunning = false;
+        pendingSoldier = null;
+        ClosePanel();
+
+        if (uiCanvasRect != null)
+        {
+            var transforms = uiCanvasRect.GetComponentsInChildren<Transform>(true);
+            foreach (var t in transforms)
+            {
+                if (t != null && (t.name == "EnemyPromotionEffect" || t.name == "PromotionEffect"))
+                {
+                    t.DOKill();
+                    Destroy(t.gameObject);
+                }
+            }
+        }
     }
 
     private void UpdateButtonSprites()
@@ -164,6 +207,12 @@ public class PiecePromotionManager : MonoBehaviour
         }
 
         if (GameStateManager.Instance == null || GameStateManager.Instance.CurrentState != GameStateManager.GameState.GamePlay)
+        {
+            return;
+        }
+
+        // 게임 승리 타이밍 (보드 위 적 기물이 0개)에는 프로모션 불가
+        if (PieceManager.Instance != null && PieceManager.Instance.GetEnemyPieceCountOnBoard() == 0)
         {
             return;
         }
@@ -235,6 +284,12 @@ public class PiecePromotionManager : MonoBehaviour
         }
 
         if (GameStateManager.Instance == null || GameStateManager.Instance.CurrentState != GameStateManager.GameState.GamePlay)
+        {
+            return;
+        }
+
+        // 게임 오버 타이밍 (보드 위 플레이어 기물이 0개)에는 적 프로모션 불가
+        if (PieceManager.Instance != null && PieceManager.Instance.GetPlayerPieceCountOnBoard() == 0)
         {
             return;
         }
