@@ -3073,6 +3073,19 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         RefreshBuffAuraVisuals();
     }
 
+    /// <summary>
+    /// 기물에 부여된 모든 전투 버프(보호, 회피, 역공, 무적)를 초기화하고 오라 연출을 갱신합니다.
+    /// 스테이지 종료 시 호출됩니다.
+    /// </summary>
+    public void ClearAllBuffs()
+    {
+        protectionStacks = 0;
+        evasionStacks = 0;
+        counterattackStacks = 0;
+        invincibilityTurns = 0;
+        RefreshBuffAuraVisuals();
+    }
+
     private void CreateBuffAuraVisuals()
     {
         if (buffAuraImages[0] != null)
@@ -3753,7 +3766,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceType.Bishop => "※ 대각선 4방향 원거리 슬라이딩",
             PieceType.Rook => "※ 상하좌우 4방향 직선 원거리 슬라이딩",
             PieceType.Queen => "※ 가로·세로·대각선 8방향 전방위 슬라이딩",
-            PieceType.King => "※ 모든 방향 1칸 이동 (체크메이트 보호 대상)",
+            PieceType.King => "※ 가로·세로·대각선 모든 방향 1칸 이동",
             PieceType.Amazon => "※ 퀸의 전방위 슬라이딩 + 나이트의 L자 도약",
             PieceType.Chancellor => "※ 룩의 직선 슬라이딩 + 나이트의 L자 도약",
             PieceType.Archbishop => "※ 비숍의 대각선 슬라이딩 + 나이트의 L자 도약",

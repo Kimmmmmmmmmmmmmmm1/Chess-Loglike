@@ -160,36 +160,73 @@ public static class ShotgunKingSystem
             }
         }
 
+        bool kingWasOnBoard = king != null && king.CurrentLocation == PieceLocation.Board && king.GridPosition.HasValue;
+        Vector2Int kingPosition = kingWasOnBoard ? king.GridPosition.Value : default;
+        Transform kingInventorySlot = king != null && king.CurrentLocation == PieceLocation.Inventory ? king.transform.parent : null;
+        List<SealData> kingSeals = king != null ? king.GetAllEquippedSealData() : new List<SealData>();
+
         int sellValue = 0;
-        bool kingWasInInventory = king != null && king.CurrentLocation == PieceLocation.Inventory;
         if (PieceInventory.Instance != null)
         {
             foreach (PieceInventory.PieceInfo piece in PieceInventory.Instance.OwnedPieces)
             {
-                if (piece.pieceType == PieceType.King) kingWasInInventory = true;
                 if (piece.pieceType != PieceType.King) sellValue += GetSellPrice(piece.pieceType);
             }
         }
         foreach (PieceController piece in scenePieces)
         {
-            if (piece != null && !piece.IsEnemy && piece != king && piece.Type != PieceType.King && piece.CurrentLocation == PieceLocation.Board)
+            if (piece != null && !piece.IsEnemy && piece.Type != PieceType.King && piece.CurrentLocation == PieceLocation.Board)
                 sellValue += GetSellPrice(piece.Type);
         }
-        PieceManager.Instance?.PurgePlayerArmyExceptKing(king);
+
+        PieceInventory.Instance?.ClearPieces();
+        if (!kingWasOnBoard) PieceInventory.Instance?.AddPiece(PieceType.King);
+
+        PieceController replacementKing = CreateReplacementKing(kingWasOnBoard, kingPosition, kingInventorySlot, kingSeals);
+        if (replacementKing == null) replacementKing = king;
+        PieceManager.Instance?.PurgePlayerArmyExceptKing(replacementKing, king);
 
         foreach (PieceController piece in scenePieces)
         {
-            if (piece == null || piece.IsEnemy || piece.Type == PieceType.King) continue;
+            if (piece == null || piece.IsEnemy || piece == replacementKing) continue;
             Object.Destroy(piece.gameObject);
         }
 
-        if (PieceInventory.Instance != null)
+        if (sellValue > 0) GameManager.Instance?.AddCoin(sellValue);
+    }
+
+    private static PieceController CreateReplacementKing(bool placeOnBoard, Vector2Int boardPosition, Transform inventorySlot, List<SealData> seals)
+    {
+        PieceSpawner spawner = PieceSpawner.Instance;
+        if (spawner == null || spawner.piecePrefab == null) return null;
+
+        if (!placeOnBoard && inventorySlot == null)
         {
-            PieceInventory.Instance.ClearPieces();
-            if (kingWasInInventory) PieceInventory.Instance.AddPiece(PieceType.King);
+            InventorySlot[] slots = Object.FindObjectsByType<InventorySlot>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (slots.Length > 0) inventorySlot = slots[0].transform;
         }
 
-        if (sellValue > 0) GameManager.Instance?.AddCoin(sellValue);
+        Transform parent = placeOnBoard
+            ? (spawner.piecesParent != null ? spawner.piecesParent : spawner.transform)
+            : (inventorySlot != null ? inventorySlot : spawner.transform);
+        GameObject kingObject = Object.Instantiate(spawner.piecePrefab, parent);
+        PieceController newKing = kingObject.GetComponent<PieceController>();
+        if (newKing == null)
+        {
+            Object.Destroy(kingObject);
+            return null;
+        }
+
+        if (placeOnBoard) newKing.gridPosition = boardPosition;
+        newKing.Initialize(PieceType.King, false);
+        if (!placeOnBoard && inventorySlot != null) newKing.MoveToInventory(inventorySlot, false);
+
+        foreach (SealData seal in seals)
+        {
+            if (seal != null) newKing.EquipSeal(seal);
+        }
+
+        return newKing;
     }
 
     public static int GetSellPrice(PieceType pieceType)
@@ -345,18 +382,52 @@ public static class ShotgunKingSystem
         return false;
     }
 
+    private static HashSet<Vector2Int> GetShotAimPositions(PieceController king)
+    {
+        HashSet<Vector2Int> positions = new HashSet<Vector2Int>();
+        GridManager grid = PieceManager.Instance?.gridManager;
+        if (grid == null || king == null || !king.GridPosition.HasValue) return positions;
+
+        Vector2Int origin = king.GridPosition.Value;
+        int maxJumps = GetShotRange(king);
+        Queue<Vector2Int> pending = new Queue<Vector2Int>();
+        Dictionary<Vector2Int, int> distances = new Dictionary<Vector2Int, int> { [origin] = 0 };
+        pending.Enqueue(origin);
+
+        while (pending.Count > 0)
+        {
+            Vector2Int current = pending.Dequeue();
+            int nextDistance = distances[current] + 1;
+            if (nextDistance > maxJumps) continue;
+
+            foreach (Vector2Int jump in shotRangeJumps)
+            {
+                Vector2Int next = current + jump;
+                if (!grid.IsInBounds(next) || distances.ContainsKey(next)) continue;
+                distances[next] = nextDistance;
+                positions.Add(next);
+                pending.Enqueue(next);
+            }
+        }
+
+        return positions;
+    }
+
     public static void UpdateAimPreview(Vector2Int? aimPosition)
     {
         PieceManager manager = PieceManager.Instance;
         if (manager == null) return;
         PieceController king = FindKing();
-        if (!aimPosition.HasValue || !IsValidAimPosition(king, aimPosition.Value))
+        if (!IsPlayerAimingTurn || Ammo <= 0 || !IsPlayerKing(king) || !king.GridPosition.HasValue)
         {
             manager.ClearShotgunAimMarkers();
             return;
         }
 
-        manager.UpdateShotgunAimMarkers(GetShotTargetPositions(king, aimPosition.Value));
+        List<Vector2Int> highlightedPositions = new List<Vector2Int>();
+        if (aimPosition.HasValue && IsValidAimPosition(king, aimPosition.Value))
+            highlightedPositions = GetShotTargetPositions(king, aimPosition.Value);
+        manager.UpdateShotgunAimMarkers(GetShotAimPositions(king), highlightedPositions);
     }
 
     public static bool TryHandleShotAimClick(Vector2Int aimPosition, UnityEngine.EventSystems.PointerEventData.InputButton button)
@@ -405,6 +476,7 @@ public static class ShotgunKingSystem
     {
         if (manager == null || manager.gridManager == null || !IsValidAimPosition(king, aimPosition)) return false;
 
+        manager.PlayShotgunProjectile(king.GridPosition.Value, aimPosition);
         ammo--;
         scavengedPieceType = null;
         HashSet<PieceController> hitPieces = new HashSet<PieceController>();
@@ -458,7 +530,7 @@ public static class ShotgunKingSystem
         return targets;
     }
 
-    private static void CaptureShotTarget(PieceManager manager, PieceController king, PieceController target, HashSet<PieceController> hitPieces)
+    private static void CaptureShotTarget(PieceManager manager, PieceController king, PieceController target, HashSet<PieceController> hitPieces, bool triggerIncendiary = true)
     {
         if (target == null || !target.IsEnemy || !hitPieces.Add(target)) return;
         PieceType capturedType;
@@ -466,7 +538,7 @@ public static class ShotgunKingSystem
         if (!manager.TryCapturePieceWithAttack(king, target, out capturedType, out position)) return;
 
         if (HasPart(king, ScavengerBarrel)) scavengedPieceType = capturedType;
-        if (HasPart(king, IncendiaryMod)) SpreadIncendiaryBlast(manager, king, position, hitPieces);
+        if (triggerIncendiary && HasPart(king, IncendiaryMod)) SpreadIncendiaryBlast(manager, king, position, hitPieces);
     }
 
     private static void SpreadIncendiaryBlast(PieceManager manager, PieceController king, Vector2Int center, HashSet<PieceController> hitPieces)
@@ -477,7 +549,8 @@ public static class ShotgunKingSystem
             {
                 if (dx == 0 && dy == 0) continue;
                 PieceController nearby = manager.GetPieceAt(center + new Vector2Int(dx, dy));
-                if (nearby != null && nearby.IsEnemy) CaptureShotTarget(manager, king, nearby, hitPieces);
+                // 폭발로 처치된 기물은 다시 폭발하지 않도록 연쇄를 한 단계로 제한합니다.
+                if (nearby != null && nearby.IsEnemy) CaptureShotTarget(manager, king, nearby, hitPieces, false);
             }
         }
     }

@@ -767,7 +767,7 @@ public class CollectionManager : PersistentManagerBase
                 };
                 piece.flavorText = type switch
                 {
-                    PieceType.King => "체스 진영의 심장이자 최우선 보호 대상인 왕.",
+                    PieceType.King => "왕관의 무게를 견디며 전장을 지휘하는 왕.",
                     PieceType.Queen => "전 방향으로 이동할 수 있는 체스판 위 최강의 기물.",
                     PieceType.Rook => "직선 경로를 장악하는 웅장한 성채.",
                     PieceType.Bishop => "대각선을 가로지르는 성직자.",

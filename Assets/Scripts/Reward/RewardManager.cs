@@ -202,7 +202,7 @@ public class RewardManager : MonoBehaviour
                 horizontal = rewardContainer.gameObject.AddComponent<HorizontalLayoutGroup>();
             }
 
-            horizontal.spacing = 10f;
+            horizontal.spacing = 15f;
             horizontal.childAlignment = TextAnchor.MiddleCenter;
             horizontal.childControlWidth = false;
             horizontal.childControlHeight = false;
@@ -228,8 +228,8 @@ public class RewardManager : MonoBehaviour
                 RectTransform scrollRectTransform = rewardScrollRect.GetComponent<RectTransform>();
                 if (scrollRectTransform != null)
                 {
-                    scrollRectTransform.sizeDelta = new Vector2(500f, 64f);
-                    scrollRectTransform.anchoredPosition = new Vector2(0f, -10f);
+                    scrollRectTransform.sizeDelta = new Vector2(490f, 185f);
+                    scrollRectTransform.anchoredPosition = new Vector2(0f, -4f);
                 }
 
                 if (rewardScrollRect.verticalScrollbar != null)
@@ -506,7 +506,7 @@ public class RewardManager : MonoBehaviour
         if (rewardPanelRect != null)
         {
             rewardPanelRect.DOKill();
-            rewardPanelRect.DOSizeDelta(new Vector2(520f, 220f), 0.25f).SetEase(Ease.OutQuad);
+            rewardPanelRect.DOSizeDelta(new Vector2(540f, 250f), 0.25f).SetEase(Ease.OutQuad);
             rewardPanelRect.anchoredPosition = Vector2.zero;
         }
 
@@ -533,7 +533,7 @@ public class RewardManager : MonoBehaviour
             RectTransform titleRect = titleText.GetComponent<RectTransform>();
             if (titleRect != null)
             {
-                titleRect.anchoredPosition = new Vector2(0f, 78f);
+                titleRect.anchoredPosition = new Vector2(0f, 102f);
             }
         }
 
@@ -550,14 +550,19 @@ public class RewardManager : MonoBehaviour
             RectTransform scrollRectTransform = rewardScrollRect.GetComponent<RectTransform>();
             if (scrollRectTransform != null)
             {
-                scrollRectTransform.sizeDelta = new Vector2(500f, 64f);
-                scrollRectTransform.anchoredPosition = new Vector2(0f, -10f);
+                scrollRectTransform.sizeDelta = new Vector2(490f, 185f);
+                scrollRectTransform.anchoredPosition = new Vector2(0f, -4f);
             }
         }
 
         if (rerollButton != null)
         {
             rerollButton.gameObject.SetActive(true);
+            RectTransform rerollRect = rerollButton.GetComponent<RectTransform>();
+            if (rerollRect != null)
+            {
+                rerollRect.anchoredPosition = new Vector2(215f, 102f);
+            }
             UpdateRerollUI();
         }
 
@@ -573,7 +578,8 @@ public class RewardManager : MonoBehaviour
             RectTransform btnRect = closeButton.GetComponent<RectTransform>();
             if (btnRect != null)
             {
-                btnRect.anchoredPosition = new Vector2(0f, -75f);
+                btnRect.anchoredPosition = new Vector2(0f, -108f);
+                btnRect.sizeDelta = new Vector2(100f, 24f);
             }
 
             closeButton.onClick.RemoveAllListeners();
@@ -658,6 +664,10 @@ public class RewardManager : MonoBehaviour
     private void GenerateRewards(int count, int rarity)
     {
         if (rewardContainer == null) return;
+        if (rewardButtonPrefab == null)
+        {
+            rewardButtonPrefab = Resources.Load<GameObject>("UI/RewardBtn");
+        }
         if (rewardButtonPrefab == null) return;
 
         // 기존 버튼 제거
@@ -690,19 +700,12 @@ public class RewardManager : MonoBehaviour
                 activeRewardCount++;
             }
 
-            // 버튼 등장 애니메이션: 순차적으로 팝업
+            // 카드 등장 애니메이션: 순차적으로 팝업
             obj.transform.localScale = Vector3.zero;
-            obj.transform.DOScale(Vector3.one, 0.4f)
+            obj.transform.DOScale(Vector3.one, 0.35f)
                 .SetEase(Ease.OutBack)
-                .SetDelay(i * 0.1f + 0.2f)
-                .SetUpdate(true)
-                .OnComplete(() =>
-                {
-                    if (btn != null && btn.AttachedSeal != null)
-                    {
-                        btn.PlaySealEffect(btn.AttachedSeal.rarity);
-                    }
-                });
+                .SetDelay(i * 0.08f + 0.1f)
+                .SetUpdate(true);
         }
     }
 

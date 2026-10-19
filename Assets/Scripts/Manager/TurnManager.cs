@@ -278,6 +278,14 @@ public class TurnManager : MonoBehaviour
             yield break;
         }
 
+        // 보드 위에 아군 기물이 0개라면 무조건 탈락 (GameOver)
+        if (PieceManager.Instance != null && PieceManager.Instance.GetPlayerPieceCountOnBoard() <= 0)
+        {
+            Debug.LogWarning("[TurnManager] 플레이어 턴 검증: 보드에 아군 기물이 없음 -> GameOver");
+            GameStateManager.Instance?.ChangeState(GameStateManager.GameState.GameOver);
+            yield break;
+        }
+
         // 알까기 유물 보유 시에는 체스 행마법상 이동 가능한 칸이 없어도 알까기로 튕길 수 있으므로 턴을 자동 스킵하지 않음
         if (PieceManager.Instance != null && !PieceFlickLauncher.HasAlkkagiArtifact && !PieceManager.Instance.HasAnyPlayerMoves())
         {
@@ -287,20 +295,8 @@ public class TurnManager : MonoBehaviour
                 yield break;
             }
 
-            int playerPieceCount = 0;
-            foreach (var p in PieceManager.Instance.PlayerPieces)
-            {
-                if (p != null && p.CurrentLocation == PieceLocation.Board && p.GridPosition.HasValue) 
-                {
-                    playerPieceCount++;
-                }
-            }
-
-            if (playerPieceCount > 0)
-            {
-                Debug.LogWarning("[TurnManager] Player has pieces but no legal moves (플레이어 둘 수 있는 수 없음 - 턴 스킵)");
-                TurnLogUIManager.Instance?.AddLog("이동 가능한 수가 없어 턴을 넘깁니다.", false);
-            }
+            Debug.LogWarning("[TurnManager] Player has pieces but no legal moves (플레이어 둘 수 있는 수 없음 - 턴 스킵)");
+            TurnLogUIManager.Instance?.AddLog("이동 가능한 수가 없어 턴을 넘깁니다.", false);
 
             yield return new WaitForSeconds(0.6f);
             AdvanceTurn(false);

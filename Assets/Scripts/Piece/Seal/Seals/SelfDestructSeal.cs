@@ -43,34 +43,9 @@ public class SelfDestructSeal : SealBase
             return;
         }
 
-        if (!Application.isPlaying)
-        {
-            for (int i = 0; i < targets.Count; i++)
-            {
-                PieceController target = targets[i];
-                if (target != null)
-                {
-                    PieceManager.Instance.RemovePiece(target);
-                }
-            }
-
-            return;
-        }
-
-        PieceManager.Instance.StartCoroutine(ExplodeAfterDelay(targets));
-    }
-
-    private IEnumerator ExplodeAfterDelay(List<PieceController> targets)
-    {
-        if (explosionDelayAfterOwnerDeath > 0f)
-        {
-            yield return new WaitForSecondsRealtime(explosionDelayAfterOwnerDeath);
-        }
-
-        if (PieceManager.Instance == null)
-        {
-            yield break;
-        }
+        // 스테이지 종료 시 버프 소멸(ClearAllPieceBuffs)이 실행되기 전에
+        // 즉시 무적/보호/회피/역공 방어 판정을 처리합니다.
+        List<PieceController> doomedTargets = new List<PieceController>();
 
         for (int i = 0; i < targets.Count; i++)
         {
@@ -105,7 +80,52 @@ public class SelfDestructSeal : SealBase
                 continue;
             }
 
-            // 4. 버프/무적이 없는 경우 파괴
+            // 4. 방어에 실패한 기물만 파괴 예정 목록에 등록
+            doomedTargets.Add(target);
+        }
+
+        if (doomedTargets.Count == 0)
+        {
+            return;
+        }
+
+        if (!Application.isPlaying)
+        {
+            for (int i = 0; i < doomedTargets.Count; i++)
+            {
+                PieceController target = doomedTargets[i];
+                if (target != null)
+                {
+                    PieceManager.Instance.RemovePiece(target);
+                }
+            }
+
+            return;
+        }
+
+        PieceManager.Instance.StartCoroutine(ExplodeAfterDelay(doomedTargets));
+    }
+
+    private IEnumerator ExplodeAfterDelay(List<PieceController> doomedTargets)
+    {
+        if (explosionDelayAfterOwnerDeath > 0f)
+        {
+            yield return new WaitForSecondsRealtime(explosionDelayAfterOwnerDeath);
+        }
+
+        if (PieceManager.Instance == null)
+        {
+            yield break;
+        }
+
+        for (int i = 0; i < doomedTargets.Count; i++)
+        {
+            PieceController target = doomedTargets[i];
+            if (target == null || target.CurrentLocation != PieceLocation.Board || !target.GridPosition.HasValue)
+            {
+                continue;
+            }
+
             PieceManager.Instance.RemovePiece(target);
         }
     }

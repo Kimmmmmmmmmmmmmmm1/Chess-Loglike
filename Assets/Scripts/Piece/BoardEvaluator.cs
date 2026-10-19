@@ -12,6 +12,13 @@ public class BoardEvaluator : MonoBehaviour
     public const int RULE_STANDARD = 0;
     public const int RULE_OTHELLO = 1;
 
+    // 룰별 실수 확률 배율 (기본 실수 확률에 곱해짐, 1 = 기존과 동일)
+    public const float MISTAKE_MULTIPLIER_STANDARD = 1f;
+    public const float MISTAKE_MULTIPLIER_OTHELLO = 2.5f;
+    // 룰별 최대 실수 확률 상한
+    public const float MAX_ERROR_CHANCE_STANDARD = 0.5f;
+    public const float MAX_ERROR_CHANCE_OTHELLO = 0.85f;
+
     public static BoardEvaluator Instance { get; private set; }
 
     [Header("Scoring")]
@@ -47,6 +54,29 @@ public class BoardEvaluator : MonoBehaviour
         }
 
         return RULE_STANDARD;
+    }
+
+    private float GetErrorChance(int ruleMode)
+    {
+        // 기본: 지능 10이면 0%, 1이면 50%
+        float baseChance = (10f - aiIntelligence) * (0.5f / 9f);
+        float multiplier;
+        float maxChance;
+        switch (ruleMode)
+        {
+            case RULE_OTHELLO:
+                multiplier = MISTAKE_MULTIPLIER_OTHELLO;
+                maxChance = MAX_ERROR_CHANCE_OTHELLO;
+                break;
+
+            case RULE_STANDARD:
+            default:
+                multiplier = MISTAKE_MULTIPLIER_STANDARD;
+                maxChance = MAX_ERROR_CHANCE_STANDARD;
+                break;
+        }
+
+        return Mathf.Min(baseChance * multiplier, maxChance);
     }
 
     public bool TryPlayBestEnemyMove()
@@ -105,7 +135,7 @@ public class BoardEvaluator : MonoBehaviour
         }
 
         // 실수 확률 계산: 지능 10이면 0%, 1이면 50%
-        float errorChance = (10f - aiIntelligence) * (0.5f / 9f);
+        float errorChance = GetErrorChance(ruleMode);
         bool makeMistake = Random.value < errorChance;
 
         if (makeMistake && allPossibleMoves.Count > 0)
@@ -214,7 +244,7 @@ public class BoardEvaluator : MonoBehaviour
 
         bool moved = false;
 
-        float errorChance = (10f - aiIntelligence) * (0.5f / 9f);
+        float errorChance = GetErrorChance(ruleMode);
         bool makeMistake = Random.value < errorChance;
 
         if (makeMistake && allPossibleMoves.Count > 0)

@@ -24,6 +24,8 @@ public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     private Vector2Int gridPosition;
     private bool isHovered;
     private bool isCapture;
+    private bool isShotgunAimMarker;
+    private bool isShotgunAimHighlight;
     private Color baseColor;
 
     public Vector2Int GridPosition => gridPosition;
@@ -137,13 +139,20 @@ public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     public void OnPointerEnter(PointerEventData eventData)
     {
         isHovered = true;
-        UpdateColor(1f); // 마우스 올리면 불투명
+        UpdateColor(isShotgunAimMarker ? (isShotgunAimHighlight ? 1f : 0.5f) : 1f);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
         isHovered = false;
-        UpdateColor(0.5f); // 마우스 떼면 반투명
+        UpdateColor(isShotgunAimHighlight ? 1f : 0.5f);
+    }
+
+    public void SetShotgunAimAppearance(bool highlighted)
+    {
+        isShotgunAimMarker = true;
+        isShotgunAimHighlight = highlighted;
+        UpdateColor(highlighted ? 1f : 0.5f);
     }
 
     public void OnPointerClick(PointerEventData eventData)

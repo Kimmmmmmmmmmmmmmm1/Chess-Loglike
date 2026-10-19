@@ -14,6 +14,10 @@ public class StageSelectUI : MonoBehaviour
 {
     public static StageSelectUI Instance { get; private set; }
 
+    [Header("Prefabs (Optional - loaded from Resources if null)")]
+    [SerializeField] private GameObject stageSelectPanelPrefab;
+    [SerializeField] private GameObject stageChoiceCardPrefab;
+
     private GameObject rootPanel;
     private RectTransform panelRect;
     private TextMeshProUGUI headerTitleText;
@@ -61,6 +65,7 @@ public class StageSelectUI : MonoBehaviour
             CanvasGroup cg = rootPanel.GetComponent<CanvasGroup>();
             if (cg != null)
             {
+                cg.DOKill();
                 cg.alpha = 0f;
                 cg.DOFade(1f, 0.25f).SetUpdate(true);
             }
@@ -144,6 +149,7 @@ public class StageSelectUI : MonoBehaviour
             CanvasGroup cg = rootPanel.GetComponent<CanvasGroup>();
             if (cg != null)
             {
+                cg.DOKill();
                 cg.DOFade(0f, 0.2f).SetUpdate(true).OnComplete(() =>
                 {
                     rootPanel.SetActive(false);
@@ -164,6 +170,7 @@ public class StageSelectUI : MonoBehaviour
         {
             if (activeCards[i] != null)
             {
+                activeCards[i].transform.DOKill();
                 Destroy(activeCards[i]);
             }
         }
@@ -233,6 +240,7 @@ public class StageSelectUI : MonoBehaviour
             candidates.Add((StageNodeType.Treasure, 30f));
         }
 
+        // 가중치 룰렛
         float totalWeight = 0f;
         for (int i = 0; i < candidates.Count; i++) totalWeight += candidates[i].weight;
 
@@ -280,9 +288,9 @@ public class StageSelectUI : MonoBehaviour
         }
         else if (count == 2)
         {
-            cardWidth = 190f;
-            xPositions[0] = -110f;
-            xPositions[1] = 110f;
+            cardWidth = 195f;
+            xPositions[0] = -115f;
+            xPositions[1] = 115f;
         }
         else if (count == 3)
         {
@@ -312,6 +320,40 @@ public class StageSelectUI : MonoBehaviour
     {
         if (cardContainer == null || option == null) return;
 
+        if (stageChoiceCardPrefab == null)
+        {
+            stageChoiceCardPrefab = Resources.Load<GameObject>("UI/StageChoiceCard");
+        }
+
+        float cardHeight = 210f;
+
+        if (stageChoiceCardPrefab != null)
+        {
+            GameObject prefabCardObj = Instantiate(stageChoiceCardPrefab, cardContainer, false);
+            prefabCardObj.name = $"Card_{option.id ?? "Option"}";
+            activeCards.Add(prefabCardObj);
+
+            RectTransform prefabCardRect = prefabCardObj.GetComponent<RectTransform>();
+            if (prefabCardRect != null)
+            {
+                prefabCardRect.anchorMin = new Vector2(0.5f, 0.5f);
+                prefabCardRect.anchorMax = new Vector2(0.5f, 0.5f);
+                prefabCardRect.pivot = new Vector2(0.5f, 0.5f);
+                prefabCardRect.sizeDelta = new Vector2(cardWidth, cardHeight);
+                prefabCardRect.anchoredPosition = new Vector2(posX, -15f);
+                prefabCardRect.localScale = Vector3.one;
+            }
+
+            StageChoiceCard cardComp = prefabCardObj.GetComponent<StageChoiceCard>();
+            if (cardComp == null)
+            {
+                cardComp = prefabCardObj.AddComponent<StageChoiceCard>();
+            }
+
+            cardComp.Setup(option, cardWidth, cardHeight, isCompact, () => ExecuteOption(option));
+            return;
+        }
+
         TMP_FontAsset font = null;
         if (GameManager.Instance != null && GameManager.Instance.coinText != null)
         {
@@ -322,18 +364,17 @@ public class StageSelectUI : MonoBehaviour
             font = TMP_Settings.defaultFontAsset;
         }
 
-        float cardHeight = 210f;
-
-        GameObject cardObj = new GameObject($"Card_{option.id ?? "Option"}");
+        GameObject cardObj = new GameObject($"Card_{option.id ?? "Option"}", typeof(RectTransform));
         cardObj.transform.SetParent(cardContainer, false);
         activeCards.Add(cardObj);
 
-        RectTransform cardRect = cardObj.AddComponent<RectTransform>();
+        RectTransform cardRect = cardObj.GetComponent<RectTransform>();
         cardRect.anchorMin = new Vector2(0.5f, 0.5f);
         cardRect.anchorMax = new Vector2(0.5f, 0.5f);
         cardRect.pivot = new Vector2(0.5f, 0.5f);
         cardRect.sizeDelta = new Vector2(cardWidth, cardHeight);
         cardRect.anchoredPosition = new Vector2(posX, -15f);
+        cardRect.localScale = Vector3.one;
 
         // 카드 배경
         Image bgImage = cardObj.AddComponent<Image>();
@@ -354,14 +395,15 @@ public class StageSelectUI : MonoBehaviour
         btn.colors = cb;
 
         // 상단 헤더 배너
-        GameObject headerObj = new GameObject("Header");
+        GameObject headerObj = new GameObject("Header", typeof(RectTransform));
         headerObj.transform.SetParent(cardObj.transform, false);
-        RectTransform headerRect = headerObj.AddComponent<RectTransform>();
+        RectTransform headerRect = headerObj.GetComponent<RectTransform>();
         headerRect.anchorMin = new Vector2(0f, 1f);
         headerRect.anchorMax = new Vector2(1f, 1f);
         headerRect.pivot = new Vector2(0.5f, 1f);
         headerRect.anchoredPosition = new Vector2(0f, 0f);
         headerRect.sizeDelta = new Vector2(0f, 38f);
+        headerRect.localScale = Vector3.one;
 
         Image headerBg = headerObj.AddComponent<Image>();
         Color headerColor = themeColor;
@@ -369,13 +411,14 @@ public class StageSelectUI : MonoBehaviour
         headerBg.color = headerColor;
 
         // 타이틀 텍스트
-        GameObject titleObj = new GameObject("TitleText");
+        GameObject titleObj = new GameObject("TitleText", typeof(RectTransform));
         titleObj.transform.SetParent(headerObj.transform, false);
-        RectTransform titleRect = titleObj.AddComponent<RectTransform>();
+        RectTransform titleRect = titleObj.GetComponent<RectTransform>();
         titleRect.anchorMin = Vector2.zero;
         titleRect.anchorMax = Vector2.one;
         titleRect.anchoredPosition = Vector2.zero;
         titleRect.sizeDelta = Vector2.zero;
+        titleRect.localScale = Vector3.one;
 
         TextMeshProUGUI titleText = titleObj.AddComponent<TextMeshProUGUI>();
         titleText.font = font;
@@ -384,18 +427,24 @@ public class StageSelectUI : MonoBehaviour
         titleText.fontStyle = FontStyles.Bold;
         titleText.alignment = TextAlignmentOptions.Center;
         titleText.color = themeColor;
+        titleText.enableAutoSizing = true;
+        titleText.fontSizeMin = 8.5f;
+        titleText.fontSizeMax = isCompact ? 13.5f : 15f;
+        titleText.textWrappingMode = TextWrappingModes.Normal;
+        titleText.overflowMode = TextOverflowModes.Ellipsis;
 
         bool hasReward = !string.IsNullOrEmpty(option.rewardText);
 
         // 설명 텍스트
-        GameObject descObj = new GameObject("DescText");
+        GameObject descObj = new GameObject("DescText", typeof(RectTransform));
         descObj.transform.SetParent(cardObj.transform, false);
-        RectTransform descRect = descObj.AddComponent<RectTransform>();
+        RectTransform descRect = descObj.GetComponent<RectTransform>();
         descRect.anchorMin = new Vector2(0f, 0.5f);
         descRect.anchorMax = new Vector2(1f, 0.5f);
         descRect.pivot = new Vector2(0.5f, 0.5f);
         descRect.anchoredPosition = new Vector2(0f, hasReward ? 15f : 0f);
         descRect.sizeDelta = new Vector2(-20f, hasReward ? 75f : 110f);
+        descRect.localScale = Vector3.one;
 
         TextMeshProUGUI descText = descObj.AddComponent<TextMeshProUGUI>();
         descText.font = font;
@@ -403,61 +452,73 @@ public class StageSelectUI : MonoBehaviour
         descText.fontSize = isCompact ? 10.5f : 11.5f;
         descText.alignment = TextAlignmentOptions.Center;
         descText.color = new Color(0.85f, 0.85f, 0.88f, 1f);
+        descText.enableAutoSizing = true;
+        descText.fontSizeMin = 7.5f;
+        descText.fontSizeMax = isCompact ? 10.5f : 11.5f;
         descText.textWrappingMode = TextWrappingModes.Normal;
+        descText.overflowMode = TextOverflowModes.Ellipsis;
 
         // 하단 보상 배너 (보상 텍스트가 있을 때만 생성)
         if (hasReward)
         {
-            GameObject rewardBannerObj = new GameObject("RewardBanner");
+            GameObject rewardBannerObj = new GameObject("RewardBanner", typeof(RectTransform));
             rewardBannerObj.transform.SetParent(cardObj.transform, false);
-            RectTransform rewardBannerRect = rewardBannerObj.AddComponent<RectTransform>();
+            RectTransform rewardBannerRect = rewardBannerObj.GetComponent<RectTransform>();
             rewardBannerRect.anchorMin = new Vector2(0f, 0f);
             rewardBannerRect.anchorMax = new Vector2(1f, 0f);
             rewardBannerRect.pivot = new Vector2(0.5f, 0f);
             rewardBannerRect.anchoredPosition = new Vector2(0f, 40f);
             rewardBannerRect.sizeDelta = new Vector2(-12f, 32f);
+            rewardBannerRect.localScale = Vector3.one;
 
             Image rewardBg = rewardBannerObj.AddComponent<Image>();
             rewardBg.color = new Color(0f, 0f, 0f, 0.5f);
 
-            GameObject rewardTextObj = new GameObject("RewardText");
+            GameObject rewardTextObj = new GameObject("RewardText", typeof(RectTransform));
             rewardTextObj.transform.SetParent(rewardBannerObj.transform, false);
-            RectTransform rewardTextRect = rewardTextObj.AddComponent<RectTransform>();
+            RectTransform rewardTextRect = rewardTextObj.GetComponent<RectTransform>();
             rewardTextRect.anchorMin = Vector2.zero;
             rewardTextRect.anchorMax = Vector2.one;
             rewardTextRect.anchoredPosition = Vector2.zero;
             rewardTextRect.sizeDelta = Vector2.zero;
+            rewardTextRect.localScale = Vector3.one;
 
             TextMeshProUGUI rewardText = rewardTextObj.AddComponent<TextMeshProUGUI>();
             rewardText.font = font;
             rewardText.text = option.rewardText;
             rewardText.fontSize = isCompact ? 8.5f : 9.5f;
             rewardText.alignment = TextAlignmentOptions.Center;
+            rewardText.enableAutoSizing = true;
+            rewardText.fontSizeMin = 7f;
+            rewardText.fontSizeMax = isCompact ? 8.5f : 9.5f;
             rewardText.textWrappingMode = TextWrappingModes.Normal;
+            rewardText.overflowMode = TextOverflowModes.Ellipsis;
         }
 
         // 하단 "선택" 버튼 라벨
-        GameObject selectBtnObj = new GameObject("SelectBtn");
+        GameObject selectBtnObj = new GameObject("SelectBtn", typeof(RectTransform));
         selectBtnObj.transform.SetParent(cardObj.transform, false);
-        RectTransform selectBtnRect = selectBtnObj.AddComponent<RectTransform>();
+        RectTransform selectBtnRect = selectBtnObj.GetComponent<RectTransform>();
         selectBtnRect.anchorMin = new Vector2(0f, 0f);
         selectBtnRect.anchorMax = new Vector2(1f, 0f);
         selectBtnRect.pivot = new Vector2(0.5f, 0f);
         selectBtnRect.anchoredPosition = new Vector2(0f, 8f);
         selectBtnRect.sizeDelta = new Vector2(-24f, 26f);
+        selectBtnRect.localScale = Vector3.one;
 
         Image selectBtnBg = selectBtnObj.AddComponent<Image>();
         Color btnBgColor = themeColor * 0.8f;
         btnBgColor.a = 1f;
         selectBtnBg.color = btnBgColor;
 
-        GameObject selectBtnTextObj = new GameObject("Text");
+        GameObject selectBtnTextObj = new GameObject("Text", typeof(RectTransform));
         selectBtnTextObj.transform.SetParent(selectBtnObj.transform, false);
-        RectTransform selectBtnTextRect = selectBtnTextObj.AddComponent<RectTransform>();
+        RectTransform selectBtnTextRect = selectBtnTextObj.GetComponent<RectTransform>();
         selectBtnTextRect.anchorMin = Vector2.zero;
         selectBtnTextRect.anchorMax = Vector2.one;
         selectBtnTextRect.anchoredPosition = Vector2.zero;
         selectBtnTextRect.sizeDelta = Vector2.zero;
+        selectBtnTextRect.localScale = Vector3.one;
 
         TextMeshProUGUI selectBtnText = selectBtnTextObj.AddComponent<TextMeshProUGUI>();
         selectBtnText.font = font;
@@ -470,12 +531,15 @@ public class StageSelectUI : MonoBehaviour
         // 클릭 이벤트
         btn.onClick.AddListener(() => OnCardSelected(option, cardObj));
 
+        // 등장 애니메이션 및 호버 보호
+        bool isAppearing = true;
+
         // 호버 애니메이션 트리거
         EventTrigger trigger = cardObj.AddComponent<EventTrigger>();
         var enterEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
         enterEntry.callback.AddListener((data) =>
         {
-            if (!isSelecting)
+            if (!isSelecting && !isAppearing)
             {
                 cardObj.transform.DOKill();
                 cardObj.transform.DOScale(1.05f, 0.15f).SetUpdate(true);
@@ -487,7 +551,7 @@ public class StageSelectUI : MonoBehaviour
         var exitEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
         exitEntry.callback.AddListener((data) =>
         {
-            if (!isSelecting)
+            if (!isSelecting && !isAppearing)
             {
                 cardObj.transform.DOKill();
                 cardObj.transform.DOScale(1.0f, 0.15f).SetUpdate(true);
@@ -496,9 +560,17 @@ public class StageSelectUI : MonoBehaviour
         });
         trigger.triggers.Add(exitEntry);
 
-        // 등장 애니메이션
+        // 등장 애니메이션 (0 -> 1 스케일)
         cardObj.transform.localScale = Vector3.zero;
-        cardObj.transform.DOScale(Vector3.one, 0.35f).SetEase(Ease.OutBack).SetUpdate(true);
+        cardObj.transform.DOScale(Vector3.one, 0.35f).SetEase(Ease.OutBack).SetUpdate(true)
+            .OnComplete(() =>
+            {
+                isAppearing = false;
+                if (cardObj != null)
+                {
+                    cardObj.transform.localScale = Vector3.one;
+                }
+            });
     }
 
     private void OnCardSelected(StageChoiceOption option, GameObject cardObj)
@@ -537,21 +609,116 @@ public class StageSelectUI : MonoBehaviour
 
     #endregion
 
-    private void EnsureUI()
+    private Canvas FindTargetCanvas()
     {
-        if (rootPanel != null) return;
-
-        Canvas rootCanvas = FindFirstObjectByType<Canvas>();
-        if (rootCanvas == null)
+        // 1. 코인 텍스트가 속한 인게임 UI 캔버스 우선 탐색 (640x320 캔버스)
+        if (GameManager.Instance != null && GameManager.Instance.coinText != null)
         {
-            GameObject canvasObj = GameObject.Find("Canvas");
-            if (canvasObj != null)
-            {
-                rootCanvas = canvasObj.GetComponent<Canvas>();
-            }
+            Canvas c = GameManager.Instance.coinText.GetComponentInParent<Canvas>();
+            if (c != null && IsValidGameplayCanvas(c))
+                return c;
         }
 
-        if (rootCanvas == null) return;
+        // 2. 씬 내 "Canvas" 이름의 기본 게임 캔버스 탐색
+        GameObject canvasObj = GameObject.Find("Canvas");
+        if (canvasObj != null)
+        {
+            Canvas c = canvasObj.GetComponent<Canvas>();
+            if (c != null && IsValidGameplayCanvas(c))
+                return c;
+        }
+
+        // 3. 씬의 모든 캔버스 중 ModalCanvas, TooltipCanvas가 아니고 기준 해상도가 인게임(x < 1000)인 캔버스 탐색
+        Canvas[] canvases = FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (Canvas c in canvases)
+        {
+            if (c == null || !IsValidGameplayCanvas(c)) continue;
+            CanvasScaler scaler = c.GetComponent<CanvasScaler>();
+            if (scaler != null && scaler.referenceResolution.x < 1000f)
+                return c;
+        }
+
+        // 4. ModalCanvas, TooltipCanvas를 제외한 다른 유효한 캔버스
+        foreach (Canvas c in canvases)
+        {
+            if (c != null && IsValidGameplayCanvas(c))
+                return c;
+        }
+
+        return FindFirstObjectByType<Canvas>();
+    }
+
+    private static bool IsValidGameplayCanvas(Canvas canvas)
+    {
+        if (canvas == null) return false;
+        string name = canvas.gameObject.name;
+        if (name == "ModalCanvas" || name == "TooltipCanvas") return false;
+        return true;
+    }
+
+    private void EnsureUI()
+    {
+        Canvas targetCanvas = FindTargetCanvas();
+        if (targetCanvas == null) return;
+
+        if (rootPanel != null)
+        {
+            // Canvas가 바뀌었거나 잘못된 Canvas에 붙어있는 경우 올바른 Canvas로 재부착 및 초기화
+            if (rootPanel.transform.parent != targetCanvas.transform)
+            {
+                rootPanel.transform.SetParent(targetCanvas.transform, false);
+                if (panelRect != null)
+                {
+                    panelRect.anchorMin = Vector2.zero;
+                    panelRect.anchorMax = Vector2.one;
+                    panelRect.anchoredPosition = Vector2.zero;
+                    panelRect.sizeDelta = Vector2.zero;
+                    panelRect.localScale = Vector3.one;
+                }
+            }
+            return;
+        }
+
+        if (stageSelectPanelPrefab == null)
+        {
+            stageSelectPanelPrefab = Resources.Load<GameObject>("UI/StageSelectPanel");
+        }
+
+        if (stageSelectPanelPrefab != null)
+        {
+            rootPanel = Instantiate(stageSelectPanelPrefab, targetCanvas.transform, false);
+            rootPanel.name = "StageSelectPanel";
+
+            panelRect = rootPanel.GetComponent<RectTransform>();
+            if (panelRect != null)
+            {
+                panelRect.anchorMin = Vector2.zero;
+                panelRect.anchorMax = Vector2.one;
+                panelRect.anchoredPosition = Vector2.zero;
+                panelRect.sizeDelta = Vector2.zero;
+                panelRect.localScale = Vector3.one;
+            }
+
+            StageSelectPanel panelComp = rootPanel.GetComponent<StageSelectPanel>();
+            if (panelComp != null)
+            {
+                headerTitleText = panelComp.headerTitleText;
+                headerSubtitleText = panelComp.headerSubtitleText;
+                cardContainer = panelComp.cardContainer;
+            }
+            else
+            {
+                Transform t = rootPanel.transform.Find("HeaderTitle");
+                if (t != null) headerTitleText = t.GetComponent<TextMeshProUGUI>();
+                Transform st = rootPanel.transform.Find("HeaderSubtitle");
+                if (st != null) headerSubtitleText = st.GetComponent<TextMeshProUGUI>();
+                Transform cc = rootPanel.transform.Find("CardContainer");
+                if (cc != null) cardContainer = cc;
+            }
+
+            rootPanel.SetActive(false);
+            return;
+        }
 
         TMP_FontAsset font = null;
         if (GameManager.Instance != null && GameManager.Instance.coinText != null)
@@ -563,14 +730,15 @@ public class StageSelectUI : MonoBehaviour
             font = TMP_Settings.defaultFontAsset;
         }
 
-        rootPanel = new GameObject("StageSelectPanel");
-        rootPanel.transform.SetParent(rootCanvas.transform, false);
+        rootPanel = new GameObject("StageSelectPanel", typeof(RectTransform));
+        rootPanel.transform.SetParent(targetCanvas.transform, false);
 
-        panelRect = rootPanel.AddComponent<RectTransform>();
+        panelRect = rootPanel.GetComponent<RectTransform>();
         panelRect.anchorMin = Vector2.zero;
         panelRect.anchorMax = Vector2.one;
         panelRect.anchoredPosition = Vector2.zero;
         panelRect.sizeDelta = Vector2.zero;
+        panelRect.localScale = Vector3.one;
 
         Image blocker = rootPanel.AddComponent<Image>();
         blocker.color = Color.clear;
@@ -579,14 +747,15 @@ public class StageSelectUI : MonoBehaviour
         cg.alpha = 1f;
 
         // 상단 타이틀 영역
-        GameObject titleHeaderObj = new GameObject("HeaderTitle");
+        GameObject titleHeaderObj = new GameObject("HeaderTitle", typeof(RectTransform));
         titleHeaderObj.transform.SetParent(rootPanel.transform, false);
-        RectTransform headerTitleRect = titleHeaderObj.AddComponent<RectTransform>();
+        RectTransform headerTitleRect = titleHeaderObj.GetComponent<RectTransform>();
         headerTitleRect.anchorMin = new Vector2(0.5f, 1f);
         headerTitleRect.anchorMax = new Vector2(0.5f, 1f);
         headerTitleRect.pivot = new Vector2(0.5f, 1f);
         headerTitleRect.anchoredPosition = new Vector2(0f, -22f);
         headerTitleRect.sizeDelta = new Vector2(400f, 30f);
+        headerTitleRect.localScale = Vector3.one;
 
         headerTitleText = titleHeaderObj.AddComponent<TextMeshProUGUI>();
         headerTitleText.font = font;
@@ -597,14 +766,15 @@ public class StageSelectUI : MonoBehaviour
         headerTitleText.color = new Color(1f, 0.85f, 0.3f, 1f);
 
         // 상단 서브타이틀
-        GameObject subtitleObj = new GameObject("HeaderSubtitle");
+        GameObject subtitleObj = new GameObject("HeaderSubtitle", typeof(RectTransform));
         subtitleObj.transform.SetParent(rootPanel.transform, false);
-        RectTransform subtitleRect = subtitleObj.AddComponent<RectTransform>();
+        RectTransform subtitleRect = subtitleObj.GetComponent<RectTransform>();
         subtitleRect.anchorMin = new Vector2(0.5f, 1f);
         subtitleRect.anchorMax = new Vector2(0.5f, 1f);
         subtitleRect.pivot = new Vector2(0.5f, 1f);
         subtitleRect.anchoredPosition = new Vector2(0f, -50f);
         subtitleRect.sizeDelta = new Vector2(400f, 20f);
+        subtitleRect.localScale = Vector3.one;
 
         headerSubtitleText = subtitleObj.AddComponent<TextMeshProUGUI>();
         headerSubtitleText.font = font;
@@ -614,14 +784,15 @@ public class StageSelectUI : MonoBehaviour
         headerSubtitleText.color = new Color(0.8f, 0.8f, 0.8f, 0.9f);
 
         // 카드 컨테이너
-        GameObject containerObj = new GameObject("CardContainer");
+        GameObject containerObj = new GameObject("CardContainer", typeof(RectTransform));
         containerObj.transform.SetParent(rootPanel.transform, false);
-        RectTransform containerRect = containerObj.AddComponent<RectTransform>();
+        RectTransform containerRect = containerObj.GetComponent<RectTransform>();
         containerRect.anchorMin = new Vector2(0.5f, 0.5f);
         containerRect.anchorMax = new Vector2(0.5f, 0.5f);
         containerRect.pivot = new Vector2(0.5f, 0.5f);
         containerRect.anchoredPosition = new Vector2(0f, -10f);
         containerRect.sizeDelta = new Vector2(560f, 240f);
+        containerRect.localScale = Vector3.one;
         cardContainer = containerObj.transform;
 
         rootPanel.SetActive(false);

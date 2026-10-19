@@ -4,6 +4,7 @@ using DG.Tweening;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 using TMPro;
 
 public class PieceManager : MonoBehaviour
@@ -91,6 +92,7 @@ public class PieceManager : MonoBehaviour
     private readonly List<MoveMarker> activeMarkers = new();
     private readonly List<MoveMarker> shotgunAimMarkers = new();
     private readonly HashSet<Vector2Int> shotgunAimMarkerPositions = new();
+    private readonly HashSet<Vector2Int> shotgunAimHighlightedPositions = new();
     private readonly List<PieceController> pieces = new();
     private readonly List<PieceController> playerPieces = new();
     private readonly List<PieceController> enemyPieces = new();
@@ -454,13 +456,15 @@ public class PieceManager : MonoBehaviour
     }
 
     /// <summary>폭군의 난사 획득 시 아군 기물을 한 번에 숙청합니다.</summary>
-    public void PurgePlayerArmyExceptKing(PieceController keptKing)
+    public void PurgePlayerArmyExceptKing(PieceController keptKing, PieceController replacedKing = null)
     {
         if (selectedPiece != null && selectedPiece != keptKing) ClearSelection();
         ClearMarkers();
 
         Vector2Int kingStartPosition = default;
         bool hasKingStartPosition = keptKing != null && placementSnapshot.TryGetValue(keptKing, out kingStartPosition);
+        if (!hasKingStartPosition && replacedKing != null)
+            hasKingStartPosition = placementSnapshot.TryGetValue(replacedKing, out kingStartPosition);
 
         List<PieceController> removedPieces = new List<PieceController>();
         foreach (PieceController piece in playerPieces)
@@ -2250,7 +2254,7 @@ public class PieceManager : MonoBehaviour
             for (int i = markersParent.childCount - 1; i >= 0; i--)
             {
                 Transform child = markersParent.GetChild(i);
-                if (child != null)
+                if (child != null && child.name != "ShotgunProjectile")
                 {
                     Destroy(child.gameObject);
                 }
@@ -2267,10 +2271,33 @@ public class PieceManager : MonoBehaviour
         }
     }
 
-    public void UpdateShotgunAimMarkers(IEnumerable<Vector2Int> positions)
+    /// <summary>
+    /// 필드, 대기석 및 씬의 모든 기물에 남아있는 전투 버프(보호, 회피, 역공, 무적)를 제거합니다.
+    /// 스테이지가 끝날 때 호출됩니다.
+    /// </summary>
+    public void ClearAllPieceBuffs()
     {
+        PieceController[] allPieces = Object.FindObjectsByType<PieceController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < allPieces.Length; i++)
+        {
+            if (allPieces[i] != null)
+            {
+                allPieces[i].ClearAllBuffs();
+            }
+        }
+    }
+
+    public void UpdateShotgunAimMarkers(IEnumerable<Vector2Int> positions, IEnumerable<Vector2Int> highlightedPositions)
+    {
+        HashSet<Vector2Int> highlights = new HashSet<Vector2Int>(highlightedPositions);
+        highlights.RemoveWhere(position => !IsInBounds(position));
         HashSet<Vector2Int> desiredPositions = new HashSet<Vector2Int>(positions);
-        if (shotgunAimMarkerPositions.SetEquals(desiredPositions)) return;
+        desiredPositions.UnionWith(highlights);
+        desiredPositions.RemoveWhere(position => !IsInBounds(position));
+
+        bool sameMarkers = shotgunAimMarkerPositions.SetEquals(desiredPositions) &&
+                           shotgunAimHighlightedPositions.SetEquals(highlights);
+        if (sameMarkers) return;
 
         ClearShotgunAimMarkers();
         if (moveMarkerPrefab == null || markersParent == null) return;
@@ -2293,9 +2320,12 @@ public class PieceManager : MonoBehaviour
                 continue;
             }
 
+            bool highlighted = highlights.Contains(position);
             marker.Initialize(this, position, false, true);
+            marker.SetShotgunAimAppearance(highlighted);
             shotgunAimMarkers.Add(marker);
             shotgunAimMarkerPositions.Add(position);
+            if (highlighted) shotgunAimHighlightedPositions.Add(position);
         }
     }
 
@@ -2307,6 +2337,37 @@ public class PieceManager : MonoBehaviour
         }
         shotgunAimMarkers.Clear();
         shotgunAimMarkerPositions.Clear();
+        shotgunAimHighlightedPositions.Clear();
+    }
+
+    public void PlayShotgunProjectile(Vector2Int fromPosition, Vector2Int targetPosition)
+    {
+        if (markersParent == null || gridManager == null) return;
+
+        GameObject projectile = new GameObject("ShotgunProjectile", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform projectileRect = projectile.GetComponent<RectTransform>();
+        projectileRect.SetParent(markersParent, false);
+        projectileRect.anchorMin = new Vector2(0.5f, 0.5f);
+        projectileRect.anchorMax = new Vector2(0.5f, 0.5f);
+        projectileRect.pivot = new Vector2(0.5f, 0.5f);
+        projectileRect.sizeDelta = new Vector2(14f, 5f);
+
+        Vector2 start = GridToUiPosition(fromPosition);
+        Vector2 end = GridToUiPosition(targetPosition);
+        Vector2 direction = end - start;
+        projectileRect.anchoredPosition = start;
+        projectileRect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+        projectileRect.SetAsLastSibling();
+
+        Image image = projectile.GetComponent<Image>();
+        image.color = new Color(1f, 0.72f, 0.18f, 1f);
+        image.raycastTarget = false;
+
+        float duration = Mathf.Clamp(direction.magnitude / 900f, 0.08f, 0.18f);
+        projectileRect.DOAnchorPos(end, duration).SetEase(Ease.InQuad).OnComplete(() =>
+        {
+            if (projectile != null) Destroy(projectile);
+        });
     }
 
     public void CheckPieceCounts()
@@ -2322,14 +2383,18 @@ public class PieceManager : MonoBehaviour
         int enemyOnBoardCount = CountPiecesOnBoard(enemyPieces);
         int playerOnBoardCount = CountPiecesOnBoard(playerPieces);
 
-        if (enemyOnBoardCount == 0 && !isEnemyPromoting)
-        {
-            OnAllEnemyPiecesRemoved();
-        }
-
+        // 1. 아군 기물이 전멸한 경우: 적 기물 전멸 여부와 무관하게 무조건 탈락 (GameOver)
         if (playerOnBoardCount == 0 && !isPlayerPromoting)
         {
             OnAllPlayerPiecesRemoved();
+            return;
+        }
+
+        // 2. 적 기물이 모두 제거되었고 아군 기물이 1개 이상 남아있는 경우에만 스테이지 승리 (Win)
+        if (enemyOnBoardCount == 0 && !isEnemyPromoting)
+        {
+            OnAllEnemyPiecesRemoved();
+            return;
         }
     }
 
@@ -2356,6 +2421,14 @@ public class PieceManager : MonoBehaviour
 
     private void OnAllEnemyPiecesRemoved()
     {
+        // 안전 검증: 아군 기물이 0개이면 승리가 아닌 무조건 탈락 (GameOver)
+        int playerOnBoardCount = CountPiecesOnBoard(playerPieces);
+        if (playerOnBoardCount == 0)
+        {
+            OnAllPlayerPiecesRemoved();
+            return;
+        }
+
         GameStateManager.Instance?.ChangeState(GameStateManager.GameState.Win);
     }
 

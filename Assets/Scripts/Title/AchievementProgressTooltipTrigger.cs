@@ -30,7 +30,7 @@ public class AchievementProgressTooltipTrigger : MonoBehaviour, IPointerEnterHan
             ? $"{achievementData.description}\n\n진행도: {progressText}"
             : progressText;
         Sprite icon = achievementData != null ? achievementData.icon : null;
-        string subtitle = "<color=#FFFFFF>★</color>  <size=85%>업적 (Achievement)</size>";
+        string subtitle = "<color=#D97706>★</color>  <size=85%>업적 (Achievement)</size>";
 
         TooltipManager.Instance.ShowTooltip(
             title,

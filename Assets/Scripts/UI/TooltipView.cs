@@ -35,6 +35,19 @@ public class TooltipView : MonoBehaviour
 
         canvasGroup.blocksRaycasts = false;
         canvasGroup.interactable = false;
+
+        UnityEngine.UI.Image bg = GetComponent<UnityEngine.UI.Image>();
+        if (bg != null)
+        {
+            bg.color = new Color(1f, 1f, 1f, 0.95f);
+        }
+        UnityEngine.UI.Outline outline = GetComponent<UnityEngine.UI.Outline>();
+        if (outline == null)
+        {
+            outline = gameObject.AddComponent<UnityEngine.UI.Outline>();
+        }
+        outline.effectColor = new Color(0.22f, 0.24f, 0.28f, 0.8f);
+        outline.effectDistance = new Vector2(1.5f, -1.5f);
     }
 
     public void SetContent(string title, string description, string flavor)
@@ -46,6 +59,7 @@ public class TooltipView : MonoBehaviour
             if (hasTitle)
             {
                 titleText.text = title;
+                titleText.color = new Color(0.10f, 0.11f, 0.14f, 1f);
             }
         }
 
@@ -56,6 +70,7 @@ public class TooltipView : MonoBehaviour
             if (hasDescription)
             {
                 descriptionText.text = description;
+                descriptionText.color = new Color(0.18f, 0.20f, 0.24f, 1f);
             }
         }
 
@@ -67,7 +82,7 @@ public class TooltipView : MonoBehaviour
             {
                 flavorText.text = flavor;
                 flavorText.fontStyle = FontStyles.Italic;
-                flavorText.color = Color.lightGray;
+                flavorText.color = new Color(0.46f, 0.49f, 0.56f, 1f);
             }
         }
     }

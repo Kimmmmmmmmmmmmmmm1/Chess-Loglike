@@ -201,7 +201,7 @@ public class OthelloArtifactSystem : MonoBehaviour
 
         PlayOthelloArtifactPopup();
 
-        if (allyCount > enemyCount)
+        if (allyCount > 0 && allyCount > enemyCount)
         {
             AchievementManager.Instance?.UnlockAchievement("combat_othello_majority_win");
             TurnLogUIManager.Instance?.AddLog(

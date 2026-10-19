@@ -420,6 +420,7 @@ public class GameManager : MonoBehaviour
         {
             PieceManager.Instance.ClearSelection();
             PieceManager.Instance.ClearMarkers();
+            PieceManager.Instance.ClearAllPieceBuffs();
             if (PieceManager.Instance.gridManager != null)
             {
                 PieceManager.Instance.gridManager.ClearLastMoveHighlight();
@@ -517,6 +518,7 @@ public class GameManager : MonoBehaviour
         {
             pieceManager.ClearSelection();
             pieceManager.ClearMarkers();
+            pieceManager.ClearAllPieceBuffs();
             pieceManager.RemoveConversionSealedPieces();
             pieceManager.RestorePlacementPositions();
         }

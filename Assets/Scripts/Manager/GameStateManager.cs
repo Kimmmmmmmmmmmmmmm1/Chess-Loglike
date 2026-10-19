@@ -79,9 +79,38 @@ public class GameStateManager : MonoBehaviour
     {
         if (currentState != newState)
         {
+            // 아군 기물이 없으면 어떤 경로(적 전멸, 자폭, 다수결, 치트 등)로 승리 상태 진입을 시도하더라도 무조건 GameOver(탈락) 처리
+            if (newState == GameState.Win)
+            {
+                int playerPiecesOnBoard = PieceManager.Instance != null
+                    ? PieceManager.Instance.GetPlayerPieceCountOnBoard()
+                    : 0;
+
+                if (playerPiecesOnBoard <= 0)
+                {
+                    Debug.LogWarning("[GameStateManager] 아군 기물이 없는 상태에서 Win 전환 시도 감지 -> GameOver(탈락)로 강제 전환합니다.");
+                    newState = GameState.GameOver;
+                }
+            }
+
             if ((newState == GameState.Win || newState == GameState.GameOver) && currentState != GameState.GamePlay)
             {
-                return;
+                // 예외: Win 상태로 진입했더라도 보드에 아군 기물이 0개라면 GameOver 전환 허용 (무조건 탈락 보장)
+                if (newState == GameState.GameOver && currentState == GameState.Win)
+                {
+                    int playerPiecesOnBoard = PieceManager.Instance != null
+                        ? PieceManager.Instance.GetPlayerPieceCountOnBoard()
+                        : 0;
+
+                    if (playerPiecesOnBoard > 0)
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    return;
+                }
             }
 
             if (newState == GameState.Win || newState == GameState.Cleanup || newState == GameState.Reward || newState == GameState.GameOver)
@@ -90,6 +119,7 @@ public class GameStateManager : MonoBehaviour
                 {
                     PieceManager.Instance.ClearSelection();
                     PieceManager.Instance.ClearMarkers();
+                    PieceManager.Instance.ClearAllPieceBuffs();
                     if (PieceManager.Instance.gridManager != null)
                     {
                         PieceManager.Instance.gridManager.ClearLastMoveHighlight();

@@ -468,18 +468,7 @@ public class ShopManager : MonoBehaviour
                 SetupRandomShopSlot(newSlot);
                 
                 // 3. 새 슬롯 확대 등장
-                newSlotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack)
-                    .OnComplete(() => 
-                    {
-                        if (newSlot.IsStandaloneSeal && newSlot.StandaloneSeal != null)
-                        {
-                            newSlot.PlaySealEffect(newSlot.StandaloneSeal.rarity);
-                        }
-                        else if (newSlot.AttachedSeal != null)
-                        {
-                            newSlot.PlaySealEffect(newSlot.AttachedSeal.rarity);
-                        }
-                    });
+                newSlotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack);
             }
         });
     }
@@ -997,20 +986,7 @@ public class ShopManager : MonoBehaviour
             
             // 등장 애니메이션: 스케일 0에서 1로 커지며 순차적으로 등장
             slotObj.transform.localScale = Vector3.zero;
-            slotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack).SetDelay(i * 0.1f)
-                .OnComplete(() => {
-                    if (slot != null)
-                    {
-                        if (slot.IsStandaloneSeal && slot.StandaloneSeal != null)
-                        {
-                            slot.PlaySealEffect(slot.StandaloneSeal.rarity);
-                        }
-                        else if (slot.AttachedSeal != null)
-                        {
-                            slot.PlaySealEffect(slot.AttachedSeal.rarity);
-                        }
-                    }
-                });
+            slotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack).SetDelay(i * 0.1f);
         }
     }
 
