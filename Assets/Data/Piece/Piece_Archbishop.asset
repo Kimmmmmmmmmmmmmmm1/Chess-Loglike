@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PieceData
   id: Archbishop
   pieceType: 8
-  pieceName: "\uC544\uCE58\uBE44\uC20D"
+  pieceName: Archbishop
   icon: {fileID: -1243003948888484408, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
   rarity: 3
   score: 6

@@ -748,22 +748,7 @@ public class CollectionManager : PersistentManagerBase
                 piece.id = id;
                 piece.pieceType = type;
                 piece.rarity = PieceController.GetRarityForType(type);
-                piece.pieceName = type switch
-                {
-                    PieceType.King => "킹",
-                    PieceType.Queen => "퀸",
-                    PieceType.Rook => "룩",
-                    PieceType.Bishop => "비숍",
-                    PieceType.Knight => "나이트",
-                    PieceType.Pawn => "폰",
-                    PieceType.Amazon => "아마존",
-                    PieceType.Chancellor => "챈슬러",
-                    PieceType.Archbishop => "아치비숍",
-                    PieceType.Centaur => "켄타우로스",
-                    PieceType.Cannon => "캐논",
-                    PieceType.Grasshopper => "그래스호퍼",
-                    _ => type.ToString()
-                };
+                piece.pieceName = PieceController.GetPieceNameForType(type);
                 piece.description = type switch
                 {
                     PieceType.King => "모든 방향으로 1칸씩 이동할 수 있습니다.\n킹이 파괴되면 게임에서 패배합니다.",

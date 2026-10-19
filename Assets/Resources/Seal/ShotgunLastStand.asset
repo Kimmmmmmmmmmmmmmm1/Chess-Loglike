@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
+  m_Name: ShotgunLastStand
+  m_EditorClassIdentifier: Assembly-CSharp::SealData
+  sealName: "\uACB0\uC0AC\uD56D\uC804 \uC7A5\uC804"
+  rarity: 3
+  description: "\uD0B9\uC758 \uBCF4\uD638\uAC00 \uAE68\uC9C0\uBA74 \uD0C4\uC57D 1\uBC1C\uC744 \uC7A5\uC804\uD558\uACE0 \uC989\uC2DC \uBE48 \uCE78\uC73C\uB85C \uD68C\uD53C\uD569\uB2C8\uB2E4."
+  flavorText: ""
+  icon: {fileID: 3286163911610860551, guid: 9ae588c2037a498088159efe1ed085d8, type: 3}
+  isSoldInShop: 0
+  sealPrefab: {fileID: 100000, guid: 5f39a0eab5d141c5af499e71d452c290, type: 3}
+  compatiblePieces:
+  - 0
+  effectType: 3
+  effectValue: 0

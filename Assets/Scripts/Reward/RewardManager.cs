@@ -69,10 +69,22 @@ public class RewardManager : MonoBehaviour
     /// </summary>
     public RewardButton.RewardType GetRandomRewardType(bool allowCoin = true)
     {
+        bool isElite = GameManager.Instance != null && GameManager.Instance.CurrentBattleType == BattleType.Elite;
+
         float pWeight = Mathf.Max(0f, pieceWeight);
         float sWeight = Mathf.Max(0f, sealWeight);
         float aWeight = Mathf.Max(0f, artifactWeight);
         float cWeight = allowCoin ? Mathf.Max(0f, coinWeight) : 0f;
+        if (ShotgunKingSystem.IsActive) pWeight = 0f;
+
+        // 엘리트 전투 시 유물/인장/고급 기물 위주로 보상 타입 가중치 보정 (골드 선택지 최소화)
+        if (isElite)
+        {
+            aWeight = 35f;
+            sWeight = 35f;
+            pWeight = 25f;
+            cWeight = allowCoin ? 5f : 0f;
+        }
 
         float totalWeight = pWeight + sWeight + aWeight + cWeight;
         if (totalWeight <= 0f)
@@ -343,13 +355,27 @@ public class RewardManager : MonoBehaviour
     {
         if (newState == GameStateManager.GameState.Reward)
         {
-            int difficulty = 1;
-            if (GameManager.Instance != null)
+            int cleared = GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0;
+            BattleType bType = GameManager.Instance != null ? GameManager.Instance.CurrentBattleType : BattleType.Normal;
+            bool bossCleared = GameManager.Instance != null && GameManager.Instance.BossJustCleared;
+
+            int rarity = 0;
+            if (bType == BattleType.Boss || bossCleared)
             {
-                difficulty = GameManager.Instance.ClearedStage + 1;
+                // 보스 전투: 전설/에픽급 확정 (최소 3)
+                rarity = Mathf.Max(3, (cleared / 3) + 1);
+            }
+            else if (bType == BattleType.Elite)
+            {
+                // 엘리트 전투: 고급(Rare 이상) 확정 (최소 2)
+                rarity = Mathf.Max(2, (cleared / 3) + 1);
+            }
+            else
+            {
+                // 일반 전투
+                rarity = Mathf.Clamp(cleared / 3, 0, 3);
             }
 
-            int rarity = difficulty / 2;
             ShowRewards(3, rarity);
         }
     }
@@ -379,12 +405,16 @@ public class RewardManager : MonoBehaviour
             }
         }
 
-        // 1단계: 기본 보상(전투 정산) 창 먼저 표시
+        // 전투 정산 결과 계산 및 골드 즉시 흡수 연출 (정산 팝업 클릭 대기 생략)
         currentBattleReward = GameManager.Instance != null
             ? GameManager.Instance.CalculateBattleReward(pieceData)
             : default;
 
-        ShowSettlementPhase(currentBattleReward);
+        Vector3 startPos = rewardPanel != null ? rewardPanel.transform.position : transform.position;
+        PlayCoinFlyAnimation(currentBattleReward.TotalReward, startPos, null);
+
+        // 정산 팝업 없이 곧바로 3지선다 보상 선택창으로 진입
+        ShowChoicePhase(count, rarity);
     }
 
     private void ShowSettlementPhase(GameManager.BattleRewardResult result)
@@ -482,7 +512,24 @@ public class RewardManager : MonoBehaviour
 
         if (titleText != null)
         {
-            titleText.text = "보상 선택";
+            BattleType bType = GameManager.Instance != null ? GameManager.Instance.CurrentBattleType : BattleType.Normal;
+            bool bossCleared = GameManager.Instance != null && GameManager.Instance.BossJustCleared;
+
+            string header;
+            if (bType == BattleType.Boss || bossCleared)
+            {
+                header = $"💀 보스 격파! (+{currentBattleReward.TotalReward}G)";
+            }
+            else if (bType == BattleType.Elite)
+            {
+                header = $"🔥 엘리트 승리! (+{currentBattleReward.TotalReward}G)";
+            }
+            else
+            {
+                header = $"⚔️ 전투 승리! (+{currentBattleReward.TotalReward}G)";
+            }
+            titleText.text = header;
+
             RectTransform titleRect = titleText.GetComponent<RectTransform>();
             if (titleRect != null)
             {
@@ -713,13 +760,13 @@ public class RewardManager : MonoBehaviour
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.BossJustCleared = false;
-                // 전투 -> 보상 -> 상점 -> 다음 전투 순서로 전환
-                GameManager.Instance.ChangeFlowState(GameFlowState.Shop);
+                // 전투 보상 완료 후 다음 행선지 선택(StageSelect)으로 전환
+                GameManager.Instance.AdvanceToStageSelect();
             }
         }
         else if (GameManager.Instance != null)
         {
-            GameManager.Instance.ChangeFlowState(GameFlowState.Shop);
+            GameManager.Instance.AdvanceToStageSelect();
         }
     }
 

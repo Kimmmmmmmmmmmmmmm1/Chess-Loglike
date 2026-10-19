@@ -1,8 +1,9 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using DG.Tweening;
 
-public class GridCell : MonoBehaviour
+public class GridCell : MonoBehaviour, IPointerClickHandler
 {
     public Vector2Int gridPosition;
     public RectTransform rectTransform;
@@ -14,6 +15,14 @@ public class GridCell : MonoBehaviour
     
     public Image CellImage => cellImage;
     public Color OriginalColor => originalColor;
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (!isDestroyed && ShotgunKingSystem.TryHandleShotAimClick(gridPosition, eventData.button))
+        {
+            eventData.Use();
+        }
+    }
     
     private Coroutine shakeCoroutine;
 

@@ -89,6 +89,8 @@ public class PieceManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI pieceCountText;
 
     private readonly List<MoveMarker> activeMarkers = new();
+    private readonly List<MoveMarker> shotgunAimMarkers = new();
+    private readonly HashSet<Vector2Int> shotgunAimMarkerPositions = new();
     private readonly List<PieceController> pieces = new();
     private readonly List<PieceController> playerPieces = new();
     private readonly List<PieceController> enemyPieces = new();
@@ -451,6 +453,88 @@ public class PieceManager : MonoBehaviour
         DestroyPieceWithEffects(piece, false, false, null);
     }
 
+    /// <summary>폭군의 난사 획득 시 아군 기물을 한 번에 숙청합니다.</summary>
+    public void PurgePlayerArmyExceptKing(PieceController keptKing)
+    {
+        if (selectedPiece != null && selectedPiece != keptKing) ClearSelection();
+        ClearMarkers();
+
+        Vector2Int kingStartPosition = default;
+        bool hasKingStartPosition = keptKing != null && placementSnapshot.TryGetValue(keptKing, out kingStartPosition);
+
+        List<PieceController> removedPieces = new List<PieceController>();
+        foreach (PieceController piece in playerPieces)
+        {
+            if (piece != null && piece != keptKing) removedPieces.Add(piece);
+        }
+
+        foreach (PieceController piece in removedPieces)
+        {
+            pieces.Remove(piece);
+            playerPieces.Remove(piece);
+            if (piece.GridPosition.HasValue) pieceByPosition.Remove(piece.GridPosition.Value);
+            piece.gridPosition = null;
+            OnPieceUnregistered?.Invoke(piece);
+        }
+
+        MarkPiecePositionCacheDirty();
+        placementSnapshot.Clear();
+        if (hasKingStartPosition) placementSnapshot[keptKing] = kingStartPosition;
+        hasPlacementSnapshot = hasKingStartPosition;
+        UpdatePieceCountUI();
+        CheckPieceCounts();
+    }
+
+    /// <summary>원거리 공격에서 이동 없이 포획 처리합니다.</summary>
+    public bool TryCapturePieceWithAttack(PieceController attacker, PieceController target, out PieceType capturedType, out Vector2Int capturedPosition)
+    {
+        capturedType = PieceType.Pawn;
+        capturedPosition = Vector2Int.zero;
+        if (attacker == null || target == null || !target.GridPosition.HasValue || attacker.IsEnemy == target.IsEnemy || target.IsInvincible)
+            return false;
+
+        capturedType = target.Type;
+        capturedPosition = target.GridPosition.Value;
+        AttackResponse response = ResolveAttackResponse(attacker, target);
+        if (response != AttackResponse.None) return false;
+        if (!target.CanBeDestroyed()) return false;
+
+        DestroyPieceWithEffects(target, true, true, attacker);
+        if (target != null && target.CurrentLocation == PieceLocation.Board && target.GridPosition.HasValue) return false;
+        if (attacker != null && attacker.CurrentLocation == PieceLocation.Board)
+        {
+            attacker.OnCapturedPiece(capturedType);
+        }
+        return true;
+    }
+
+    /// <summary>보호 파괴 후 효과를 위한 턴 소모 없는 인접 회피입니다.</summary>
+    public bool TryEvadePieceImmediately(PieceController piece)
+    {
+        if (piece == null || !piece.GridPosition.HasValue || gridManager == null) return false;
+        Vector2Int[] offsets =
+        {
+            Vector2Int.up, Vector2Int.right, Vector2Int.down, Vector2Int.left,
+            new Vector2Int(1, 1), new Vector2Int(1, -1), new Vector2Int(-1, 1), new Vector2Int(-1, -1)
+        };
+
+        Vector2Int from = piece.GridPosition.Value;
+        foreach (Vector2Int offset in offsets)
+        {
+            Vector2Int target = from + offset;
+            if (!gridManager.IsInBounds(target) || GetPieceAt(target) != null) continue;
+            GridCell cell = gridManager.GetGridCell(target);
+            if (cell == null || cell.isDestroyed) continue;
+            piece.OnStartMove(from, target);
+            piece.MoveToGrid(target);
+            piece.OnMoveFinished(from, target);
+            gridManager.HighlightLastMove(from, target);
+            UpdateThreatenedStatus();
+            return true;
+        }
+        return false;
+    }
+
     /// <summary>
     /// 보드 상태(PieceLocation.Board)이지만 실제 타일 좌표(gridPosition)가 없거나,
     /// 보드 컨테이너(BoardContainer)의 자식이 아닌 기물(및 인벤토리 슬롯에 속하지 않는 고아 기물)을
@@ -661,6 +745,8 @@ public class PieceManager : MonoBehaviour
     /// </summary>
     public void RemoveAllEnemyPieces(bool playVfx = true)
     {
+        ClearSelection();
+        ClearMarkers();
         PieceController[] allPieces = FindObjectsByType<PieceController>(FindObjectsSortMode.None);
         bool removedAny = false;
 
@@ -1278,8 +1364,10 @@ public class PieceManager : MonoBehaviour
         Vector2Int fromPosition = piece.gridPosition.Value;
 
         PieceController targetPiece = GetPieceAt(gridPosition);
+        if (targetPiece != null && ShotgunKingSystem.IsShotgunKing(piece)) return false;
         PieceType? capturedType = targetPiece != null ? targetPiece.Type : null;
         bool? capturedIsEnemy = targetPiece != null ? targetPiece.IsEnemy : null;
+        bool usedScavengedMove = ShotgunKingSystem.IsScavengedMove(piece, gridPosition);
         if (targetPiece != null)
         {
             // 오셀로의 성역 활성 시에는 빈 타일로만 이동 가능하며 직접 포획 금지
@@ -1342,6 +1430,8 @@ public class PieceManager : MonoBehaviour
             piece.OnCapturedPiece(capturedType.Value);
         }
 
+        ShotgunKingSystem.OnKingMoveFinished(piece, prevPos, gridPosition, capturedType, usedScavengedMove);
+
         OthelloArtifactSystem.OnPieceLanded(piece);
 
         if (OthelloArtifactSystem.IsActive && piece != null && piece.gridPosition.HasValue)
@@ -1355,7 +1445,7 @@ public class PieceManager : MonoBehaviour
         return true;
     }
 
-    private enum AttackResponse
+    public enum AttackResponse
     {
         None,
         Protected,
@@ -1363,12 +1453,13 @@ public class PieceManager : MonoBehaviour
         Counterattacked
     }
 
-    private AttackResponse ResolveAttackResponse(PieceController attacker, PieceController defender)
+    public AttackResponse ResolveAttackResponse(PieceController attacker, PieceController defender)
     {
         // 여러 버프가 동시에 있으면 보호 -> 회피 -> 역공 순서로 하나만 발동합니다.
         if (defender.ConsumeBuff(PieceBuffType.Protection))
         {
             ActivateBuffEffect(defender, PieceBuffType.Protection, "공격 무효화");
+            ShotgunKingSystem.OnKingProtectionBroken(defender);
             return AttackResponse.Protected;
         }
 
@@ -1386,7 +1477,7 @@ public class PieceManager : MonoBehaviour
 
         if (defender.ConsumeBuff(PieceBuffType.Counterattack))
         {
-            if (attacker.CanBeDestroyed())
+            if (attacker != null && attacker.CanBeDestroyed())
             {
                 DestroyPieceWithEffects(attacker, true, true, defender);
                 defender.OnCapturedPiece(attacker.Type);
@@ -1394,14 +1485,15 @@ public class PieceManager : MonoBehaviour
                 return AttackResponse.Counterattacked;
             }
 
-            // The counterattack stack is refunded when another destruction veto prevents it.
-            defender.AddBuff(PieceBuffType.Counterattack);
+            // 역공 대상(공격자)이 없거나 파괴 불가인 경우 역공 스택을 소모하고 공격은 무효화
+            ActivateBuffEffect(defender, PieceBuffType.Counterattack, "역공으로 공격 차단");
+            return AttackResponse.Counterattacked;
         }
 
         return AttackResponse.None;
     }
 
-    private void ActivateBuffEffect(PieceController defender, PieceBuffType buffType, string effectDescription)
+    public void ActivateBuffEffect(PieceController defender, PieceBuffType buffType, string effectDescription)
     {
         // 공통 발동 연출은 PieceController에서 관리하고, 이곳에서는 로그만 조합합니다.
         defender.PlayBuffActivationEffect(buffType);
@@ -2141,8 +2233,9 @@ public class PieceManager : MonoBehaviour
         return false;
     }
 
-    private void ClearMarkers()
+    public void ClearMarkers()
     {
+        ClearShotgunAimMarkers();
         for (int i = 0; i < activeMarkers.Count; i++)
         {
             if (activeMarkers[i] != null)
@@ -2150,8 +2243,70 @@ public class PieceManager : MonoBehaviour
                 Destroy(activeMarkers[i].gameObject);
             }
         }
-
         activeMarkers.Clear();
+
+        if (markersParent != null)
+        {
+            for (int i = markersParent.childCount - 1; i >= 0; i--)
+            {
+                Transform child = markersParent.GetChild(i);
+                if (child != null)
+                {
+                    Destroy(child.gameObject);
+                }
+            }
+        }
+
+        MoveMarker[] strayMarkers = Object.FindObjectsByType<MoveMarker>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < strayMarkers.Length; i++)
+        {
+            if (strayMarkers[i] != null)
+            {
+                Destroy(strayMarkers[i].gameObject);
+            }
+        }
+    }
+
+    public void UpdateShotgunAimMarkers(IEnumerable<Vector2Int> positions)
+    {
+        HashSet<Vector2Int> desiredPositions = new HashSet<Vector2Int>(positions);
+        if (shotgunAimMarkerPositions.SetEquals(desiredPositions)) return;
+
+        ClearShotgunAimMarkers();
+        if (moveMarkerPrefab == null || markersParent == null) return;
+
+        foreach (Vector2Int position in desiredPositions)
+        {
+            if (!IsInBounds(position)) continue;
+            GameObject markerObject = Instantiate(moveMarkerPrefab, markersParent);
+            RectTransform markerTransform = markerObject.GetComponent<RectTransform>();
+            if (markerTransform != null)
+            {
+                markerTransform.anchoredPosition = GridToUiPosition(position);
+                markerTransform.sizeDelta = gridManager != null ? gridManager.cellSize : new Vector2(42f, 42f);
+            }
+
+            MoveMarker marker = markerObject.GetComponent<MoveMarker>();
+            if (marker == null)
+            {
+                Destroy(markerObject);
+                continue;
+            }
+
+            marker.Initialize(this, position, false, true);
+            shotgunAimMarkers.Add(marker);
+            shotgunAimMarkerPositions.Add(position);
+        }
+    }
+
+    public void ClearShotgunAimMarkers()
+    {
+        foreach (MoveMarker marker in shotgunAimMarkers)
+        {
+            if (marker != null) Destroy(marker.gameObject);
+        }
+        shotgunAimMarkers.Clear();
+        shotgunAimMarkerPositions.Clear();
     }
 
     public void CheckPieceCounts()

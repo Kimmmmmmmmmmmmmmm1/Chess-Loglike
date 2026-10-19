@@ -7,6 +7,9 @@ public class StageData : ScriptableObject
     [Tooltip("스테이지 난이도")]
     public int difficulty;
 
+    [Tooltip("엘리트 스테이지 여부")]
+    public bool isElite;
+
     [Header("Map Settings")]
     [Tooltip("맵의 크기 [가로, 세로] (기본 6x5)")]
     public int[] boardSize = { 6, 5 };

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PieceData
   id: Queen
   pieceType: 4
-  pieceName: "\uD038"
+  pieceName: Queen
   icon: {fileID: -5830367446604607832, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
   rarity: 2
   score: 9

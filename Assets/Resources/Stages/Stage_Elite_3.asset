@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69c7b6f18c2284f5ba3c6c5d8fe9e200, type: 3}
+  m_Name: Stage_Elite_3
+  m_EditorClassIdentifier: Assembly-CSharp::StageData
+  difficulty: 2
+  isElite: 1
+  boardSize:
+  - 6
+  - 5
+  minX: -3
+  minY: -2
+  hideEnemyTerritoryDuringPrepare: 0
+  enemyPieces:
+  - pieceType: 0
+    gridCoordinate: {x: 0, y: 2}
+    seals: []
+  - pieceType: 4
+    gridCoordinate: {x: 1, y: 2}
+    seals:
+    - {fileID: 11400000, guid: b2c3d4e5f6a75899aabbccddeeff0112, type: 2}
+  - pieceType: 9
+    gridCoordinate: {x: -2, y: 2}
+    seals: []
+  - pieceType: 10
+    gridCoordinate: {x: 2, y: 2}
+    seals: []
+  - pieceType: 5
+    gridCoordinate: {x: -2, y: 1}
+    seals:
+    - {fileID: 11400000, guid: 3c2d0e60ed8142e1a0e9a2e7bb96a1f4, type: 2}
+  - pieceType: 5
+    gridCoordinate: {x: 1, y: 1}
+    seals:
+    - {fileID: 11400000, guid: 8f1bde4f4d394e0ab6d10e5d3e4de002, type: 2}
+

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PieceData
   id: Bishop
   pieceType: 3
-  pieceName: "\uBE44\uC20D"
+  pieceName: Bishop
   icon: {fileID: 5330433185586497934, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
   rarity: 1
   score: 3

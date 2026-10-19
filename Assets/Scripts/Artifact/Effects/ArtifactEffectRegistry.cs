@@ -10,6 +10,7 @@ public static class ArtifactEffectRegistry
     // A004-A005: 스테이지 제한 유물
     public static readonly GourdArtifactEffect Gourd = new GourdArtifactEffect();
     public static readonly TombstoneArtifactEffect Tombstone = new TombstoneArtifactEffect();
+    public static readonly TyrantsBarrageArtifactEffect TyrantsBarrage = new TyrantsBarrageArtifactEffect();
 
     // AC01~: 액티브(소모형) 유물
     public static readonly HourglassArtifactEffect Hourglass = new HourglassArtifactEffect();
@@ -61,5 +62,6 @@ public static class ArtifactEffectRegistry
     public static void OnBattleStarted()
     {
         HeraldsHornArtifactEffect.ApplyAtBattleStart();
+        TyrantsBarrage.OnBattleStarted();
     }
 }

@@ -84,6 +84,20 @@ public class GameStateManager : MonoBehaviour
                 return;
             }
 
+            if (newState == GameState.Win || newState == GameState.Cleanup || newState == GameState.Reward || newState == GameState.GameOver)
+            {
+                if (PieceManager.Instance != null)
+                {
+                    PieceManager.Instance.ClearSelection();
+                    PieceManager.Instance.ClearMarkers();
+                    if (PieceManager.Instance.gridManager != null)
+                    {
+                        PieceManager.Instance.gridManager.ClearLastMoveHighlight();
+                        PieceManager.Instance.gridManager.ResetZoneHighlights();
+                    }
+                }
+            }
+
             currentState = newState;
             OnStateChanged?.Invoke(newState);
 

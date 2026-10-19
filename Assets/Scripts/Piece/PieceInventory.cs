@@ -74,6 +74,7 @@ public class PieceInventory : MonoBehaviour
 
         foreach (var pieceInfo in initialPieceData.initialPieces)
         {
+            if (ShotgunKingSystem.IsActive && pieceInfo.pieceType != PieceType.King) continue;
             AddPiece(pieceInfo.pieceType);
         }
 
@@ -127,6 +128,11 @@ public class PieceInventory : MonoBehaviour
 
     public void AddPiece(PieceType pieceType)
     {
+        if (ShotgunKingSystem.IsActive && pieceType != PieceType.King)
+        {
+            GameManager.Instance?.AddCoin(ShotgunKingSystem.GetSellPrice(pieceType));
+            return;
+        }
         ownedPieces.Add(new PieceInfo { pieceType = pieceType });
         CollectionManager.EnsureInstance()?.RecordPiece(pieceType);
     }

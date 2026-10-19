@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
+  m_Name: Dagger
+  m_EditorClassIdentifier: Assembly-CSharp::SealData
+  sealName: "단검"
+  rarity: 3
+  description: "인접한 적 기물을 탄약 소모 없이 공격합니다."
+  flavorText: ""
+  icon: {fileID: 3286163911610860551, guid: e2a4c6d8f0b1423ca5e7d9f1b3c5d7e9, type: 3}
+  isSoldInShop: 0
+  sealPrefab: {fileID: 100000, guid: 5f39a0eab5d141c5af499e71d452c290, type: 3}
+  compatiblePieces:
+  - 0
+  effectType: 3
+  effectValue: 0

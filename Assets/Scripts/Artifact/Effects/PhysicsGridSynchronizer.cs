@@ -50,6 +50,8 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
     [SerializeField] private float massScore9 = 8.5f;
     [Tooltip("기타 점수 기물의 점수당 기본 질량 배율")]
     [SerializeField] private float fallbackMassPerScore = 0.95f;
+    [Tooltip("기물에 장착된 인장 1개당 추가 질량 비율 (폰 질량 기준, 0.25 = 폰 0.25개 분량)")]
+    [SerializeField] private float sealMassPawnRatio = 0.25f;
 
     [Header("정지 판정 및 타일 스냅 설정")]
     [Tooltip("기물이 멈췄다고 판단하는 속도 임계값")]
@@ -78,6 +80,47 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
             9 => massScore9,
             _ => Mathf.Max(1f, score * fallbackMassPerScore)
         };
+    }
+
+    public float GetPieceMass(PieceController piece)
+    {
+        if (piece == null) return massScore1;
+
+        float baseMass = GetPieceMass(piece.PieceType);
+        int sealCount = CountEquippedSeals(piece);
+        float sealBonusMass = sealCount * (massScore1 * sealMassPawnRatio);
+        return baseMass + sealBonusMass;
+    }
+
+    private static int CountEquippedSeals(PieceController piece)
+    {
+        if (piece == null || piece.EquippedSeals == null) return 0;
+
+        int count = 0;
+        for (int i = 0; i < piece.EquippedSeals.Count; i++)
+        {
+            if (piece.EquippedSeals[i] != null)
+            {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public static float GetMass(PieceController piece)
+    {
+        if (piece == null) return 1f;
+
+        if (PieceFlickLauncher.Instance != null)
+        {
+            PhysicsGridSynchronizer sync = PieceFlickLauncher.Instance.GetComponent<PhysicsGridSynchronizer>();
+            if (sync != null)
+            {
+                return sync.GetPieceMass(piece);
+            }
+        }
+
+        return GetMass(piece.PieceType) + (CountEquippedSeals(piece) * 0.25f);
     }
 
     public static float GetMass(PieceType type)
@@ -140,6 +183,7 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
             RectTransform rect = piece.GetComponent<RectTransform>();
             if (rect != null)
             {
+                rect.DOKill();
                 box.size = new Vector3(
                     Mathf.Max(0.01f, rect.rect.width * colliderSizeRatio),
                     Mathf.Max(0.01f, rect.rect.height * colliderSizeRatio),
@@ -147,13 +191,13 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
             }
         }
 
-        body.mass = GetPieceMass(piece.PieceType);
+        body.mass = GetPieceMass(piece);
         body.useGravity = false;
         body.linearDamping = linearDamping;
         body.angularDamping = angularDamping;
         body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         body.interpolation = RigidbodyInterpolation.Interpolate;
-        body.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
+        body.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationY;
         body.isKinematic = false;
         body.position = piece.transform.position;
         body.linearVelocity = Vector3.zero;
@@ -198,8 +242,8 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
 
             SoundManager.Instance?.PlaySFX(SFXType.Move);
 
-            // 두 기물의 질량 비율이 확실히 느껴지도록 탄성 운동량 보존 기반의 보조 충격량 적용
-            // reducedMass = (m1 * m2) / (m1 + m2) -> 무거운 기물은 덜 밀리고 가벼운 기물은 크게 튕겨나감
+            // 두 기물의 질량 비율이 확실히 느껴지도록 탄성 운동량 보존 + 질량 우위 배율 적용
+            // 무거운 기물은 반동을 적게 받고, 가벼운 기물은 질량 비율만큼 훨씬 강하게 튕겨나감
             float totalMass = Mathf.Max(0.01f, body.mass + other.mass);
             float reducedMass = (body.mass * other.mass) / totalMass;
             Vector3 direction = (other.worldCenterOfMass - body.worldCenterOfMass).normalized;
@@ -209,10 +253,27 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
                 closingSpeed = collision.relativeVelocity.magnitude;
             }
 
-            float impulse = closingSpeed * reducedMass * impulseMultiplier;
-            Vector3 extraImpulse = direction * impulse;
-            body.AddForce(-extraImpulse, ForceMode.Impulse);
-            other.AddForce(extraImpulse, ForceMode.Impulse);
+            float baseImpulse = closingSpeed * reducedMass * impulseMultiplier;
+            float massRatioToOther = Mathf.Clamp(Mathf.Pow(body.mass / Mathf.Max(0.1f, other.mass), 0.65f), 0.35f, 2.8f);
+            float massRatioToBody = Mathf.Clamp(Mathf.Pow(other.mass / Mathf.Max(0.1f, body.mass), 0.65f), 0.35f, 2.8f);
+
+            body.AddForce(-direction * (baseImpulse * massRatioToBody), ForceMode.Impulse);
+            other.AddForce(direction * (baseImpulse * massRatioToOther), ForceMode.Impulse);
+
+            // 충돌 접점의 편심(비껴 맞음) 정도에 따라 Z축 회전 토크 부여
+            Vector3 contactPoint = collision.GetContact(0).point;
+            Vector3 relVel = collision.relativeVelocity;
+            float crossZ = (direction.x * relVel.y) - (direction.y * relVel.x);
+            if (Mathf.Abs(crossZ) < 0.1f)
+            {
+                Vector3 centerOffset = contactPoint - 0.5f * (body.worldCenterOfMass + other.worldCenterOfMass);
+                crossZ = (centerOffset.x * relVel.y) - (centerOffset.y * relVel.x);
+            }
+
+            float spinSign = Mathf.Abs(crossZ) > 0.001f ? Mathf.Sign(crossZ) : (Random.value < 0.5f ? 1f : -1f);
+            float baseSpin = closingSpeed * 0.35f * spinSign;
+            body.AddTorque(Vector3.forward * (-baseSpin * massRatioToBody * body.mass), ForceMode.Impulse);
+            other.AddTorque(Vector3.forward * (baseSpin * massRatioToOther * other.mass), ForceMode.Impulse);
         }
     }
 
@@ -261,6 +322,7 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
             if (body != null)
             {
                 body.linearVelocity = Vector3.zero;
+                body.angularVelocity = Vector3.zero;
                 body.isKinematic = true;
                 body.constraints = RigidbodyConstraints.FreezeRotation;
             }
@@ -284,9 +346,24 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
             ArtifactPopupEffect.Play(AlkkagiArtifact.Id);
         }
 
+        int enemyRingoutCount = 0;
         for (int i = 0; i < piecesToDestroy.Count; i++)
         {
+            if (piecesToDestroy[i] != null && piecesToDestroy[i].IsEnemy)
+            {
+                enemyRingoutCount++;
+            }
             PieceManager.Instance.RemovePieceFromPhysics(piecesToDestroy[i]);
+        }
+
+        if (enemyRingoutCount > 0)
+        {
+            AchievementManager.Instance?.AddProgress("combat_alkkagi_ringout", enemyRingoutCount);
+            AchievementManager.Instance?.AddProgress("combat_alkkagi_ringout_10", enemyRingoutCount);
+            if (enemyRingoutCount >= 2)
+            {
+                AchievementManager.Instance?.UnlockAchievement("combat_alkkagi_double_ringout");
+            }
         }
 
         for (int i = 0; i < pending.Count; i++)
@@ -300,12 +377,14 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
         foreach (PieceController piece in uniquePieces)
         {
             if (piece == null || piece.CurrentLocation != PieceLocation.Board) continue;
+            piece.transform.localRotation = Quaternion.identity;
             Vector2Int? position = piece.GridPosition;
             if (!position.HasValue) continue;
             RectTransform rect = piece.GetComponent<RectTransform>();
             if (rect != null)
             {
                 rect.anchoredPosition = grid.GridToUiPosition(position.Value);
+                rect.localRotation = Quaternion.identity;
             }
         }
         PieceManager.Instance.EnsurePositionCacheReady();
@@ -321,6 +400,7 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
         foreach (PieceController piece in PieceManager.Instance.Pieces)
         {
             if (piece == null) continue;
+            piece.transform.localRotation = Quaternion.identity;
             Rigidbody body = piece.GetComponent<Rigidbody>();
             if (body != null) Destroy(body);
             Collider collider = piece.GetComponent<Collider>();
@@ -348,9 +428,19 @@ public sealed class PhysicsGridSynchronizer : MonoBehaviour
 
     private static Tween SnapPiece(PieceController piece, Vector2 target, float duration)
     {
+        Sequence seq = DOTween.Sequence();
         RectTransform rect = piece.GetComponent<RectTransform>();
-        if (rect != null) return rect.DOAnchorPos(target, duration).SetEase(Ease.OutQuad);
-        return piece.transform.DOLocalMove(target, duration).SetEase(Ease.OutQuad);
+        if (rect != null)
+        {
+            seq.Join(rect.DOAnchorPos(target, duration).SetEase(Ease.OutQuad));
+            seq.Join(rect.DOLocalRotateQuaternion(Quaternion.identity, duration).SetEase(Ease.OutQuad));
+        }
+        else
+        {
+            seq.Join(piece.transform.DOLocalMove(target, duration).SetEase(Ease.OutQuad));
+            seq.Join(piece.transform.DOLocalRotateQuaternion(Quaternion.identity, duration).SetEase(Ease.OutQuad));
+        }
+        return seq;
     }
 
     private static Vector2Int FindFreeCell(Vector2Int start, Dictionary<Vector2Int, PieceController> occupants, GridManager grid)

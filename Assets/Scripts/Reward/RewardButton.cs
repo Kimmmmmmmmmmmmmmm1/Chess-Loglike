@@ -111,53 +111,88 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             }
         }
 
+        if (ShotgunKingSystem.IsActive && type == RewardType.Piece)
+        {
+            type = RewardType.Coin;
+        }
+
         SetupRewardContent(rarity);
     }
 
     private void SetupRewardContent(int rarity)
     {
+        bool isElite = GameManager.Instance != null && GameManager.Instance.CurrentBattleType == BattleType.Elite;
+
         if (type == RewardType.Coin)
         {
-            coinAmount = Random.Range(20, 50) + (rarity * 10); // 희귀도에 따라 코인 증가
+            if (isElite)
+            {
+                // 엘리트 전투: 2배 대량 골드
+                coinAmount = (Random.Range(35, 65) + (rarity * 10)) * 2;
+            }
+            else
+            {
+                coinAmount = Random.Range(20, 50) + (rarity * 10);
+            }
             if (infoText != null) infoText.text = $"{coinAmount} Coin";
         }
         else if (type == RewardType.Piece)
         {
-            ShopPieceData pieceData = null;
-            if (RewardService.Instance != null)
+            if (isElite)
             {
-                pieceData = RewardService.Instance.pieceData;
-            }
-            if (pieceData == null)
-            {
-                pieceData = manager != null ? manager.pieceData : null;
-            }
+                // 엘리트 전투 기물: 폰 제외! 고티어 기물(Queen, Rook, Chancellor, Archbishop, Centaur) 확정
+                var elitePieces = new[] { PieceType.Queen, PieceType.Rook, PieceType.Chancellor, PieceType.Archbishop, PieceType.Centaur };
+                pieceType = elitePieces[Random.Range(0, elitePieces.Length)];
 
-            if (pieceData != null)
-            {
-                var pieceInfo = pieceData.GetRandomPiece();
-                pieceType = pieceInfo != null ? pieceInfo.pieceType : PieceType.Pawn;
-                if (infoText != null) infoText.text = PieceController.GetPieceNameForType(pieceType);
-                
-                if (iconImage != null && PieceManager.Instance != null)
+                // 50% 확률로 호환 가능한 희귀/영웅 인장 장착 상태로 등장
+                if (Random.value < 0.5f)
                 {
-                    Sprite s = PieceManager.Instance.GetSpriteFor(pieceType);
-                    iconImage.sprite = s;
-                    iconImage.preserveAspect = true;
-                    iconImage.color = s != null ? Color.white : new Color(0f, 0.12f, 0f, 0.9f);
+                    attachedSeal = GetRandomSeal(pieceType, isElite: true);
                 }
             }
             else
             {
-                pieceType = PieceType.Pawn;
-                if (infoText != null) infoText.text = PieceController.GetPieceNameForType(PieceType.Pawn);
+                ShopPieceData pieceData = null;
+                if (RewardService.Instance != null)
+                {
+                    pieceData = RewardService.Instance.pieceData;
+                }
+                if (pieceData == null)
+                {
+                    pieceData = manager != null ? manager.pieceData : null;
+                }
+
+                if (pieceData != null)
+                {
+                    var pieceInfo = pieceData.GetRandomPiece(excludeLegendary: true);
+                    pieceType = (pieceInfo != null && pieceInfo.pieceType != PieceType.Amazon) ? pieceInfo.pieceType : PieceType.Pawn;
+                }
+                else
+                {
+                    pieceType = PieceType.Pawn;
+                }
+            }
+
+            if (infoText != null) infoText.text = PieceController.GetPieceNameForType(pieceType);
+            
+            if (iconImage != null && PieceManager.Instance != null)
+            {
+                Sprite s = PieceManager.Instance.GetSpriteFor(pieceType);
+                iconImage.sprite = s;
+                iconImage.preserveAspect = true;
+                iconImage.color = s != null ? Color.white : new Color(0f, 0.12f, 0f, 0.9f);
+            }
+
+            if (attachedSeal != null)
+            {
+                CreateSealIcon(attachedSeal);
             }
 
             CollectionManager.EnsureInstance()?.RecordPieceSeen(pieceType);
         }
         else if (type == RewardType.Seal)
         {
-            attachedSeal = GetRandomSeal(null); // 특정 기물 타입에 제약 없이 인장 획득
+            attachedSeal = GetRandomSeal(null, isElite: isElite); // 특정 기물 타입에 제약 없이 인장 획득 (엘리트면 Rare/Epic 확정)
             if (attachedSeal != null)
             {
                 CollectionManager.EnsureInstance()?.RecordSealSeen(attachedSeal);
@@ -172,16 +207,19 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             else // 획득할 인장이 없으면 코인으로 대체
             {
                 type = RewardType.Coin;
-                coinAmount = Random.Range(20, 50) + (rarity * 10);
+                coinAmount = isElite ? ((Random.Range(35, 65) + (rarity * 10)) * 2) : (Random.Range(20, 50) + (rarity * 10));
                 if (infoText != null) infoText.text = $"{coinAmount} Coin";
             }
         }
         else if (type == RewardType.Artifact)
         {
-            // 유물 보상 시도
+            // 유물 보상 시도 (전설 제외, 엘리트 전투 시 Rare 이상 확정)
             if (ArtifactManager.Instance != null)
             {
-                artifactReward = ArtifactManager.Instance.GetRandomArtifact();
+                artifactReward = ArtifactManager.Instance.GetRandomArtifact(
+                    excludeLegendary: true,
+                    minRarity: isElite ? ArtifactRarity.Rare : ArtifactRarity.Common
+                );
             }
 
             if (artifactReward != null)
@@ -199,27 +237,42 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             {
                 // 유물이 없거나(다 모음) 매니저가 없으면 코인으로 대체
                 type = RewardType.Coin;
-                coinAmount = Random.Range(30, 60);
+                coinAmount = isElite ? ((Random.Range(40, 80) + (rarity * 10)) * 2) : Random.Range(30, 60);
                 if (infoText != null) infoText.text = $"{coinAmount} Coin";
             }
         }
     }
 
-    private SealData GetRandomSeal(PieceType? pieceType)
+    private SealData GetRandomSeal(PieceType? pieceType, bool isElite = false)
     {
+        if (ShotgunKingSystem.IsActive) return ShotgunKingSystem.GetRandomWeaponPart();
         if (ShopManager.Instance == null || ShopManager.Instance.allSeals == null) return null;
 
-        // 상점의 희귀도 분포 비율을 따름 (0.5 : 2.5 : 4 : 8) -> 총합 15
-        float roll = Random.Range(0f, 15f);
-        
         SealRarity rarity;
-        if (roll < 0.5f) rarity = SealRarity.Legendary;
-        else if (roll < 3.0f) rarity = SealRarity.Epic;
-        else if (roll < 7.0f) rarity = SealRarity.Rare;
-        else rarity = SealRarity.Common;
+        if (isElite)
+        {
+            // 엘리트 전투 인장: Common 배제! Epic(50%)과 Rare(50%) 확정
+            rarity = Random.value < 0.5f ? SealRarity.Epic : SealRarity.Rare;
+        }
+        else
+        {
+            // 일반 전투 보상 인장: 전설 제외 (Epic, Rare, Common 중 가중치 추첨)
+            float roll = Random.Range(0f, 14.5f);
+            if (roll < 2.5f) rarity = SealRarity.Epic;
+            else if (roll < 6.5f) rarity = SealRarity.Rare;
+            else rarity = SealRarity.Common;
+        }
 
-        var candidates = ShopManager.Instance.allSeals.Where(s => s.rarity == rarity && s.isSoldInShop &&
+        var candidates = ShopManager.Instance.allSeals.Where(s => s.rarity == rarity && s.rarity != SealRarity.Legendary && s.isSoldInShop &&
             (pieceType == null || s.compatiblePieces == null || s.compatiblePieces.Count == 0 || s.compatiblePieces.Contains(pieceType.Value))).ToList();
+
+        if (candidates.Count == 0 && isElite)
+        {
+            // 다른 고등급(Rare/Epic)으로 폴백
+            SealRarity fallbackRarity = (rarity == SealRarity.Epic) ? SealRarity.Rare : SealRarity.Epic;
+            candidates = ShopManager.Instance.allSeals.Where(s => s.rarity == fallbackRarity && s.rarity != SealRarity.Legendary && s.isSoldInShop &&
+                (pieceType == null || s.compatiblePieces == null || s.compatiblePieces.Count == 0 || s.compatiblePieces.Contains(pieceType.Value))).ToList();
+        }
 
         if (candidates.Count == 0) return null;
         return candidates[Random.Range(0, candidates.Count)];
@@ -324,14 +377,17 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
                 if (emptySlot != null && PieceSpawner.Instance != null)
                 {
                     emptySlot.IsReserved = true;
-                    // 인장 지급 로직이 변경되었으므로, 여기서는 인장 없이 기물만 생성합니다.
-                    PieceSpawner.Instance.SpawnPieceAndFlyToInventory(pieceType, transform.position, emptySlot, null, (piece) => {
+                    PieceSpawner.Instance.SpawnPieceAndFlyToInventory(pieceType, transform.position, emptySlot, attachedSeal, (piece) => {
                         emptySlot.IsReserved = false;
                     });
                 }
                 else if (PieceInventory.Instance != null)
                 {
                     PieceInventory.Instance.AddPiece(pieceType);
+                    if (attachedSeal != null && SealInventory.Instance != null)
+                    {
+                        SealInventory.Instance.AddSeal(attachedSeal);
+                    }
                 }
                 break;
             case RewardType.Seal:

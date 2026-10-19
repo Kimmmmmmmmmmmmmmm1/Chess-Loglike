@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PieceData
   id: Pawn
   pieceType: 5
-  pieceName: "\uD3F0"
+  pieceName: Pawn
   icon: {fileID: -1645784633617896932, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
   rarity: 1
   score: 1

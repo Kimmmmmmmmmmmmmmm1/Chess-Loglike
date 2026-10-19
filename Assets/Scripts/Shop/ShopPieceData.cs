@@ -20,17 +20,25 @@ public class ShopPieceData : ScriptableObject
     public List<PieceInfo> pieceList;
 
     // 가중치 기반 랜덤 기물 뽑기
-    public PieceInfo GetRandomPiece()
+    public PieceInfo GetRandomPiece(bool excludeLegendary = false)
     {
         if (pieceList == null || pieceList.Count == 0) return null;
 
+        var pool = excludeLegendary
+            ? pieceList.FindAll(p => p.pieceType != PieceType.Amazon)
+            : pieceList;
+
+        if (pool.Count == 0) return null;
+
         int totalWeight = 0;
-        foreach (var piece in pieceList) totalWeight += piece.weight;
+        foreach (var piece in pool) totalWeight += piece.weight;
+
+        if (totalWeight <= 0) return pool[Random.Range(0, pool.Count)];
 
         int randomValue = Random.Range(0, totalWeight);
         int currentWeight = 0;
 
-        foreach (var piece in pieceList)
+        foreach (var piece in pool)
         {
             currentWeight += piece.weight;
             if (randomValue < currentWeight)
@@ -39,6 +47,6 @@ public class ShopPieceData : ScriptableObject
             }
         }
 
-        return pieceList[pieceList.Count - 1];
+        return pool[pool.Count - 1];
     }
 }

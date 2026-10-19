@@ -94,6 +94,10 @@ public class ArtifactManager : MonoBehaviour
         runtimeArtifact.ResetStack();
 
         ownedArtifacts.Add(runtimeArtifact);
+        if (runtimeArtifact.id == TyrantsBarrageArtifactEffect.Id)
+        {
+            ArtifactEffectRegistry.TyrantsBarrage.Activate();
+        }
         UpdateInventoryUI();
         CollectionManager.EnsureInstance().RecordArtifact(runtimeArtifact);
         OnArtifactAdded?.Invoke(runtimeArtifact);
@@ -158,6 +162,7 @@ public class ArtifactManager : MonoBehaviour
     {
         ActiveArtifactController.CancelIfTargeting();
         ownedArtifacts.Clear();
+        ShotgunKingSystem.Reset();
         UpdateInventoryUI();
     }
 
@@ -271,24 +276,56 @@ public class ArtifactManager : MonoBehaviour
         return !ownedArtifacts.Any(owned => owned != null && owned.id == candidate.id);
     }
 
-    public ArtifactData GetRandomArtifact()
+    public ArtifactData GetRandomArtifact(bool excludeLegendary = false, ArtifactRarity minRarity = ArtifactRarity.Common)
     {
+        if (allArtifacts == null || allArtifacts.Count == 0)
+        {
+            LoadAllArtifactsFromFolder();
+        }
+
         if (allArtifacts == null || allArtifacts.Count == 0) return null;
 
-        // 획득 가능한 아티팩트 중에서 랜덤 선택
+        // 획득 가능한 아티팩트 중에서 랜덤 선택 (minRarity 이상)
         var availableArtifacts = allArtifacts
-            .Where(IsObtainable)
+            .Where(candidate => candidate != null &&
+                   IsObtainable(candidate) &&
+                   (!excludeLegendary || candidate.rarity != ArtifactRarity.Legendary) &&
+                   candidate.rarity >= minRarity)
             .ToList();
         
-        if (availableArtifacts.Count == 0) return null; // 모든 아티팩트 획득함
+        if (availableArtifacts.Count == 0)
+        {
+            // minRarity에 해당하는 유물이 소진되었으면 Common 이상으로 폴백
+            if (minRarity > ArtifactRarity.Common)
+            {
+                return GetRandomArtifact(excludeLegendary, ArtifactRarity.Common);
+            }
+            return null; // 모든 아티팩트 획득함
+        }
+
+        // minRarity가 Rare 이상일 경우: Epic(60%)과 Rare(40%) 가중치 추첨
+        if (minRarity >= ArtifactRarity.Rare)
+        {
+            var epicPool = availableArtifacts.Where(a => a.rarity == ArtifactRarity.Epic).ToList();
+            var rarePool = availableArtifacts.Where(a => a.rarity == ArtifactRarity.Rare).ToList();
+
+            if (epicPool.Count > 0 && rarePool.Count > 0)
+            {
+                return UnityEngine.Random.value < 0.6f 
+                    ? epicPool[UnityEngine.Random.Range(0, epicPool.Count)] 
+                    : rarePool[UnityEngine.Random.Range(0, rarePool.Count)];
+            }
+            if (epicPool.Count > 0) return epicPool[UnityEngine.Random.Range(0, epicPool.Count)];
+            if (rarePool.Count > 0) return rarePool[UnityEngine.Random.Range(0, rarePool.Count)];
+        }
 
         return availableArtifacts[UnityEngine.Random.Range(0, availableArtifacts.Count)];
     }
 
     /// <summary>
-    /// 상점에서 판매 가능한 유물 중에서 랜덤으로 선택
+    /// 상점에서 판매 가능한 유물 중에서 랜덤으로 선택 (기본적으로 전설 등급 제외)
     /// </summary>
-    public ArtifactData GetRandomArtifactForShop(ISet<string> excludePassiveIds = null)
+    public ArtifactData GetRandomArtifactForShop(ISet<string> excludePassiveIds = null, bool excludeLegendary = true)
     {
         if (allArtifacts == null || allArtifacts.Count == 0)
         {
@@ -301,6 +338,7 @@ public class ArtifactManager : MonoBehaviour
         var shopAvailableArtifacts = allArtifacts
             .Where(candidate => candidate != null && 
                    candidate.isSoldInShop && 
+                   (!excludeLegendary || candidate.rarity != ArtifactRarity.Legendary) &&
                    IsObtainable(candidate) &&
                    (excludePassiveIds == null || candidate.IsActive || !excludePassiveIds.Contains(candidate.id)))
             .ToList();
@@ -308,6 +346,48 @@ public class ArtifactManager : MonoBehaviour
         if (shopAvailableArtifacts.Count == 0) return null;
 
         return shopAvailableArtifacts[UnityEngine.Random.Range(0, shopAvailableArtifacts.Count)];
+    }
+
+    /// <summary>
+    /// 보물상자 전용: 높은 등급(Legendary, Epic, Rare) 위주로 보정된 유물을 추첨합니다.
+    /// </summary>
+    public ArtifactData GetHighTierArtifactForTreasure()
+    {
+        if (allArtifacts == null || allArtifacts.Count == 0)
+        {
+            LoadAllArtifactsFromFolder();
+        }
+
+        if (allArtifacts == null || allArtifacts.Count == 0) return null;
+
+        var available = allArtifacts.Where(candidate => candidate != null && IsObtainable(candidate)).ToList();
+        if (available.Count == 0) return null;
+
+        // 보물상자 높은 등급 가중치: 전설 35%, 영웅 45%, 희귀 20%
+        float roll = UnityEngine.Random.Range(0f, 100f);
+        ArtifactRarity targetRarity;
+        if (roll < 35f) targetRarity = ArtifactRarity.Legendary;
+        else if (roll < 80f) targetRarity = ArtifactRarity.Epic;
+        else targetRarity = ArtifactRarity.Rare;
+
+        var targetPool = available.Where(a => a.rarity == targetRarity).ToList();
+        if (targetPool.Count > 0)
+        {
+            return targetPool[UnityEngine.Random.Range(0, targetPool.Count)];
+        }
+
+        // 해당 등급이 없으면 높은 등급 순으로 폴백 (Legendary -> Epic -> Rare -> any)
+        var fallbackOrder = new[] { ArtifactRarity.Legendary, ArtifactRarity.Epic, ArtifactRarity.Rare, ArtifactRarity.Common };
+        foreach (var r in fallbackOrder)
+        {
+            var pool = available.Where(a => a.rarity == r).ToList();
+            if (pool.Count > 0)
+            {
+                return pool[UnityEngine.Random.Range(0, pool.Count)];
+            }
+        }
+
+        return available[UnityEngine.Random.Range(0, available.Count)];
     }
 
     public void UpdateInventoryUI()

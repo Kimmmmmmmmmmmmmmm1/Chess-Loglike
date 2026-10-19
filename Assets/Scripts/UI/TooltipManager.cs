@@ -15,11 +15,15 @@ public class TooltipManager : PersistentManagerBase
     public static TooltipManager Instance { get; private set; }
     private const string DefaultTooltipViewPrefabPath = "UI/TooltipView";
     private const string DefaultPieceCardTooltipPrefabPath = "UI/PieceCardTooltip";
+    private const string DefaultKeywordCardTooltipPrefabPath = "UI/KeywordCardTooltip";
 
     [Header("Tooltip UI")]
     [SerializeField] private TooltipView tooltipView;
     [SerializeField] private PieceCardTooltipView pieceCardTooltipView;
     [SerializeField] private GameObject pieceCardTooltipPrefab;
+    [SerializeField] private PieceCardTooltipView sealCardTooltipView;
+    [SerializeField] private KeywordTooltipView keywordTooltipView;
+    [SerializeField] private GameObject keywordCardTooltipPrefab;
     [SerializeField] private float pieceCardHoverDelay = 1.0f;
     [SerializeField] private Vector3 tooltipOffset = new Vector3(20, 20, 0);
     private enum PendingCardKind
@@ -57,6 +61,11 @@ public class TooltipManager : PersistentManagerBase
     private int activeTooltipPriority = int.MinValue;
     private GameObject activeTooltipSource;
     private SettingsData.TooltipDelay currentTooltipDelay = SettingsData.TooltipDelay.Immediate;
+    private List<SealData> activePieceSeals;
+    private int activeSealIndex;
+    private PieceController activePieceController;
+    private PieceType activePieceType;
+    private bool activeIsEnemy;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void EnsureRuntimeInstance()
@@ -88,8 +97,11 @@ public class TooltipManager : PersistentManagerBase
     {
         // Hide any visible tooltip and clear runtime sources
         CancelPendingTooltip();
+        StopSealCycle();
         if (tooltipView != null) tooltipView.SetVisible(false);
         if (pieceCardTooltipView != null) pieceCardTooltipView.Hide();
+        if (sealCardTooltipView != null) sealCardTooltipView.Hide();
+        if (keywordTooltipView != null) keywordTooltipView.Hide();
         isPieceCardActive = false;
         tooltipSources.Clear();
         isTooltipVisible = false;
@@ -104,6 +116,9 @@ public class TooltipManager : PersistentManagerBase
 
     private void InitTooltipView()
     {
+        GameObject canvasObj = GetOrCreateTooltipCanvas();
+
+        // 1. PieceCardTooltipView
         if (pieceCardTooltipView == null)
         {
             pieceCardTooltipView = FindAnyObjectByType<PieceCardTooltipView>(FindObjectsInactive.Include);
@@ -111,12 +126,9 @@ public class TooltipManager : PersistentManagerBase
 
         if (pieceCardTooltipView == null)
         {
-            GameObject canvasObj = GetOrCreateTooltipCanvas();
-            GameObject prefabToUse = pieceCardTooltipPrefab;
-            if (prefabToUse == null)
-            {
-                prefabToUse = Resources.Load<GameObject>(DefaultPieceCardTooltipPrefabPath);
-            }
+            GameObject prefabToUse = pieceCardTooltipPrefab != null
+                ? pieceCardTooltipPrefab
+                : Resources.Load<GameObject>(DefaultPieceCardTooltipPrefabPath);
 
             if (prefabToUse != null)
             {
@@ -137,11 +149,79 @@ public class TooltipManager : PersistentManagerBase
         {
             if (pieceCardTooltipView.GetComponentInParent<Canvas>() == null)
             {
-                GameObject canvasObj = GetOrCreateTooltipCanvas();
                 pieceCardTooltipView.transform.SetParent(canvasObj.transform, false);
             }
             pieceCardTooltipView.EnsureUIHierarchy();
-            pieceCardTooltipView.gameObject.SetActive(false);
+            pieceCardTooltipView.Hide();
+        }
+
+        // 2. SealCardTooltipView (인장 카드 서브 툴팁)
+        if (sealCardTooltipView == null)
+        {
+            GameObject sealPrefab = pieceCardTooltipPrefab != null
+                ? pieceCardTooltipPrefab
+                : Resources.Load<GameObject>(DefaultPieceCardTooltipPrefabPath);
+
+            if (sealPrefab != null)
+            {
+                GameObject instance = Instantiate(sealPrefab, canvasObj.transform);
+                instance.name = "SealCardTooltipView";
+                sealCardTooltipView = instance.GetComponent<PieceCardTooltipView>();
+            }
+
+            if (sealCardTooltipView == null)
+            {
+                GameObject cardObj = new GameObject("SealCardTooltipView", typeof(RectTransform));
+                cardObj.transform.SetParent(canvasObj.transform, false);
+                sealCardTooltipView = cardObj.AddComponent<PieceCardTooltipView>();
+            }
+        }
+
+        if (sealCardTooltipView != null)
+        {
+            if (sealCardTooltipView.GetComponentInParent<Canvas>() == null)
+            {
+                sealCardTooltipView.transform.SetParent(canvasObj.transform, false);
+            }
+            sealCardTooltipView.EnsureUIHierarchy();
+            sealCardTooltipView.Hide();
+        }
+
+        // 3. KeywordTooltipView (키워드 카드 서브 툴팁)
+        if (keywordTooltipView == null)
+        {
+            keywordTooltipView = FindAnyObjectByType<KeywordTooltipView>(FindObjectsInactive.Include);
+        }
+
+        if (keywordTooltipView == null)
+        {
+            GameObject kwPrefab = keywordCardTooltipPrefab != null
+                ? keywordCardTooltipPrefab
+                : Resources.Load<GameObject>(DefaultKeywordCardTooltipPrefabPath);
+
+            if (kwPrefab != null)
+            {
+                GameObject instance = Instantiate(kwPrefab, canvasObj.transform);
+                instance.name = "KeywordCardTooltipView";
+                keywordTooltipView = instance.GetComponent<KeywordTooltipView>();
+            }
+
+            if (keywordTooltipView == null)
+            {
+                GameObject go = new GameObject("KeywordCardTooltipView", typeof(RectTransform));
+                go.transform.SetParent(canvasObj.transform, false);
+                keywordTooltipView = go.AddComponent<KeywordTooltipView>();
+            }
+        }
+
+        if (keywordTooltipView != null)
+        {
+            if (keywordTooltipView.GetComponentInParent<Canvas>() == null)
+            {
+                keywordTooltipView.transform.SetParent(canvasObj.transform, false);
+            }
+            keywordTooltipView.EnsureUIHierarchy();
+            keywordTooltipView.Hide();
         }
 
         if (tooltipView == null)
@@ -159,7 +239,6 @@ public class TooltipManager : PersistentManagerBase
 
             if (prefabObject != null)
             {
-                GameObject canvasObj = GetOrCreateTooltipCanvas();
                 GameObject instance = Instantiate(prefabObject, canvasObj.transform);
                 tooltipView = instance.GetComponent<TooltipView>();
                 if (tooltipView == null)
@@ -176,13 +255,11 @@ public class TooltipManager : PersistentManagerBase
 
         if (!tooltipView.gameObject.scene.IsValid() || tooltipView.gameObject.scene.rootCount == 0)
         {
-            GameObject canvasObj = GetOrCreateTooltipCanvas();
             tooltipView = Instantiate(tooltipView, canvasObj.transform);
         }
 
         if (tooltipView.GetComponentInParent<Canvas>() == null)
         {
-            GameObject canvasObj = GetOrCreateTooltipCanvas();
             tooltipView.transform.SetParent(canvasObj.transform, false);
         }
 
@@ -267,6 +344,14 @@ public class TooltipManager : PersistentManagerBase
 
         if (isPieceCardActive)
         {
+            // 인장이 여러 개 장착된 기물 툴팁 호버 중 우클릭 시 다음 인장 페이지로 전환
+            if (isTooltipVisible && activePieceSeals != null && activePieceSeals.Count > 1)
+            {
+                if (Input.GetMouseButtonDown(1))
+                {
+                    CycleNextSealPage();
+                }
+            }
             return; // 카드 툴팁 활성 시 보드나 대상을 가리지 않도록 위치 고정 유지
         }
 
@@ -291,7 +376,7 @@ public class TooltipManager : PersistentManagerBase
     {
         if (source != null)
         {
-            PieceController pc = source.GetComponent<PieceController>();
+            PieceController pc = source.GetComponentInParent<PieceController>();
             if (pc != null)
             {
                 ShowPieceTooltip(pc.PieceType, pc.PrimarySealData, position, source, pc.IsEnemy, priority);
@@ -619,6 +704,7 @@ public class TooltipManager : PersistentManagerBase
 
     private void HideActiveCardImmediate()
     {
+        StopSealCycle();
         if (tooltipView != null)
         {
             tooltipView.SetVisible(false);
@@ -626,6 +712,14 @@ public class TooltipManager : PersistentManagerBase
         if (pieceCardTooltipView != null)
         {
             pieceCardTooltipView.Hide();
+        }
+        if (sealCardTooltipView != null)
+        {
+            sealCardTooltipView.Hide();
+        }
+        if (keywordTooltipView != null)
+        {
+            keywordTooltipView.Hide();
         }
         isPieceCardActive = false;
         isTooltipVisible = false;
@@ -845,7 +939,6 @@ public class TooltipManager : PersistentManagerBase
     {
         if (isTooltipVisible && source != null && source == activeTooltipSource && pieceCardTooltipView != null)
         {
-            pieceCardTooltipView.SetPieceData(pieceType, attachedSeal, isEnemy);
             activeTooltipPriority = priority;
             return;
         }
@@ -941,15 +1034,240 @@ public class TooltipManager : PersistentManagerBase
             tooltipView.SetVisible(false);
         }
 
-        pieceCardTooltipView.SetPieceData(pieceType, attachedSeal, isEnemy);
+        StopSealCycle();
+
+        PieceController pc = source != null ? source.GetComponentInParent<PieceController>() : null;
+        activePieceController = pc;
+        activePieceType = pieceType;
+        activeIsEnemy = isEnemy;
+
+        // 1. 장착된 인장 정보 목록 수집
+        List<SealData> equippedSeals = pc != null ? pc.GetAllEquippedSealData() : null;
+        if ((equippedSeals == null || equippedSeals.Count == 0) && attachedSeal != null)
+        {
+            equippedSeals = new List<SealData> { attachedSeal };
+        }
+        else if (attachedSeal != null && equippedSeals != null && !equippedSeals.Contains(attachedSeal))
+        {
+            equippedSeals.Insert(0, attachedSeal);
+        }
+
+        activePieceSeals = equippedSeals;
+        int totalSeals = equippedSeals != null ? equippedSeals.Count : 0;
+        int initialSealIndex = 0;
+        SealData initialSeal = null;
+
+        if (pc != null && pc.CurrentDisplaySealData != null && equippedSeals != null && equippedSeals.Count > 0)
+        {
+            int foundIdx = equippedSeals.IndexOf(pc.CurrentDisplaySealData);
+            initialSealIndex = foundIdx >= 0 ? foundIdx : Mathf.Clamp(pc.CurrentDisplaySealIndex, 0, equippedSeals.Count - 1);
+            initialSeal = equippedSeals[initialSealIndex];
+        }
+        else if (equippedSeals != null && equippedSeals.Count > 0)
+        {
+            initialSeal = equippedSeals[0];
+            initialSealIndex = 0;
+        }
+
+        activeSealIndex = initialSealIndex;
+
+        // 호버 중에는 기물 본체의 자동 순환을 일시 정지하여 편안하게 읽을 수 있도록 함
+        if (pc != null && totalSeals > 1)
+        {
+            pc.PauseDuplicateSealCycle();
+        }
+
+        // 2. 메인 기물 카드 표시
+        pieceCardTooltipView.SetPieceData(pieceType, initialSeal, isEnemy, initialSealIndex, totalSeals);
         pieceCardTooltipView.PositionCard(position, source);
         pieceCardTooltipView.Show();
+        pieceCardTooltipView.transform.SetAsLastSibling();
+
+        // 3. 인장 카드 표시
+        bool hasSealCard = false;
+        if (initialSeal != null && sealCardTooltipView != null)
+        {
+            sealCardTooltipView.SetSealData(initialSeal, initialSealIndex, totalSeals);
+            sealCardTooltipView.Show();
+            sealCardTooltipView.transform.SetAsLastSibling();
+            hasSealCard = true;
+        }
+        else if (sealCardTooltipView != null)
+        {
+            sealCardTooltipView.Hide();
+        }
+
+        // 4. 활성 키워드 정보 확인 (무적, 보호, 회피, 역습)
+        bool hasKeywordCard = false;
+        if (pc != null && keywordTooltipView != null)
+        {
+            var keywordInfos = pc.GetActiveKeywordInfos();
+            if (keywordInfos != null && keywordInfos.Count > 0)
+            {
+                keywordTooltipView.SetKeywords(keywordInfos);
+                keywordTooltipView.Show();
+                keywordTooltipView.transform.SetAsLastSibling();
+                hasKeywordCard = true;
+            }
+            else
+            {
+                keywordTooltipView.Hide();
+            }
+        }
+        else if (keywordTooltipView != null)
+        {
+            keywordTooltipView.Hide();
+        }
+
+        // 5. 보조 카드들(인장 카드, 키워드 카드)을 메인 카드 옆에 나란히 정렬 배치
+        PositionSideTooltips(hasSealCard, hasKeywordCard);
 
         isTooltipVisible = true;
         isPieceCardActive = true;
         activeTooltipPriority = priority;
         activeTooltipSource = source;
-        pieceCardTooltipView.transform.SetAsLastSibling();
+    }
+
+    /// <summary>
+    /// 인장이 여러 개 장착된 기물 툴팁 호버 중 우클릭 시 다음 인장 페이지로 전환합니다.
+    /// </summary>
+    public void CycleNextSealPage()
+    {
+        if (!isTooltipVisible || !isPieceCardActive || activePieceSeals == null || activePieceSeals.Count <= 1)
+        {
+            return;
+        }
+
+        activeSealIndex = (activeSealIndex + 1) % activePieceSeals.Count;
+        SealData currentSeal = activePieceSeals[activeSealIndex];
+
+        // 1. 메인 기물 카드의 5x5 이동 보드 및 하단 인장 슬롯 갱신
+        if (pieceCardTooltipView != null && pieceCardTooltipView.gameObject.activeSelf)
+        {
+            pieceCardTooltipView.UpdateAttachedSeal(activePieceType, currentSeal, activeIsEnemy, activeSealIndex, activePieceSeals.Count);
+            pieceCardTooltipView.PlaySwitchAnimation();
+        }
+
+        // 2. 옆에 떠 있는 인장 전용 카드 내용 갱신 및 스위치 애니메이션
+        if (sealCardTooltipView != null && sealCardTooltipView.gameObject.activeSelf)
+        {
+            sealCardTooltipView.SetSealData(currentSeal, activeSealIndex, activePieceSeals.Count);
+            sealCardTooltipView.PlaySwitchAnimation();
+        }
+
+        // 3. 기물 본체의 인장 아이콘 표시도 동기화
+        if (activePieceController != null)
+        {
+            activePieceController.SetDisplaySealByIndex(activeSealIndex);
+        }
+    }
+
+    private void StopSealCycle()
+    {
+        if (activePieceController != null)
+        {
+            activePieceController.ResumeDuplicateSealCycle();
+            activePieceController = null;
+        }
+
+        activePieceSeals = null;
+        activeSealIndex = 0;
+    }
+
+    private void PositionSideTooltips(bool hasSealCard, bool hasKeywordCard)
+    {
+        if (!hasSealCard && !hasKeywordCard)
+        {
+            return;
+        }
+
+        List<RectTransform> sideCards = new List<RectTransform>();
+        if (hasSealCard && sealCardTooltipView != null)
+        {
+            sideCards.Add(sealCardTooltipView.RectTransform);
+        }
+        if (hasKeywordCard && keywordTooltipView != null)
+        {
+            sideCards.Add(keywordTooltipView.RectTransform);
+        }
+
+        if (sideCards.Count == 0) return;
+
+        Canvas canvas = pieceCardTooltipView.GetComponentInParent<Canvas>();
+        float scaleFactor = (canvas != null && canvas.scaleFactor > 0.01f) ? canvas.scaleFactor : 1f;
+
+        Vector3 mainCardWorldPos = pieceCardTooltipView.transform.position;
+        float mainCardHalfWidth = (pieceCardTooltipView.RectTransform.sizeDelta.x * 0.5f) * scaleFactor;
+        float gap = 20f * scaleFactor;
+        float margin = 16f * scaleFactor;
+        float screenW = Screen.width;
+        float screenH = Screen.height;
+
+        // 보조 카드들이 차지할 전체 너비 계산
+        float totalSideWidth = 0f;
+        for (int i = 0; i < sideCards.Count; i++)
+        {
+            float w = sideCards[i].sizeDelta.x * scaleFactor;
+            totalSideWidth += w;
+            if (i < sideCards.Count - 1) totalSideWidth += gap;
+        }
+
+        // 메인 카드의 오른쪽 공간이 충분한지 확인
+        float rightPlacementStart = mainCardWorldPos.x + mainCardHalfWidth + gap;
+        bool placeOnRight = (rightPlacementStart + totalSideWidth) <= (screenW - margin);
+
+        // 만약 오른쪽 공간이 부족하다면 왼쪽 공간이 충분한지 확인
+        float leftPlacementStart = mainCardWorldPos.x - mainCardHalfWidth - gap;
+        bool placeOnLeft = (leftPlacementStart - totalSideWidth) >= margin;
+
+        if (placeOnRight)
+        {
+            // 오른쪽에 순차적으로 배치
+            float currentX = rightPlacementStart;
+            for (int i = 0; i < sideCards.Count; i++)
+            {
+                RectTransform cardRt = sideCards[i];
+                float cardW = cardRt.sizeDelta.x * scaleFactor;
+                float cardH = cardRt.sizeDelta.y * scaleFactor;
+                float targetX = currentX + (cardW * 0.5f);
+                float targetY = Mathf.Clamp(mainCardWorldPos.y, margin + (cardH * 0.5f), screenH - margin - (cardH * 0.5f));
+
+                cardRt.position = new Vector3(targetX, targetY, 0f);
+                currentX += cardW + gap;
+            }
+        }
+        else if (placeOnLeft)
+        {
+            // 왼쪽에 순차적으로 배치 (메인 카드에서 왼쪽으로 멀어지는 순서)
+            float currentX = leftPlacementStart;
+            for (int i = 0; i < sideCards.Count; i++)
+            {
+                RectTransform cardRt = sideCards[i];
+                float cardW = cardRt.sizeDelta.x * scaleFactor;
+                float cardH = cardRt.sizeDelta.y * scaleFactor;
+                float targetX = currentX - (cardW * 0.5f);
+                float targetY = Mathf.Clamp(mainCardWorldPos.y, margin + (cardH * 0.5f), screenH - margin - (cardH * 0.5f));
+
+                cardRt.position = new Vector3(targetX, targetY, 0f);
+                currentX -= (cardW + gap);
+            }
+        }
+        else
+        {
+            // 양쪽 다 좁은 경우: 오른쪽에 최대한 클램핑하여 배치
+            float currentX = Mathf.Clamp(rightPlacementStart, margin, screenW - margin - totalSideWidth);
+            for (int i = 0; i < sideCards.Count; i++)
+            {
+                RectTransform cardRt = sideCards[i];
+                float cardW = cardRt.sizeDelta.x * scaleFactor;
+                float cardH = cardRt.sizeDelta.y * scaleFactor;
+                float targetX = currentX + (cardW * 0.5f);
+                float targetY = Mathf.Clamp(mainCardWorldPos.y, margin + (cardH * 0.5f), screenH - margin - (cardH * 0.5f));
+
+                cardRt.position = new Vector3(targetX, targetY, 0f);
+                currentX += cardW + gap;
+            }
+        }
     }
 
     private void ShowArtifactTooltipImmediate(ArtifactData artifact, int overrideLevel, Vector3 position, int priority, GameObject source)
@@ -1150,6 +1468,7 @@ public class TooltipManager : PersistentManagerBase
 
     private void OnDestroy()
     {
+        StopSealCycle();
         StopSourceCheckRoutine();
         if (Instance == this)
         {

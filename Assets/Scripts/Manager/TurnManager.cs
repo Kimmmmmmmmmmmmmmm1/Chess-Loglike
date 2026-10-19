@@ -244,6 +244,8 @@ public class TurnManager : MonoBehaviour
     /// </summary>
     private IEnumerator SkipOpponentTurnByEffect()
     {
+        TurnLogUIManager.Instance?.AddLog("시간의 모래: 상대의 턴을 건너뛰었습니다!", false);
+
         yield return new WaitForSeconds(waitTime);
 
         if (GameManager.Instance != null && GameManager.Instance.CurrentFlowState != GameFlowState.Battle)
@@ -253,6 +255,7 @@ public class TurnManager : MonoBehaviour
             yield break;
 
         currentTurn = TurnOwner.Player;
+        OnTurnAdvanced?.Invoke(currentTurn);
         CheckPlayerTurn();
     }
 

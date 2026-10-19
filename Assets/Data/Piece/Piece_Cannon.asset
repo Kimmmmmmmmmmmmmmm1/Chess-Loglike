@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PieceData
   id: Cannon
   pieceType: 10
-  pieceName: "\uCE90\uB17C"
+  pieceName: Cannon
   icon: {fileID: 8761142422384720759, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
   rarity: 2
   score: 5

@@ -17,6 +17,11 @@ public class MousePointer : MonoBehaviour
     private bool isMouseDown = false;
     private ArtifactSlot currentHoveredArtifact;
     private Vector2Int? currentGridPos;
+    private Image shotAimIcon;
+
+    [SerializeField] private Sprite shotCursorSprite;
+    [SerializeField] private Vector2 shotCursorOffset = Vector2.zero;
+    [SerializeField] private Vector2 shotCursorSize = new Vector2(28f, 28f);
 
     [Header("Settings")]
     [SerializeField] private float smoothSpeed = 20f;
@@ -34,9 +39,29 @@ public class MousePointer : MonoBehaviour
         parentCanvas = GetComponentInParent<Canvas>();
 
         CreateCorners();
+        CreateShotAimIcon();
         currentDist = BaseDistance;
         currentAnimBaseDist = BaseDistance;
         UpdateCornerPositions(BaseDistance);
+    }
+
+    private void CreateShotAimIcon()
+    {
+        if (shotCursorSprite == null) return;
+
+        GameObject iconObject = new GameObject("ShotAimCursorIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        iconObject.transform.SetParent(transform, false);
+        RectTransform iconRect = iconObject.GetComponent<RectTransform>();
+        iconRect.anchorMin = iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+        iconRect.pivot = new Vector2(0.5f, 0.5f);
+        iconRect.anchoredPosition = shotCursorOffset;
+        iconRect.sizeDelta = shotCursorSize;
+
+        shotAimIcon = iconObject.GetComponent<Image>();
+        shotAimIcon.sprite = shotCursorSprite;
+        shotAimIcon.preserveAspect = true;
+        shotAimIcon.raycastTarget = false;
+        iconObject.SetActive(false);
     }
 
     private void CreateCorners()
@@ -85,6 +110,8 @@ public class MousePointer : MonoBehaviour
         if (GameManager.Instance != null && GameManager.Instance.CurrentFlowState != GameFlowState.Battle)
         {
             SetCornersActive(false);
+            SetShotAimIcon(false);
+            ShotgunKingSystem.UpdateAimPreview(null);
             return;
         }
 
@@ -177,6 +204,8 @@ public class MousePointer : MonoBehaviour
 
                 if (slot != null)
                 {
+                    SetShotAimIcon(false);
+                    ShotgunKingSystem.UpdateAimPreview(null);
                     currentGridPos = null;
                     if (currentHoveredArtifact != null)
                     {
@@ -203,6 +232,8 @@ public class MousePointer : MonoBehaviour
                 if (sealSlot == null) sealSlot = result.gameObject.GetComponentInParent<SealInventorySlot>();
                 if (sealSlot != null)
                 {
+                    SetShotAimIcon(false);
+                    ShotgunKingSystem.UpdateAimPreview(null);
                     currentGridPos = null;
                     SetCornersActive(true);
                     if (isDragging || Vector3.Distance(rectTransform.position, sealSlot.transform.position) < 0.2f)
@@ -221,6 +252,8 @@ public class MousePointer : MonoBehaviour
 
                 if (artifactSlot != null)
                 {
+                    SetShotAimIcon(false);
+                    ShotgunKingSystem.UpdateAimPreview(null);
                     currentGridPos = null;
                     if (currentHoveredArtifact != artifactSlot)
                     {
@@ -252,6 +285,8 @@ public class MousePointer : MonoBehaviour
 
         if (!gridManager.IsGridCreated)
         {
+            SetShotAimIcon(false);
+            ShotgunKingSystem.UpdateAimPreview(null);
             currentGridPos = null;
             SetCornersActive(false);
             return;
@@ -282,15 +317,34 @@ public class MousePointer : MonoBehaviour
                 }
 
                 PieceController piece = PieceManager.Instance.GetPieceAt(gridPos.Value);
+                bool showShotgunCursor = !isDragging && shotAimIcon != null && ShotgunKingSystem.IsPlayerAimingTurn;
+                SetShotAimIcon(showShotgunCursor);
+                SetCornersActive(!showShotgunCursor);
+                ShotgunKingSystem.UpdateAimPreview(isDragging ? null : gridPos);
                 UpdatePointerState(piece != null, isDragging, piece);
             }
             else
             {
                 // 보드 밖이면 숨김
+                SetShotAimIcon(false);
+                ShotgunKingSystem.UpdateAimPreview(null);
                 currentGridPos = null;
                 SetCornersActive(false);
             }
         }
+        else
+        {
+            SetShotAimIcon(false);
+            ShotgunKingSystem.UpdateAimPreview(null);
+            currentGridPos = null;
+            SetCornersActive(false);
+        }
+    }
+
+    private void SetShotAimIcon(bool active)
+    {
+        if (shotAimIcon != null && shotAimIcon.gameObject.activeSelf != active)
+            shotAimIcon.gameObject.SetActive(active);
     }
 
     private Vector2Int? GetGridPositionWithHysteresis(GridManager gridManager, Vector2 localPoint)
@@ -431,6 +485,7 @@ public class MousePointer : MonoBehaviour
 
     private void OnDisable()
     {
+        ShotgunKingSystem.UpdateAimPreview(null);
         if (currentHoveredArtifact != null)
         {
             currentHoveredArtifact.HideTooltip();

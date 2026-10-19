@@ -11,7 +11,7 @@ using DG.Tweening;
 [RequireComponent(typeof(RectTransform))]
 public class PieceCardTooltipView : MonoBehaviour
 {
-    private const int BoardCols = 6;
+    private const int BoardCols = 5;
     private const int BoardRows = 5;
 
     [Header("UI Root References")]
@@ -31,7 +31,7 @@ public class PieceCardTooltipView : MonoBehaviour
     [SerializeField] private Image portraitFrame;
     [SerializeField] private Image portraitImage;
 
-    [Header("6x5 Mini Board Elements")]
+    [Header("5x5 Mini Board Elements")]
     [SerializeField] private RectTransform miniBoardContainer;
     [SerializeField] private TextMeshProUGUI boardLabel;
     private Image[,] boardCells = new Image[BoardCols, BoardRows];
@@ -218,7 +218,9 @@ public class PieceCardTooltipView : MonoBehaviour
     /// </summary>
     public void EnsureUIHierarchy()
     {
-        if (isHierarchyInitialized && cardRoot != null && boardCells[0, 0] != null) return;
+        if (isHierarchyInitialized && cardRoot != null && boardCells != null && boardCells.GetLength(0) == BoardCols && boardCells.GetLength(1) == BoardRows && boardCells[0, 0] != null) return;
+
+        boardCells = new Image[BoardCols, BoardRows];
 
         EnsureProceduralSprites();
         TMP_FontAsset font = Resources.Load<TMP_FontAsset>("Fonts/NeoDunggeunmoPro-Regular SDF");
@@ -376,9 +378,9 @@ public class PieceCardTooltipView : MonoBehaviour
         // 구분선 2 (Y: -201)
         CreateDividerLine(bodyRt, -201);
 
-        // --- 6x5 미니 보드 그래픽 (Movement Board) ---
-        // Y: -203 ~ -409 (중심: -306, 크기: 216x180)
-        GameObject boardPanel = CreateSubPanel("BoardPanel", bodyRt, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -306), new Vector2(216, 180));
+        // --- 5x5 미니 보드 그래픽 (Movement Board) ---
+        // Y: -206 ~ -406 (중심: -306, 크기: 200x200 정사각형)
+        GameObject boardPanel = CreateSubPanel("BoardPanel", bodyRt, new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -306), new Vector2(200, 200));
         miniBoardContainer = boardPanel.GetComponent<RectTransform>();
 
         // 폰트 크기: 16
@@ -388,24 +390,24 @@ public class PieceCardTooltipView : MonoBehaviour
         labelRt.anchorMax = new Vector2(1, 1);
         labelRt.anchoredPosition = new Vector2(0, 14);
         labelRt.sizeDelta = new Vector2(0, 22);
-        boardLabel.text = "── 6×5 MOVEMENT BOARD ──";
+        boardLabel.text = "── 5×5 MOVEMENT BOARD ──";
 
-        // 보드 프레임 박스 (6열 5행)
+        // 보드 프레임 박스 (5열 5행 정사각형)
         GameObject gridBox = CreateSubPanel("GridBox", miniBoardContainer, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
         Image gridBoxBorder = gridBox.AddComponent<Image>();
         gridBoxBorder.sprite = solidWhiteSprite;
         gridBoxBorder.color = new Color(0.25f, 0.25f, 0.3f, 1f);
         gridBoxBorder.raycastTarget = false;
 
-        GameObject gridInner = CreateSubPanel("GridInner", gridBox.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-3, -3));
+        GameObject gridInner = CreateSubPanel("GridInner", gridBox.GetComponent<RectTransform>(), Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-4, -4));
         Image gridInnerBg = gridInner.AddComponent<Image>();
         gridInnerBg.sprite = solidWhiteSprite;
         gridInnerBg.color = new Color(0.08f, 0.08f, 0.1f, 1f);
         gridInnerBg.raycastTarget = false;
 
-        // 30개 타일 생성 (열 6, 행 5, 각 33px)
-        float tileW = 33f;
-        float tileH = 33f;
+        // 25개 정사각형 타일 생성 (열 5, 행 5, 각 38px 정사각형)
+        float tileW = 38f;
+        float tileH = 38f;
         float startX = -((BoardCols - 1) * tileW) * 0.5f;
         float startY = -((BoardRows - 1) * tileH) * 0.5f;
 
@@ -600,14 +602,16 @@ public class PieceCardTooltipView : MonoBehaviour
 
     /// <summary>
     /// 기물 카드 데이터 설정 및 미니 보드 렌더링
+    /// <summary>
+    /// 기물 카드 데이터 설정 및 미니 보드 렌더링
     /// </summary>
-    public void SetPieceData(PieceType pieceType, SealData attachedSeal, bool isEnemy)
+    public void SetPieceData(PieceType pieceType, SealData attachedSeal, bool isEnemy, int sealIndex = 0, int totalSeals = 1)
     {
         EnsureUIHierarchy();
         SetMiniBoardVisible(true);
         if (boardLabel != null)
         {
-            boardLabel.text = "── 6×5 MOVEMENT BOARD ──";
+            boardLabel.text = "── 5×5 MOVEMENT BOARD ──";
         }
 
         // 1. 체스 기물 가치 (점수)
@@ -659,7 +663,7 @@ public class PieceCardTooltipView : MonoBehaviour
             portraitImage.enabled = portraitImage.sprite != null;
         }
 
-        // 4. 6x5 미니 보드 그래픽 렌더링
+        // 4. 5x5 미니 보드 그래픽 렌더링
         RenderMiniBoard(pieceType, attachedSeal, isEnemy);
 
         // 5. 특수 룰 설명
@@ -669,32 +673,7 @@ public class PieceCardTooltipView : MonoBehaviour
         }
 
         // 6. 장착된 인장 정보
-        bool hasSealIcon = false;
-        if (sealRowObject != null)
-        {
-            if (attachedSeal != null)
-            {
-                hasSealIcon = attachedSeal.icon != null;
-                if (sealIconImage != null)
-                {
-                    sealIconImage.sprite = attachedSeal.icon;
-                    sealIconImage.preserveAspect = true;
-                    sealIconImage.enabled = hasSealIcon;
-                }
-                if (sealInfoText != null)
-                {
-                    sealInfoText.text = $"<color=#FFFFFF>[인장: {attachedSeal.sealName}]</color> <size=90%>{attachedSeal.description}</size>";
-                }
-            }
-            else
-            {
-                if (sealIconImage != null) sealIconImage.enabled = false;
-                if (sealInfoText != null)
-                {
-                    sealInfoText.text = "<color=#62626C>인장 슬롯: 비어있음</color>";
-                }
-            }
-        }
+        UpdateSealRow(attachedSeal, sealIndex, totalSeals);
 
         // 7. 플레이버 텍스트
         if (flavorText != null)
@@ -706,7 +685,50 @@ public class PieceCardTooltipView : MonoBehaviour
             flavorText.text = FormatFlavorText(flavor);
         }
 
+        bool hasSealIcon = attachedSeal != null && attachedSeal.icon != null;
         UpdateFooterRowLayout(true, true, hasSealIcon);
+    }
+
+    /// <summary>
+    /// 기물에 장착된 인장이 주기적으로 순환될 때 인장 슬롯 및 5x5 보드를 갱신합니다.
+    /// </summary>
+    public void UpdateAttachedSeal(PieceType pieceType, SealData attachedSeal, bool isEnemy, int sealIndex = 0, int totalSeals = 1)
+    {
+        EnsureUIHierarchy();
+        RenderMiniBoard(pieceType, attachedSeal, isEnemy);
+        UpdateSealRow(attachedSeal, sealIndex, totalSeals);
+        bool hasSealIcon = attachedSeal != null && attachedSeal.icon != null;
+        UpdateFooterRowLayout(true, true, hasSealIcon);
+    }
+
+    private void UpdateSealRow(SealData attachedSeal, int sealIndex, int totalSeals)
+    {
+        if (sealRowObject == null) return;
+
+        if (attachedSeal != null)
+        {
+            bool hasSealIcon = attachedSeal.icon != null;
+            if (sealIconImage != null)
+            {
+                sealIconImage.sprite = attachedSeal.icon;
+                sealIconImage.preserveAspect = true;
+                sealIconImage.enabled = hasSealIcon;
+            }
+            if (sealInfoText != null)
+            {
+                string countTag = totalSeals > 1 ? $" ({sealIndex + 1}/{totalSeals})" : "";
+                string pageHint = totalSeals > 1 ? " <color=#B0B0C0><size=80%>[우클릭: 다음 인장]</size></color>" : "";
+                sealInfoText.text = $"<color=#FFFFFF>[인장{countTag}: {attachedSeal.sealName}]</color>{pageHint} <size=90%>{attachedSeal.description}</size>";
+            }
+        }
+        else
+        {
+            if (sealIconImage != null) sealIconImage.enabled = false;
+            if (sealInfoText != null)
+            {
+                sealInfoText.text = "<color=#62626C>인장 슬롯: 비어있음</color>";
+            }
+        }
     }
 
     /// <summary>
@@ -801,9 +823,10 @@ public class PieceCardTooltipView : MonoBehaviour
     }
 
     /// <summary>
-    /// 인장 카드 데이터 설정 (이동 추가/변경 인장일 경우 6x5 보드 표시)
+    /// <summary>
+    /// 인장 카드 데이터 설정 (이동 추가/변경 인장일 경우 5x5 보드 표시)
     /// </summary>
-    public void SetSealData(SealData seal)
+    public void SetSealData(SealData seal, int sealIndex = 0, int totalSeals = 1)
     {
         if (seal == null) return;
 
@@ -818,8 +841,8 @@ public class PieceCardTooltipView : MonoBehaviour
             if (boardLabel != null)
             {
                 boardLabel.text = replacesMovement
-                    ? "── 6×5 SEAL MOVE (이동 변경) ──"
-                    : "── 6×5 SEAL MOVE (이동 추가) ──";
+                    ? "── 5×5 SEAL MOVE (이동 변경) ──"
+                    : "── 5×5 SEAL MOVE (이동 추가) ──";
             }
             RenderSealOnlyMiniBoard(sealMoveOffsets);
         }
@@ -845,7 +868,8 @@ public class PieceCardTooltipView : MonoBehaviour
         if (tierText != null)
         {
             string stars = new string('★', rarityTier);
-            tierText.text = $"<color=#FFFFFF>{stars}</color>  <size=85%>{seal.rarity} (인장)</size>";
+            string countTag = totalSeals > 1 ? $" (인장 {sealIndex + 1}/{totalSeals}) <color=#A0A0B0>[우클릭: 다음]</color>" : $" ({seal.rarity} 인장)";
+            tierText.text = $"<color=#FFFFFF>{stars}</color>  <size=85%>{countTag}</size>";
         }
 
         if (portraitImage != null)
@@ -1069,14 +1093,14 @@ public class PieceCardTooltipView : MonoBehaviour
     }
 
     /// <summary>
-    /// 6x5 미니 보드 그래픽 렌더링
+    /// 5x5 미니 보드 그래픽 렌더링
     /// 기본 이동 칸: 하얗게 반전(Solid White)
     /// 인장 추가 칸: 도트 빗금 패턴(Hatched Pattern)
     /// </summary>
     private void RenderMiniBoard(PieceType pieceType, SealData seal, bool isEnemy)
     {
-        int originCol = 2; // 중앙 열
-        int originRow = pieceType == PieceType.Pawn ? 1 : 2; // 폰은 1행(초기 전진 2칸 및 대각선 포획 강조)
+        int originCol = 2; // 5칸 중 정중앙 열 (0, 1, [2], 3, 4)
+        int originRow = pieceType == PieceType.Pawn ? 1 : 2; // 폰은 1행(전진 2칸 강조), 그 외는 정중앙 2행
 
         // 이동 오프셋 수집
         List<Vector2Int> baseOffsets = PieceController.GetBaseMovementOffsetsForType(pieceType, isEnemy);
@@ -1316,6 +1340,19 @@ public class PieceCardTooltipView : MonoBehaviour
         if (gameObject.activeSelf)
         {
             gameObject.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// 여러 인장이 순환될 때 쫀득하게 반응하는 스위치 애니메이션
+    /// </summary>
+    public void PlaySwitchAnimation()
+    {
+        if (cardRoot != null)
+        {
+            cardRoot.DOKill();
+            cardRoot.localScale = Vector3.one * 0.94f;
+            cardRoot.DOScale(Vector3.one, 0.18f).SetEase(Ease.OutBack).SetUpdate(true);
         }
     }
 

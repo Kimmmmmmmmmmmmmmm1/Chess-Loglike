@@ -13,6 +13,27 @@ public class SealInventory : MonoBehaviour
 
     public IReadOnlyList<SealData> OwnedSeals => ownedSeals;
 
+    public void ConvertOwnedSealsToShotgunParts()
+    {
+        if (!ShotgunKingSystem.IsActive) return;
+
+        bool changed = false;
+        for (int i = 0; i < ownedSeals.Count; i++)
+        {
+            SealData converted = ShotgunKingSystem.ConvertSeal(ownedSeals[i]);
+            if (converted == null || converted == ownedSeals[i]) continue;
+
+            ownedSeals[i] = converted;
+            CollectionManager.EnsureInstance().RecordSeal(converted);
+            changed = true;
+        }
+
+        if (changed)
+        {
+            FindFirstObjectByType<SealInventoryPanel>()?.RefreshSealItems();
+        }
+    }
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -30,6 +51,7 @@ public class SealInventory : MonoBehaviour
     public void AddSeal(SealData seal)
     {
         if (seal == null) return;
+        seal = ShotgunKingSystem.ConvertSeal(seal);
         int emptyIndex = ownedSeals.IndexOf(null);
         if (emptyIndex >= 0)
         {
@@ -57,6 +79,7 @@ public class SealInventory : MonoBehaviour
     public void InsertSeal(SealData seal, int index)
     {
         if (seal == null) return;
+        seal = ShotgunKingSystem.ConvertSeal(seal);
 
         int clampedIndex = Mathf.Max(0, index);
         EnsureSlot(clampedIndex);
@@ -102,6 +125,7 @@ public class SealInventory : MonoBehaviour
         if (seal == null) return false;
         if (index < 0) return false;
 
+        seal = ShotgunKingSystem.ConvertSeal(seal);
         EnsureSlot(index);
         ownedSeals[index] = seal;
         CollectionManager.EnsureInstance().RecordSeal(seal);

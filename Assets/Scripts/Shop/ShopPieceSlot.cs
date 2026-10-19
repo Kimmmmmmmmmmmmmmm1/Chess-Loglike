@@ -164,6 +164,12 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     {
         if (isSoldOut) return;
 
+        if (ShotgunKingSystem.IsActive && !isArtifact && !isStandaloneSeal)
+        {
+            SetSoldOut();
+            return;
+        }
+
         if (GameManager.Instance == null) return;
 
         if (GameManager.Instance.Coin < cost)

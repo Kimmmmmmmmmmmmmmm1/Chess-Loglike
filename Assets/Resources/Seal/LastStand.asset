@@ -16,7 +16,7 @@ MonoBehaviour:
   rarity: 3
   description: "이 기물은 혼자 남을 때까지 무적입니다!"
   flavorText: "전우들이 쓰러지기 전까지, 내 방패는 결코 깨지지 않는다."
-  icon: {fileID: 3944343766228188813, guid: 95980ea79e9734fbc9fe2d2728f381c0, type: 3}
+  icon: {fileID: 3286163911610860551, guid: 3c1ba76994b2438fadb33115aab3b757, type: 3}
   isSoldInShop: 0
   sealPrefab: {fileID: 7511002200000000001, guid: a253d8d2449a4a55b06604e3a233edda, type: 3}
   compatiblePieces: 

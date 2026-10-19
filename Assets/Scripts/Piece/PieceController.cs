@@ -194,12 +194,42 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     [SerializeField] private float sealIconSize = 20f;
     [SerializeField] private GameObject sealIconPrefab; // 인장 아이콘 프리팹 연결
     [SerializeField] private float sealIconSpacing = 10f;
+    [SerializeField] private Vector2 sealIconOffset = new Vector2(20f, 20f);
     [SerializeField] private float duplicateSealCycleInterval = 1.2f;
     [SerializeField] private float duplicateSealSwitchDuration = 0.18f;
     [SerializeField] private List<SealBase> equippedSeals = new List<SealBase>();
     public List<SealBase> EquippedSeals => equippedSeals;
     public SealData PrimarySealData => (equippedSeals != null && equippedSeals.Count > 0 && equippedSeals[0] != null) ? equippedSeals[0].Data : null;
+
+    /// <summary>
+    /// 기물에 장착된 모든 유효한 인장 데이터(SealData) 리스트를 반환합니다.
+    /// </summary>
+    public List<SealData> GetAllEquippedSealData()
+    {
+        var list = new List<SealData>();
+        if (equippedSeals != null)
+        {
+            foreach (var seal in equippedSeals)
+            {
+                if (seal != null && seal.Data != null)
+                {
+                    list.Add(seal.Data);
+                }
+            }
+        }
+        return list;
+    }
+    public event System.Action<PieceController, SealData, int, int> OnEquippedSealVisualChanged;
+    private SealData currentDisplaySealData;
+    private int currentDisplaySealIndex;
+    public SealData CurrentDisplaySealData => currentDisplaySealData != null ? currentDisplaySealData : PrimarySealData;
+    public int CurrentDisplaySealIndex => currentDisplaySealIndex;
     private Coroutine duplicateSealCycleCoroutine;
+
+    public Vector2 GetSealIconOffset()
+    {
+        return sealIconOffset != Vector2.zero ? sealIconOffset : new Vector2(sealIconSize, sealIconSize);
+    }
 
     private RectTransform rectTransform;
     private Vector2 originalAnchoredPosition;
@@ -351,6 +381,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     private void OnEnable()
     {
         RegisterSelf();
+        if (equippedSeals != null && equippedSeals.Count > 1 && duplicateSealCycleCoroutine == null)
+        {
+            RefreshEquippedSealVisuals();
+        }
     }
 
     private void OnDisable()
@@ -396,6 +430,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         if (isThreatened && !isDragging && currentLocation == PieceLocation.Board && isGamePlay)
         {
+            // 알까기 물리 시뮬레이션 중에는 위치 강제 고정(떨림)을 수행하지 않음
+            if (PieceFlickLauncher.IsPhysicsActive) return;
+
             // 놀라는 애니메이션 중에는 떨지 않음
             if (isStartling) return;
 
@@ -726,7 +763,19 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             return;
         }
 
-        if (!isDragging && !isAnyDragging) SelectSelf();
+        if (ShotgunKingSystem.TryHandleDaggerAttack(this, eventData.button))
+        {
+            eventData.Use();
+            return;
+        }
+
+        if (gridPosition.HasValue && ShotgunKingSystem.TryHandleShotAimClick(gridPosition.Value, eventData.button))
+        {
+            eventData.Use();
+            return;
+        }
+
+        if (!isDragging && !isAnyDragging && eventData.button == PointerEventData.InputButton.Left) SelectSelf();
     }
 
     public void OnBeginDrag(PointerEventData eventData)
@@ -1091,6 +1140,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
 
         SealData sealToEquip = draggableSeal.SealData;
+        if (!isEnemy && pieceType == PieceType.King && ShotgunKingSystem.IsActive)
+        {
+            sealToEquip = ShotgunKingSystem.ConvertSeal(sealToEquip);
+        }
 
         if (HasSeal(sealToEquip))
         {
@@ -1098,7 +1151,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
 
         // 1. 호환성 검사
-        if (sealToEquip.compatiblePieces != null && sealToEquip.compatiblePieces.Count > 0)
+        bool shotgunKingConversion = !isEnemy && pieceType == PieceType.King && ShotgunKingSystem.IsActive;
+        if (!shotgunKingConversion && sealToEquip.compatiblePieces != null && sealToEquip.compatiblePieces.Count > 0)
         {
             if (!sealToEquip.compatiblePieces.Contains(this.pieceType))
             {
@@ -1108,7 +1162,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
 
         // 2. 장착 시도 (SealManager를 통하지 않고 직접 처리)
-        EquipSeal(sealToEquip);
+        if (!EquipSeal(sealToEquip)) return;
         if (draggableSeal.SourcePiece == null && draggableSeal.OriginalInventoryIndex != -1)
         {
             SealInventory.Instance?.ClearSlot(draggableSeal.OriginalInventoryIndex);
@@ -1603,6 +1657,11 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceController targetPiece = PieceManager.Instance?.GetPieceAt(target);
             return targetPiece != null && targetPiece.IsEnemy != isEnemy && targetPiece.IsInvincible;
         });
+
+        if (ShotgunKingSystem.IsShotgunKing(this))
+        {
+            moves.RemoveAll(target => PieceManager.Instance?.GetPieceAt(target)?.IsEnemy == true);
+        }
         return moves;
     }
 
@@ -2100,8 +2159,15 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             seq.OnComplete(() =>
             {
                 isStartling = false;
-                rectTransform.anchoredPosition = basePos;
+                if (!PieceFlickLauncher.IsPhysicsActive)
+                {
+                    rectTransform.anchoredPosition = basePos;
+                }
                 transform.localScale = originalScale;
+            });
+            seq.OnKill(() =>
+            {
+                isStartling = false;
             });
 
             threatenedTween = seq;
@@ -2173,9 +2239,13 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     // --- Seal System ---
 
-    public void EquipSeal(SealData data)
+    public bool EquipSeal(SealData data)
     {
-        if (data == null) return;
+        if (data == null) return false;
+        if (!isEnemy && pieceType == PieceType.King)
+        {
+            data = ShotgunKingSystem.ConvertSeal(data);
+        }
 
         if (CollectionManager.Instance != null)
         {
@@ -2192,13 +2262,14 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         // 프리팹이 없으면 기본 로직이나 에러 처리
         if (data.sealPrefab == null)
         {
-            return;
+            Debug.LogWarning($"[Seal] {data.sealName} 인장 프리팹이 없어 장착할 수 없습니다.");
+            return false;
         }
 
         GameObject sealObj = CreateEquippedSealVisual(data);
         if (sealObj == null)
         {
-            return;
+            return false;
         }
 
         // 프리팹 인스턴스화 (로직이 담긴 컴포넌트 포함)
@@ -2211,10 +2282,14 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             sealComponent.Initialize(data, this);
             equippedSeals.Add(sealComponent);
             RefreshEquippedSealVisuals();
+            ShotgunKingSystem.NotifyKingPartsChanged(this);
+            return true;
         }
         else
         {
             Destroy(sealObj);
+            Debug.LogWarning($"[Seal] {data.sealName} 프리팹에 SealBase 컴포넌트가 없습니다.");
+            return false;
         }
     }
 
@@ -2237,7 +2312,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         if (rt != null)
         {
             rt.sizeDelta = new Vector2(sealIconSize, sealIconSize);
-            rt.anchoredPosition = new Vector2(sealIconSize, -sealIconSize + (equippedSeals.Count * sealIconSpacing));
+            Vector2 baseOffset = GetSealIconOffset();
+            rt.anchoredPosition = new Vector2(baseOffset.x, baseOffset.y + (equippedSeals.Count * sealIconSpacing));
         }
 
         DraggableSeal draggable = sealObj.GetComponent<DraggableSeal>();
@@ -2296,6 +2372,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 else Destroy(sealToUnEquip.gameObject);
             }
             RefreshEquippedSealVisuals();
+            ShotgunKingSystem.NotifyKingPartsChanged(this);
             return true;
         }
         return false;
@@ -2325,7 +2402,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             RectTransform rt = seal.transform.parent as RectTransform;
             if (rt != null)
             {
-                rt.anchoredPosition = new Vector2(sealIconSize, -sealIconSize);
+                rt.anchoredPosition = GetSealIconOffset();
             }
             visibleSeals.Add(seal);
         }
@@ -2335,23 +2412,98 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             SetSealVisualVisible(visibleSeals[i], i == 0);
         }
 
+        if (visibleSeals.Count > 0 && visibleSeals[0] != null)
+        {
+            currentDisplaySealData = visibleSeals[0].Data;
+            currentDisplaySealIndex = 0;
+            OnEquippedSealVisualChanged?.Invoke(this, currentDisplaySealData, 0, visibleSeals.Count);
+        }
+        else
+        {
+            currentDisplaySealData = null;
+            currentDisplaySealIndex = 0;
+        }
+
         if (visibleSeals.Count > 1)
         {
             duplicateSealCycleCoroutine = StartCoroutine(CycleDuplicateSealVisuals(visibleSeals));
         }
     }
 
-    private IEnumerator CycleDuplicateSealVisuals(List<SealBase> seals)
+    private IEnumerator CycleDuplicateSealVisuals(List<SealBase> seals, int startIndex = 0)
     {
-        int index = 0;
+        int index = startIndex;
         while (true)
         {
             yield return new WaitForSeconds(duplicateSealCycleInterval);
             index++;
+            int activeIndex = index % seals.Count;
             for (int i = 0; i < seals.Count; i++)
             {
-                SetSealVisualVisible(seals[i], i == index % seals.Count, true);
+                SetSealVisualVisible(seals[i], i == activeIndex, true);
             }
+
+            if (activeIndex >= 0 && activeIndex < seals.Count && seals[activeIndex] != null)
+            {
+                currentDisplaySealData = seals[activeIndex].Data;
+                currentDisplaySealIndex = activeIndex;
+                OnEquippedSealVisualChanged?.Invoke(this, currentDisplaySealData, activeIndex, seals.Count);
+            }
+        }
+    }
+
+    public void SetDisplaySealByIndex(int targetIndex)
+    {
+        if (equippedSeals == null || equippedSeals.Count == 0) return;
+
+        List<SealBase> visibleSeals = new List<SealBase>();
+        foreach (var seal in equippedSeals)
+        {
+            if (seal != null && seal.Data != null)
+            {
+                visibleSeals.Add(seal);
+            }
+        }
+
+        if (visibleSeals.Count == 0) return;
+        int activeIndex = ((targetIndex % visibleSeals.Count) + visibleSeals.Count) % visibleSeals.Count;
+
+        for (int i = 0; i < visibleSeals.Count; i++)
+        {
+            SetSealVisualVisible(visibleSeals[i], i == activeIndex, true);
+        }
+
+        if (visibleSeals[activeIndex] != null)
+        {
+            currentDisplaySealData = visibleSeals[activeIndex].Data;
+            currentDisplaySealIndex = activeIndex;
+        }
+    }
+
+    public void PauseDuplicateSealCycle()
+    {
+        StopDuplicateSealCycle();
+    }
+
+    public void ResumeDuplicateSealCycle()
+    {
+        if (duplicateSealCycleCoroutine != null || equippedSeals == null || equippedSeals.Count <= 1)
+        {
+            return;
+        }
+
+        List<SealBase> visibleSeals = new List<SealBase>();
+        foreach (var seal in equippedSeals)
+        {
+            if (seal != null && seal.Data != null)
+            {
+                visibleSeals.Add(seal);
+            }
+        }
+
+        if (visibleSeals.Count > 1)
+        {
+            duplicateSealCycleCoroutine = StartCoroutine(CycleDuplicateSealVisuals(visibleSeals, currentDisplaySealIndex));
         }
     }
 
@@ -2635,7 +2787,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         RectTransform rt = sealObj.GetComponent<RectTransform>();
         rt.sizeDelta = new Vector2(sealIconSize, sealIconSize);
-        rt.anchoredPosition = new Vector2(sealIconSize, -sealIconSize + ((equippedSeals.Count - 1) * sealIconSpacing));
+        Vector2 baseOffset = GetSealIconOffset();
+        rt.anchoredPosition = new Vector2(baseOffset.x, baseOffset.y + ((equippedSeals.Count - 1) * sealIconSpacing));
 
         if (sealData != null)
         {
@@ -3550,32 +3703,32 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     {
         return type switch
         {
-            PieceType.King => "킹 (King)",
-            PieceType.Queen => "퀸 (Queen)",
-            PieceType.Rook => "룩 (Rook)",
-            PieceType.Bishop => "비숍 (Bishop)",
-            PieceType.Knight => "나이트 (Knight)",
-            PieceType.Pawn => "폰 (Pawn)",
-            PieceType.Amazon => "아마존 (Amazon)",
-            PieceType.Chancellor => "챈슬러 (Chancellor)",
-            PieceType.Archbishop => "아치비숍 (Archbishop)",
-            PieceType.Centaur => "켄타우로스 (Centaur)",
-            PieceType.Cannon => "캐논 (Cannon)",
-            PieceType.Grasshopper => "그래스호퍼 (Grasshopper)",
-            _ => "기물"
+            PieceType.King => "King",
+            PieceType.Queen => "Queen",
+            PieceType.Rook => "Rook",
+            PieceType.Bishop => "Bishop",
+            PieceType.Knight => "Knight",
+            PieceType.Pawn => "Pawn",
+            PieceType.Amazon => "Amazon",
+            PieceType.Chancellor => "Chancellor",
+            PieceType.Archbishop => "Archbishop",
+            PieceType.Centaur => "Centaur",
+            PieceType.Cannon => "Cannon",
+            PieceType.Grasshopper => "Grasshopper",
+            _ => type.ToString()
         };
     }
 
     /// <summary>
-    /// 기물의 레어도를 반환합니다 (폰, 킹, 마이너 피스: 1 / 메이저 피스(룩, 퀸), 켄타우로스, 캐논: 2 / 챈슬러, 아치비숍, 그래스호퍼: 3 / 변형 체스 전설 기물(아마존 등): 5).
+    /// 기물의 레어도를 반환합니다 (폰, 킹, 마이너 피스: 1 / 메이저 피스(퀸), 켄타우로스, 캐논, 그래스호퍼: 2 / 에픽(룩, 챈슬러, 아치비숍): 3 / 변형 체스 전설 기물(아마존 등): 5).
     /// </summary>
     public static int GetRarityForType(PieceType type)
     {
         return type switch
         {
             PieceType.Amazon => 5,
-            PieceType.Chancellor or PieceType.Archbishop or PieceType.Grasshopper => 3,
-            PieceType.Queen or PieceType.Rook or PieceType.Centaur or PieceType.Cannon => 2,
+            PieceType.Chancellor or PieceType.Archbishop or PieceType.Rook => 3,
+            PieceType.Queen or PieceType.Centaur or PieceType.Cannon or PieceType.Grasshopper => 2,
             _ => 1
         };
     }
@@ -3661,6 +3814,72 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         positionTween?.Kill();
         scaleTween?.Kill();
         threatenedTween?.Kill();
-
     }
+    // Returns a list of active keyword strings for tooltip display (무적, 보호, 회피, 역습)
+    public System.Collections.Generic.List<string> GetActiveKeywords()
+    {
+        var keywords = new System.Collections.Generic.List<string>();
+        if (IsInvincible) keywords.Add("무적");
+        if (ProtectionStacks > 0) keywords.Add("보호");
+        if (EvasionStacks > 0) keywords.Add("회피");
+        if (CounterattackStacks > 0) keywords.Add("역습");
+        return keywords;
+    }
+
+    /// <summary>
+    /// 기물에 활성화된 키워드/상태 효과의 상세 정보를 반환합니다 (무적, 보호, 회피, 역습)
+    /// </summary>
+    public System.Collections.Generic.List<KeywordInfo> GetActiveKeywordInfos()
+    {
+        var list = new System.Collections.Generic.List<KeywordInfo>();
+
+        if (IsInvincible)
+        {
+            string countText = invincibilityTurns == -1
+                ? "상시 지속"
+                : (invincibilityTurns > 0 ? $"{invincibilityTurns}턴 지속" : "인장 지속");
+            list.Add(new KeywordInfo(
+                "무적 (Invincible)",
+                countText,
+                "지속 시간 동안 모든 공격과 파괴 효과로부터 피해를 받지 않습니다.",
+                new Color(0.35f, 1f, 0.45f) // 라임그린
+            ));
+        }
+
+        if (protectionStacks > 0)
+        {
+            list.Add(new KeywordInfo(
+                "보호 (Shield)",
+                $"×{protectionStacks}",
+                "다음 1회의 적 공격을 완전히 무효화하고 보호 1개를 소모합니다.",
+                new Color(1f, 0.85f, 0.1f) // 황금색
+            ));
+        }
+
+        if (evasionStacks > 0)
+        {
+            list.Add(new KeywordInfo(
+                "회피 (Evasion)",
+                $"×{evasionStacks}",
+                "적의 공격을 받을 때 피해를 입지 않고 인접한 빈 칸으로 도약합니다.",
+                new Color(0.2f, 0.65f, 1f) // 스카이블루
+            ));
+        }
+
+        if (counterattackStacks > 0)
+        {
+            list.Add(new KeywordInfo(
+                "역습 (Counter)",
+                $"×{counterattackStacks}",
+                "적에게 공격을 받을 때 반격하여 공격한 적 기물을 즉시 처치합니다.",
+                new Color(1f, 0.35f, 0.25f) // 선홍색
+            ));
+        }
+
+        return list;
+    }
+
+
 }
+
+

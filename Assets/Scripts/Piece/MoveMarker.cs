@@ -3,7 +3,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using DG.Tweening;
 
-public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
     [Header("Sprites")]
     [Tooltip("일반 이동 위치에 표시할 스프라이트 (비어있으면 기본 스프라이트 유지)")]
@@ -144,6 +144,14 @@ public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     {
         isHovered = false;
         UpdateColor(0.5f); // 마우스 떼면 반투명
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (ShotgunKingSystem.TryHandleShotAimClick(gridPosition, eventData.button))
+        {
+            eventData.Use();
+        }
     }
 
     private void UpdateColor(float alpha)

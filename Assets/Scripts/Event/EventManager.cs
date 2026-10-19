@@ -512,6 +512,12 @@ public class EventManager : MonoBehaviour
             return null; // 인장 안줌
         }
 
+        if (ShotgunKingSystem.IsActive)
+        {
+            if (seal == 1 && UnityEngine.Random.Range(0, 2) == 0) return null;
+            return ShotgunKingSystem.GetRandomWeaponPart();
+        }
+
         List<SealData> source = availableSeals;
         if ((source == null || source.Count == 0) && ShopManager.Instance != null)
         {
@@ -986,7 +992,7 @@ public class EventManager : MonoBehaviour
 
         if (GameManager.Instance != null)
         {
-            GameManager.Instance.StartNextStage();
+            GameManager.Instance.OnNonBattleStageCompleted();
         }
     }
 
