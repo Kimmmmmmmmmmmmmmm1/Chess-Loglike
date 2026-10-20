@@ -336,6 +336,12 @@ public class KeywordTooltipView : MonoBehaviour
                 case "역공":
                     infos.Add(new KeywordInfo("역습 (Counter)", "×1", "피격 시 반격하여 공격한 적 기물을 즉시 처치합니다.", new Color(0.85f, 0.2f, 0.2f)));
                     break;
+                case "실명":
+                    infos.Add(new KeywordInfo("실명 (Blindness)", "1턴 지속", "지속 시간 동안 적 기물을 포획할 수 없습니다.", new Color(0.35f, 0.35f, 0.42f)));
+                    break;
+                case "혼란":
+                    infos.Add(new KeywordInfo("혼란 (Confusion)", "1턴 지속", "지속 시간 동안 폰의 행마법으로만 이동할 수 있습니다.", new Color(0.85f, 0.25f, 1f)));
+                    break;
                 default:
                     infos.Add(new KeywordInfo(kw, "활성", "기물에 적용된 특수 상태 효과입니다.", new Color(0.3f, 0.33f, 0.4f)));
                     break;

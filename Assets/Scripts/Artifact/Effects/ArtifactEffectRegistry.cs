@@ -21,6 +21,8 @@ public static class ArtifactEffectRegistry
     public static readonly InvincibilityPotionArtifactEffect InvincibilityPotion = new InvincibilityPotionArtifactEffect();
     public static readonly PanicShotArtifactEffect PanicShot = new PanicShotArtifactEffect();
     public static readonly TacticalShiftArtifactEffect TacticalShift = new TacticalShiftArtifactEffect();
+    public static readonly BlindnessPotionArtifactEffect BlindnessPotion = new BlindnessPotionArtifactEffect();
+    public static readonly ConfusionPotionArtifactEffect ConfusionPotion = new ConfusionPotionArtifactEffect();
 
     private static readonly Dictionary<string, ActiveArtifactEffectBase> activeEffects = BuildActiveEffects(
         Hourglass,
@@ -30,7 +32,9 @@ public static class ArtifactEffectRegistry
         CounterattackPotion,
         InvincibilityPotion,
         PanicShot,
-        TacticalShift
+        TacticalShift,
+        BlindnessPotion,
+        ConfusionPotion
     );
 
     private static Dictionary<string, ActiveArtifactEffectBase> BuildActiveEffects(params ActiveArtifactEffectBase[] effects)

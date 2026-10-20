@@ -59,6 +59,28 @@ public class PieceSpriteData : ScriptableObject
     public Sprite enemyCannonSprite;
     public Sprite enemyGrasshopperSprite;
 
+    [Header("Buff Sprites (버프/디버프 상태 아이콘)")]
+    public Sprite protectionBuffSprite;
+    public Sprite evasionBuffSprite;
+    public Sprite counterattackBuffSprite;
+    public Sprite invincibilityBuffSprite;
+    public Sprite blindnessBuffSprite;
+    public Sprite confusionBuffSprite;
+
+    public Sprite GetBuffSprite(PieceBuffType buffType)
+    {
+        return buffType switch
+        {
+            PieceBuffType.Protection => protectionBuffSprite,
+            PieceBuffType.Evasion => evasionBuffSprite,
+            PieceBuffType.Counterattack => counterattackBuffSprite,
+            PieceBuffType.Invincibility => invincibilityBuffSprite,
+            PieceBuffType.Blindness => blindnessBuffSprite,
+            PieceBuffType.Confusion => confusionBuffSprite,
+            _ => null
+        };
+    }
+
     public Sprite GetSprite(PieceType type, bool isEnemy)
     {
         if (isEnemy)

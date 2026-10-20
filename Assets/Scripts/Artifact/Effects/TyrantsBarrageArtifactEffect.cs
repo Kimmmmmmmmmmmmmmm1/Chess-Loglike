@@ -28,17 +28,19 @@ public static class ShotgunKingSystem
     public const string JumpShot = "점프 샷";
     public const string GhostSlug = "유령 관통탄";
     public const string LastStand = "결사항전 장전";
-    public const string ShotSpread = "산탄 확장";
+    public const string LongBarrel = "장총신";
+    public const string ShotSpread = "산탄 증가";
     public const string Dagger = "단검";
     public const string ExtendedMagazine = "확장 탄창";
     public const int BaseShotRange = 1;
     public const int BaseShotPellets = 1;
     public const int PelletsPerSpreadSeal = 2;
+    public const int MaxStackablePartCopies = 3;
 
     private static readonly string[] partNames =
     {
         RicochetShot, IncendiaryMod, ScavengerBarrel, JumpShot, GhostSlug, LastStand,
-        ShotSpread, Dagger, ExtendedMagazine
+        LongBarrel, ShotSpread, Dagger, ExtendedMagazine
     };
     private static readonly Vector2Int[] shotDirections =
     {
@@ -50,6 +52,15 @@ public static class ShotgunKingSystem
         new Vector2Int(1, 2), new Vector2Int(2, 1), new Vector2Int(-1, 2), new Vector2Int(-2, 1),
         new Vector2Int(1, -2), new Vector2Int(2, -1), new Vector2Int(-1, -2), new Vector2Int(-2, -1),
         new Vector2Int(2, 0), new Vector2Int(-2, 0), new Vector2Int(0, 2), new Vector2Int(0, -2)
+    };
+    private static readonly Vector2Int[] incendiaryOrthogonalOffsets =
+    {
+        Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right
+    };
+    private static readonly Vector2Int[] incendiaryDiagonalOffsets =
+    {
+        new Vector2Int(1, 1), new Vector2Int(1, -1),
+        new Vector2Int(-1, 1), new Vector2Int(-1, -1)
     };
 
     private static int ammo = TyrantsBarrageArtifactEffect.MaxAmmo;
@@ -69,21 +80,43 @@ public static class ShotgunKingSystem
 
     public static int GetShotRange(PieceController king)
     {
-        return BaseShotRange;
-    }
-
-    public static int GetShotPelletCount(PieceController king)
-    {
-        int spreadSeals = 0;
+        int rangeBonuses = 0;
         if (king != null && king.EquippedSeals != null)
         {
             foreach (SealBase seal in king.EquippedSeals)
             {
-                if (seal != null && seal.Data != null && seal.Data.sealName == ShotSpread)
-                    spreadSeals++;
+                if (seal != null && seal.Data != null && seal.Data.sealName == LongBarrel)
+                    rangeBonuses++;
             }
         }
-        return BaseShotPellets + spreadSeals * PelletsPerSpreadSeal;
+        return BaseShotRange + rangeBonuses;
+    }
+
+    public static int GetShotPelletCount(PieceController king)
+    {
+        return BaseShotPellets + GetEquippedPartCount(king, ShotSpread) * PelletsPerSpreadSeal;
+    }
+
+    public static int GetEquippedPartCount(PieceController king, string partName)
+    {
+        if (king == null || king.EquippedSeals == null) return 0;
+        int count = 0;
+        foreach (SealBase seal in king.EquippedSeals)
+        {
+            if (seal != null && seal.Data != null && seal.Data.sealName == partName) count++;
+        }
+        return count;
+    }
+
+    public static bool IsStackablePart(SealData seal)
+    {
+        return seal != null && (seal.sealName == LongBarrel || seal.sealName == ShotSpread);
+    }
+
+    public static bool CanEquipStackablePart(PieceController king, SealData seal)
+    {
+        return IsShotgunKing(king) && IsStackablePart(seal) &&
+               GetEquippedPartCount(king, seal.sealName) < MaxStackablePartCopies;
     }
 
     public static void NotifyKingPartsChanged(PieceController king)
@@ -334,7 +367,8 @@ public static class ShotgunKingSystem
             return IsActive && GameStateManager.Instance != null &&
                    GameStateManager.Instance.CurrentState == GameStateManager.GameState.GamePlay &&
                    TurnManager.Instance != null && TurnManager.Instance.IsPlayerTurn &&
-                   IsPlayerKing(king) && king.CurrentLocation == PieceLocation.Board && king.GridPosition.HasValue;
+                   IsPlayerKing(king) && !king.IsBlind &&
+                   king.CurrentLocation == PieceLocation.Board && king.GridPosition.HasValue;
         }
     }
 
@@ -426,7 +460,7 @@ public static class ShotgunKingSystem
 
         List<Vector2Int> highlightedPositions = new List<Vector2Int>();
         if (aimPosition.HasValue && IsValidAimPosition(king, aimPosition.Value))
-            highlightedPositions = GetShotTargetPositions(king, aimPosition.Value);
+            highlightedPositions = GetIncendiaryPreviewPositions(manager, king, aimPosition.Value);
         manager.UpdateShotgunAimMarkers(GetShotAimPositions(king), highlightedPositions);
     }
 
@@ -451,7 +485,7 @@ public static class ShotgunKingSystem
             return false;
 
         PieceController king = FindKing();
-        if (!IsShotgunKing(king) || king.CurrentLocation != PieceLocation.Board || !HasPart(king, Dagger) ||
+        if (!IsShotgunKing(king) || king.IsBlind || king.CurrentLocation != PieceLocation.Board || !HasPart(king, Dagger) ||
             !king.GridPosition.HasValue || !target.GridPosition.HasValue ||
             target.CurrentLocation != PieceLocation.Board || target.IsInvincible)
             return false;
@@ -524,10 +558,43 @@ public static class ShotgunKingSystem
         for (int offset = -halfSpread; offset <= halfSpread; offset++)
         {
             Vector2Int position = aimPosition + spreadDirection * offset;
-            if (position != king.GridPosition.Value && manager.gridManager.IsInBounds(position)) targets.Add(position);
+            if (position != king.GridPosition.Value && manager.gridManager.IsInBounds(position))
+                targets.Add(position);
         }
 
+        if (targets.Count == 0 && aimPosition != king.GridPosition.Value && manager.gridManager.IsInBounds(aimPosition))
+            targets.Add(aimPosition);
+
         return targets;
+    }
+
+    private static List<Vector2Int> GetIncendiaryPreviewPositions(PieceManager manager, PieceController king, Vector2Int aimPosition)
+    {
+        List<Vector2Int> previewPositions = new List<Vector2Int>();
+        if (!HasPart(king, IncendiaryMod) || manager?.gridManager == null) return previewPositions;
+
+        foreach (Vector2Int targetPosition in GetShotTargetPositions(king, aimPosition))
+        {
+            PieceController target = manager.GetPieceAt(targetPosition);
+            if (target == null || !target.IsEnemy) continue;
+
+            foreach (Vector2Int offset in GetIncendiaryBlastOffsets(king, targetPosition))
+            {
+                Vector2Int blastPosition = targetPosition + offset;
+                if (manager.gridManager.IsInBounds(blastPosition) && !previewPositions.Contains(blastPosition))
+                    previewPositions.Add(blastPosition);
+            }
+        }
+
+        return previewPositions;
+    }
+
+    private static Vector2Int[] GetIncendiaryBlastOffsets(PieceController king, Vector2Int center)
+    {
+        Vector2Int direction = GetShotDirection(king, center);
+        return direction.x == 0 || direction.y == 0
+            ? incendiaryOrthogonalOffsets
+            : incendiaryDiagonalOffsets;
     }
 
     private static void CaptureShotTarget(PieceManager manager, PieceController king, PieceController target, HashSet<PieceController> hitPieces, bool triggerIncendiary = true)
@@ -543,15 +610,11 @@ public static class ShotgunKingSystem
 
     private static void SpreadIncendiaryBlast(PieceManager manager, PieceController king, Vector2Int center, HashSet<PieceController> hitPieces)
     {
-        for (int dx = -1; dx <= 1; dx++)
+        foreach (Vector2Int offset in GetIncendiaryBlastOffsets(king, center))
         {
-            for (int dy = -1; dy <= 1; dy++)
-            {
-                if (dx == 0 && dy == 0) continue;
-                PieceController nearby = manager.GetPieceAt(center + new Vector2Int(dx, dy));
-                // 폭발로 처치된 기물은 다시 폭발하지 않도록 연쇄를 한 단계로 제한합니다.
-                if (nearby != null && nearby.IsEnemy) CaptureShotTarget(manager, king, nearby, hitPieces, false);
-            }
+            PieceController nearby = manager.GetPieceAt(center + offset);
+            // 폭발로 처치된 기물은 다시 폭발하지 않도록 연쇄를 한 단계로 제한합니다.
+            if (nearby != null && nearby.IsEnemy) CaptureShotTarget(manager, king, nearby, hitPieces, false);
         }
     }
 

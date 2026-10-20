@@ -106,7 +106,7 @@ public class BoardEvaluator : MonoBehaviour
         {
             int pieceId = baseState.EnemyPieceIds[i];
             SimPiece piece = baseState.GetPiece(pieceId);
-            List<Vector2Int> legalMoves = baseState.GetLegalMoves(piece);
+            List<Vector2Int> legalMoves = GetRootLegalMoves(baseState, piece);
 
             for (int m = 0; m < legalMoves.Count; m++)
             {
@@ -208,7 +208,7 @@ public class BoardEvaluator : MonoBehaviour
         {
             int pieceId = baseState.EnemyPieceIds[i];
             SimPiece piece = baseState.GetPiece(pieceId);
-            List<Vector2Int> legalMoves = baseState.GetLegalMoves(piece);
+            List<Vector2Int> legalMoves = GetRootLegalMoves(baseState, piece);
 
             for (int m = 0; m < legalMoves.Count; m++)
             {
@@ -267,6 +267,15 @@ public class BoardEvaluator : MonoBehaviour
         }
 
         onCompleted?.Invoke(moved);
+    }
+
+    private static List<Vector2Int> GetRootLegalMoves(BoardState state, SimPiece piece)
+    {
+        PieceController actualPiece = state.GetActualPiece(piece.Id);
+        if (actualPiece != null && (actualPiece.IsBlind || actualPiece.IsConfused))
+            return actualPiece.GetCandidateMoves();
+
+        return state.GetLegalMoves(piece);
     }
 
     private float EvaluateStandardMove(

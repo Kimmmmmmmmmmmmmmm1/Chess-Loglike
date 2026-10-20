@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
   m_Name: ShotSpread
   m_EditorClassIdentifier: Assembly-CSharp::SealData
-  sealName: "산탄 확장"
+  sealName: "산탄 증가"
   rarity: 3
-  description: "폭군의 난사 산탄 수가 2발 증가합니다. 기본 산탄 수: 1발."
+  description: "샷건 산탄 수가 2발 증가합니다. 같은 인장은 최대 3개까지 장착할 수 있습니다."
   flavorText: ""
   icon: {fileID: 3286163911610860551, guid: d5ea339bc89c436fac5970d7f8f59e3e, type: 3}
   isSoldInShop: 0

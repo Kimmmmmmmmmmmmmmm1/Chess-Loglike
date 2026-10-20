@@ -1097,7 +1097,7 @@ public class TooltipManager : PersistentManagerBase
             sealCardTooltipView.Hide();
         }
 
-        // 4. 활성 키워드 정보 확인 (무적, 보호, 회피, 역습)
+        // 4. 활성 키워드와 상태 정보 확인
         bool hasKeywordCard = false;
         if (pc != null && keywordTooltipView != null)
         {

@@ -129,15 +129,7 @@ public class StageManager : MonoBehaviour
             {
                 if (selectedStage.enemyPieces != null)
                 {
-                    var enemyList = new List<PieceSpawner.PieceSpawnInfo>();
-                    foreach (var original in selectedStage.enemyPieces)
-                    {
-                        var copy = original;
-                        copy.seals = original.seals != null ? new List<SealData>(original.seals) : new List<SealData>();
-                        enemyList.Add(copy);
-                    }
-
-                    PieceSpawner.Instance.enemyPieces = enemyList;
+                    PieceSpawner.Instance.enemyPieces = SanitizeEnemyPieces(selectedStage.enemyPieces);
                 }
                 else
                 {
@@ -169,5 +161,88 @@ public class StageManager : MonoBehaviour
         else
         {
         }
+    }
+
+    /// <summary>
+    /// 적 기물 목록에서 쓸모없는/중복 인장을 제거하고, 최후의 인장은 스테이지당 최대 1개만 유지하도록 정제합니다.
+    /// </summary>
+    public static List<PieceSpawner.PieceSpawnInfo> SanitizeEnemyPieces(List<PieceSpawner.PieceSpawnInfo> source)
+    {
+        if (source == null) return new List<PieceSpawner.PieceSpawnInfo>();
+
+        var result = new List<PieceSpawner.PieceSpawnInfo>();
+        int lastStandOwnerIndex = -1;
+        int highestPriority = -1;
+
+        for (int i = 0; i < source.Count; i++)
+        {
+            var original = source[i];
+            var copy = original;
+            var cleanSeals = new List<SealData>();
+
+            if (original.seals != null)
+            {
+                foreach (var seal in original.seals)
+                {
+                    if (seal == null) continue;
+
+                    // 쓸모없는 인장(나이트에게 도약, 비숍에게 부서진 비숍 등) 제거
+                    if (seal.IsUselessForPiece(original.pieceType, isEnemy: true))
+                    {
+                        continue;
+                    }
+
+                    bool isLastStand = seal.sealName == "최후의 인장" || seal.name == "LastStand";
+                    if (isLastStand)
+                    {
+                        int priority = GetPieceBossPriority(original.pieceType);
+                        if (priority > highestPriority)
+                        {
+                            highestPriority = priority;
+                            lastStandOwnerIndex = i;
+                        }
+                    }
+
+                    cleanSeals.Add(seal);
+                }
+            }
+
+            copy.seals = cleanSeals;
+            result.Add(copy);
+        }
+
+        // 최후의 인장은 스테이지당 단 1개만 허용 (가장 위계가 높은 기물 1개만 보유)
+        if (lastStandOwnerIndex >= 0)
+        {
+            for (int i = 0; i < result.Count; i++)
+            {
+                if (i != lastStandOwnerIndex && result[i].seals != null)
+                {
+                    result[i].seals.RemoveAll(s => s != null && (s.sealName == "최후의 인장" || s.name == "LastStand"));
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static int GetPieceBossPriority(PieceType type)
+    {
+        return type switch
+        {
+            PieceType.Amazon => 100,
+            PieceType.Queen => 90,
+            PieceType.King => 85,
+            PieceType.Chancellor => 80,
+            PieceType.Archbishop => 75,
+            PieceType.Rook => 60,
+            PieceType.Bishop => 50,
+            PieceType.Knight => 40,
+            PieceType.Centaur => 35,
+            PieceType.Cannon => 30,
+            PieceType.Grasshopper => 20,
+            PieceType.Pawn => 10,
+            _ => 0
+        };
     }
 }

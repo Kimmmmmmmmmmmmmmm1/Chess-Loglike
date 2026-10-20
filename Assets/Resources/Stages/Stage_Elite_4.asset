@@ -26,19 +26,18 @@ MonoBehaviour:
     seals: []
   - pieceType: 6
     gridCoordinate: {x: 1, y: 2}
-    seals: []
+    seals:
+    - {fileID: 11400000, guid: bf5b8e22e66348e2999f3b329237399e, type: 2}
   - pieceType: 7
     gridCoordinate: {x: -2, y: 2}
-    seals:
-    - {fileID: 11400000, guid: 5d5f3da393b2427694b2c9ce9994e3be, type: 2}
+    seals: []
   - pieceType: 5
     gridCoordinate: {x: -3, y: 1}
     seals:
     - {fileID: 11400000, guid: 05c40802ccee41699e9a7c5247140d7f, type: 2}
   - pieceType: 5
     gridCoordinate: {x: 0, y: 1}
-    seals:
-    - {fileID: 11400000, guid: a541ed42482c7478a910757ca5e0fdff, type: 2}
+    seals: []
   - pieceType: 5
     gridCoordinate: {x: 2, y: 1}
     seals:

@@ -21,21 +21,42 @@ public class SelfDestructSeal : SealBase
 
         List<PieceController> targets = new List<PieceController>();
 
-        PieceController leftPiece = PieceManager.Instance.GetPieceAt(ownerPosition + Vector2Int.left);
-        if (leftPiece != null)
+        // 1. 사망 위치 중심 주변 8칸 내의 모든 기물을 폭발 타겟으로 등록
+        Vector2Int[] surroundingOffsets = new Vector2Int[]
         {
-            targets.Add(leftPiece);
+            new Vector2Int(-1,  1), new Vector2Int(0,  1), new Vector2Int(1,  1),
+            new Vector2Int(-1,  0),                         new Vector2Int(1,  0),
+            new Vector2Int(-1, -1), new Vector2Int(0, -1), new Vector2Int(1, -1)
+        };
+
+        for (int i = 0; i < surroundingOffsets.Length; i++)
+        {
+            Vector2Int checkPos = ownerPosition + surroundingOffsets[i];
+            if (PieceManager.Instance.gridManager != null && !PieceManager.Instance.gridManager.IsInBounds(checkPos))
+            {
+                continue;
+            }
+
+            PieceController nearbyPiece = PieceManager.Instance.GetPieceAt(checkPos);
+            if (nearbyPiece != null && !targets.Contains(nearbyPiece))
+            {
+                targets.Add(nearbyPiece);
+            }
         }
 
-        PieceController rightPiece = PieceManager.Instance.GetPieceAt(ownerPosition + Vector2Int.right);
-        if (rightPiece != null && !targets.Contains(rightPiece))
+        // 2. 잡은 기물(killer)에 대한 판정:
+        // - 직접 이동하여 ownerPosition(폭발 진원지)으로 진입 중이거나,
+        // - 현재 위치가 폭발 범위(주변 8칸) 내에 있는 경우 폭발 타겟에 포함
+        if (killer != null && killer.CurrentLocation == PieceLocation.Board && killer.gridPosition.HasValue && !targets.Contains(killer))
         {
-            targets.Add(rightPiece);
-        }
+            bool isLandingOnCenter = PieceManager.Instance.IsPieceMovingToCapture(killer);
+            bool isWithinBlastRadius = Mathf.Abs(killer.gridPosition.Value.x - ownerPosition.x) <= 1 &&
+                                       Mathf.Abs(killer.gridPosition.Value.y - ownerPosition.y) <= 1;
 
-        if (killer != null && killer.gridPosition.HasValue && !targets.Contains(killer))
-        {
-            targets.Add(killer);
+            if (isLandingOnCenter || isWithinBlastRadius)
+            {
+                targets.Add(killer);
+            }
         }
 
         if (targets.Count == 0)

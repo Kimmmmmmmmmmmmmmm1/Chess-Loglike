@@ -332,11 +332,13 @@ public class PieceSpawner : MonoBehaviour
 
     private void SpawnGroup(List<PieceSpawnInfo> pieces, bool isEnemy, ref float delayAccumulator)
     {
-        if (piecePrefab == null) return;
+        if (piecePrefab == null || pieces == null) return;
+
+        List<PieceSpawnInfo> spawnList = isEnemy ? StageManager.SanitizeEnemyPieces(pieces) : pieces;
 
         Transform parent = piecesParent != null ? piecesParent : transform;
 
-        foreach (var info in pieces)
+        foreach (var info in spawnList)
         {
             GameObject pieceObj = Instantiate(piecePrefab, parent);
             pieceObj.name = $"PiecePrefab(Clone)@SpawnGroup[{(isEnemy ? "Enemy" : "Ally")}_{info.pieceType}_{info.gridCoordinate}]";

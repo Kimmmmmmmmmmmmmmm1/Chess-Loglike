@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a81c7032dbb2493eaa5c8e1cdc35369, type: 3}
+  m_Name: BlindnessPotion
+  m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
+  id: AC09
+  artifactName: "\uC2E4\uBA85\uC758 \uBB3C\uC57D"
+  description: "\uC120\uD0DD\uD55C \uC801 \uAE30\uBB3C 1\uAC1C\uC5D0\uAC8C 2\uD134 \uB3D9\uC548 \uC2E4\uBA85\uC744 \uBD80\uC5EC\uD569\uB2C8\uB2E4.\n<color=#94A3B8>[\uC2E4\uBA85]</color> \uACF5\uACA9 \uBC0F \uC544\uAD70 \uAE30\uBB3C \uC704\uD611\uC774 \uBD88\uAC00\uB2A5\uD569\uB2C8\uB2E4."
+  flavorText: "\uC801\uC758 \uC2DC\uC57C\uB87C \uC9D9\uC740 \uC5B4\uB460\uC744 \uBD88\uC5B4\uB123\uC544 \uCE7C\uC744 \uACA8\uB204\uC9C0 \uBABB\uD558\uAC8C \uB9CC\uB4ED\uB2C8\uB2E4."
+  rarity: 1
+  icon: {fileID: 3286163911610860551, guid: 3818efabd199b45ff88162b3124e37b7, type: 3}
+  price: 160
+  isSoldInShop: 1
+  isGaugeRequired: 0
+  artifactType: 1
+  maxLevel: 1
+  level: 1
+

@@ -155,6 +155,31 @@ public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
         UpdateColor(highlighted ? 1f : 0.5f);
     }
 
+    public void SetSelfDestructRangeAppearance(Color color)
+    {
+        isCapture = true;
+        EnsureVisualSetup();
+        UpdateVisualAppearance();
+
+        baseColor = color;
+        UpdateColor(color.a);
+
+        if (TryGetComponent<Button>(out var button))
+        {
+            button.enabled = false;
+        }
+
+        // 자폭 범위 마커는 클릭이나 마우스 호버 이벤트를 가로채지 않도록 raycast 비활성화
+        if (TryGetComponent<Image>(out var rootImg))
+        {
+            rootImg.raycastTarget = false;
+        }
+        if (markerVisualImage != null)
+        {
+            markerVisualImage.raycastTarget = false;
+        }
+    }
+
     public void OnPointerClick(PointerEventData eventData)
     {
         if (ShotgunKingSystem.TryHandleShotAimClick(gridPosition, eventData.button))

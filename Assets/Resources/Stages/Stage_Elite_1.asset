@@ -24,14 +24,14 @@ MonoBehaviour:
   - pieceType: 0
     gridCoordinate: {x: 0, y: 2}
     seals:
-    - {fileID: 11400000, guid: 9850103235c84a01bd3ba135d620278a, type: 2}
+    - {fileID: 11400000, guid: 7b2b5aa92b5649e7a42a4f07c5d4a234, type: 2}
   - pieceType: 7
     gridCoordinate: {x: -2, y: 2}
-    seals: []
+    seals:
+    - {fileID: 11400000, guid: bf5b8e22e66348e2999f3b329237399e, type: 2}
   - pieceType: 2
     gridCoordinate: {x: 1, y: 2}
-    seals:
-    - {fileID: 11400000, guid: 5d5f3da393b2427694b2c9ce9994e3be, type: 2}
+    seals: []
   - pieceType: 5
     gridCoordinate: {x: -2, y: 1}
     seals:

@@ -23,7 +23,8 @@ MonoBehaviour:
   enemyPieces:
   - pieceType: 0
     gridCoordinate: {x: 0, y: 2}
-    seals: []
+    seals:
+    - {fileID: 11400000, guid: bf5b8e22e66348e2999f3b329237399e, type: 2}
   - pieceType: 10
     gridCoordinate: {x: -3, y: 2}
     seals: []

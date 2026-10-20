@@ -24,6 +24,11 @@ public abstract class SealBase : MonoBehaviour
     public virtual bool IsInvincible => false;
 
     /// <summary>
+    /// 포획 시 이동하지 않고 제자리에서 포획(저격)하는지 여부
+    /// </summary>
+    public virtual bool CanSnipeWithoutMoving => false;
+
+    /// <summary>
     /// Case A: 이동 경로 수정 훅
     /// </summary>
     public virtual void ModifyMoves(ref List<Vector2Int> moves, Vector2Int currentPos, bool isEnemy, System.Func<Vector2Int, bool> validator = null, System.Func<Vector2Int, bool> isOccupied = null) { }
@@ -87,6 +92,14 @@ public abstract class SealBase : MonoBehaviour
     /// Case C: 이동 완료 후 추가 행동 훅
     /// </summary>
     public virtual void OnAfterMove(Vector2Int prevPos, Vector2Int newPos) { }
+
+    /// <summary>
+    /// Case C: 이동 완료 후 추가 행동 훅 (포획 여부 포함)
+    /// </summary>
+    public virtual void OnAfterMove(Vector2Int prevPos, Vector2Int newPos, bool captured)
+    {
+        OnAfterMove(prevPos, newPos);
+    }
 
     /// <summary>
     /// Case E: 소유 기물이 적 기물을 잡고 이동을 마친 후 호출되는 훅

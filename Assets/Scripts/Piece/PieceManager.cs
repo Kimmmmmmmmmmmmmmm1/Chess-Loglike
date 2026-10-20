@@ -90,9 +90,13 @@ public class PieceManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI pieceCountText;
 
     private readonly List<MoveMarker> activeMarkers = new();
+    private readonly List<MoveMarker> selfDestructRangeMarkers = new();
     private readonly List<MoveMarker> shotgunAimMarkers = new();
     private readonly HashSet<Vector2Int> shotgunAimMarkerPositions = new();
     private readonly HashSet<Vector2Int> shotgunAimHighlightedPositions = new();
+    private PieceController activeMovingAttacker = null;
+
+    public bool IsPieceMovingToCapture(PieceController piece) => piece != null && activeMovingAttacker == piece;
     private readonly List<PieceController> pieces = new();
     private readonly List<PieceController> playerPieces = new();
     private readonly List<PieceController> enemyPieces = new();
@@ -161,11 +165,13 @@ public class PieceManager : MonoBehaviour
 
     private void HandleTurnAdvanced(TurnOwner newTurn)
     {
+        TurnOwner endedTurn = newTurn == TurnOwner.Player ? TurnOwner.Opponent : TurnOwner.Player;
         foreach (PieceController piece in pieces)
         {
             if (piece != null)
             {
                 piece.AdvanceBuffTurn();
+                piece.AdvanceStatusTurn(endedTurn);
             }
         }
     }
@@ -279,6 +285,14 @@ public class PieceManager : MonoBehaviour
     public bool IsSelected(PieceController piece)
     {
         return selectedPiece == piece;
+    }
+
+    public void RefreshSelectedPieceMoves(PieceController piece)
+    {
+        if (piece == null || selectedPiece != piece) return;
+        ClearMarkers();
+        if (piece.CurrentLocation == PieceLocation.Board && piece.GridPosition.HasValue)
+            ShowMoveMarkers(piece.GetCandidateMoves());
     }
 
     public void RegisterPiece(PieceController piece)
@@ -494,7 +508,7 @@ public class PieceManager : MonoBehaviour
     {
         capturedType = PieceType.Pawn;
         capturedPosition = Vector2Int.zero;
-        if (attacker == null || target == null || !target.GridPosition.HasValue || attacker.IsEnemy == target.IsEnemy || target.IsInvincible)
+        if (attacker == null || attacker.IsBlind || target == null || !target.GridPosition.HasValue || attacker.IsEnemy == target.IsEnemy || target.IsInvincible)
             return false;
 
         capturedType = target.Type;
@@ -1368,20 +1382,30 @@ public class PieceManager : MonoBehaviour
         Vector2Int fromPosition = piece.gridPosition.Value;
 
         PieceController targetPiece = GetPieceAt(gridPosition);
+        if (piece.IsConfused && !piece.GetCandidateMoves().Contains(gridPosition)) return false;
         if (targetPiece != null && ShotgunKingSystem.IsShotgunKing(piece)) return false;
         PieceType? capturedType = targetPiece != null ? targetPiece.Type : null;
         bool? capturedIsEnemy = targetPiece != null ? targetPiece.IsEnemy : null;
         bool usedScavengedMove = ShotgunKingSystem.IsScavengedMove(piece, gridPosition);
         if (targetPiece != null)
         {
+            if (piece.IsBlind) return false;
             // 오셀로의 성역 활성 시에는 빈 타일로만 이동 가능하며 직접 포획 금지
             if (OthelloArtifactSystem.IsActive) return false;
             if (targetPiece.IsEnemy == piece.IsEnemy) return false;
             if (targetPiece.IsInvincible) return false;
 
+            Vector2Int attackerFromPos = piece.gridPosition.Value;
+            bool isSniperAttack = piece.CanSnipeWithoutMoving;
+
             AttackResponse response = ResolveAttackResponse(piece, targetPiece);
             if (response != AttackResponse.None)
             {
+                if (isSniperAttack)
+                {
+                    PlaySniperProjectile(attackerFromPos, gridPosition);
+                    piece.ReturnToOriginalPosition();
+                }
                 UpdateThreatenedStatus();
                 AdvanceTurnAfterMove();
                 return true;
@@ -1392,7 +1416,20 @@ public class PieceManager : MonoBehaviour
                 return false;
             }
 
-            DestroyPieceWithEffects(targetPiece, true, true, piece);
+            if (isSniperAttack)
+            {
+                PlaySniperProjectile(attackerFromPos, gridPosition);
+            }
+
+            try
+            {
+                activeMovingAttacker = isSniperAttack ? null : piece;
+                DestroyPieceWithEffects(targetPiece, true, true, piece);
+            }
+            finally
+            {
+                activeMovingAttacker = null;
+            }
 
             if (piece == null || !piece.gridPosition.HasValue)
             {
@@ -1413,6 +1450,35 @@ public class PieceManager : MonoBehaviour
             {
                 EffectManager.Instance.PlaySlowMotion();
             }
+
+            // 저격의 인장: 적 기물을 포획했을 때 이동하지 않고 제자리에서 포획 완료
+            if (isSniperAttack)
+            {
+                // 드래그 중이었던 기물의 시각적 위치를 원래 위치로 복귀
+                piece.ReturnToOriginalPosition();
+
+                if (gridManager != null)
+                {
+                    gridManager.HighlightLastMove(attackerFromPos, gridPosition);
+                }
+
+                LogTurnAction(piece, attackerFromPos, gridPosition, capturedType, capturedIsEnemy);
+
+                TurnLogUIManager.Instance?.AddLog(
+                    $"[{piece.PieceType}] 저격! 이동하지 않고 [{targetPiece.PieceType}]을(를) 처치했습니다.",
+                    piece.IsEnemy);
+
+                if (capturedType.HasValue)
+                {
+                    piece.OnCapturedPiece(capturedType.Value);
+                }
+
+                ShotgunKingSystem.OnKingMoveFinished(piece, attackerFromPos, attackerFromPos, capturedType, usedScavengedMove);
+
+                UpdateThreatenedStatus();
+                AdvanceTurnAfterMove();
+                return true;
+            }
         }
 
         Vector2Int prevPos = piece.gridPosition.Value;
@@ -1427,7 +1493,7 @@ public class PieceManager : MonoBehaviour
 
         LogTurnAction(piece, prevPos, gridPosition, capturedType, capturedIsEnemy);
         
-        piece.OnMoveFinished(prevPos, gridPosition);
+        piece.OnMoveFinished(prevPos, gridPosition, capturedType.HasValue);
 
         if (capturedType.HasValue)
         {
@@ -1479,7 +1545,7 @@ public class PieceManager : MonoBehaviour
             return AttackResponse.Evaded;
         }
 
-        if (defender.ConsumeBuff(PieceBuffType.Counterattack))
+        if (!defender.IsBlind && defender.ConsumeBuff(PieceBuffType.Counterattack))
         {
             if (attacker != null && attacker.CanBeDestroyed())
             {
@@ -1507,11 +1573,17 @@ public class PieceManager : MonoBehaviour
             PieceBuffType.Protection => "보호",
             PieceBuffType.Evasion => "회피",
             PieceBuffType.Counterattack => "역공",
+            PieceBuffType.Blindness => "실명",
+            PieceBuffType.Confusion => "혼란",
             _ => "버프"
         };
 
+        bool isTimedStatus = buffType == PieceBuffType.Blindness || buffType == PieceBuffType.Confusion;
+        string remainingText = isTimedStatus
+            ? $"남은 턴 {defender.GetBuffStacks(buffType)}"
+            : $"남은 스택 {defender.GetBuffStacks(buffType)}";
         TurnLogUIManager.Instance?.AddLog(
-            $"{buffName} 발동: {effectDescription} (남은 스택 {defender.GetBuffStacks(buffType)})",
+            $"{buffName} 발동: {effectDescription} ({remainingText})",
             defender.IsEnemy);
     }
 
@@ -2094,6 +2166,7 @@ public class PieceManager : MonoBehaviour
     public void ClearSelection()
     {
         ClearMarkers();
+        ClearSelfDestructRangeMarkers();
         selectedPiece = null;
     }
 
@@ -2254,7 +2327,7 @@ public class PieceManager : MonoBehaviour
             for (int i = markersParent.childCount - 1; i >= 0; i--)
             {
                 Transform child = markersParent.GetChild(i);
-                if (child != null && child.name != "ShotgunProjectile")
+                if (child != null && child.name != "ShotgunProjectile" && child.name != "SniperProjectile" && !child.name.StartsWith("SelfDestructMarker"))
                 {
                     Destroy(child.gameObject);
                 }
@@ -2264,15 +2337,69 @@ public class PieceManager : MonoBehaviour
         MoveMarker[] strayMarkers = Object.FindObjectsByType<MoveMarker>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         for (int i = 0; i < strayMarkers.Length; i++)
         {
-            if (strayMarkers[i] != null)
+            if (strayMarkers[i] != null && !selfDestructRangeMarkers.Contains(strayMarkers[i]))
             {
                 Destroy(strayMarkers[i].gameObject);
             }
         }
     }
 
+    public void ShowSelfDestructRangeMarkers(Vector2Int centerPosition)
+    {
+        ClearSelfDestructRangeMarkers();
+        if (moveMarkerPrefab == null || markersParent == null || gridManager == null) return;
+
+        Vector2Int[] offsets = new Vector2Int[]
+        {
+            new Vector2Int(-1,  1), new Vector2Int(0,  1), new Vector2Int(1,  1),
+            new Vector2Int(-1,  0),                         new Vector2Int(1,  0),
+            new Vector2Int(-1, -1), new Vector2Int(0, -1), new Vector2Int(1, -1)
+        };
+
+        Color redSemiTransparent = new Color(1f, 0.2f, 0.2f, 0.55f);
+
+        for (int i = 0; i < offsets.Length; i++)
+        {
+            Vector2Int pos = centerPosition + offsets[i];
+            if (!IsInBounds(pos)) continue;
+
+            GameObject markerObject = Instantiate(moveMarkerPrefab, markersParent);
+            markerObject.name = "SelfDestructMarker";
+            markerObject.transform.SetAsFirstSibling();
+
+            RectTransform markerTransform = markerObject.GetComponent<RectTransform>();
+            if (markerTransform != null)
+            {
+                markerTransform.anchoredPosition = GridToUiPosition(pos);
+                markerTransform.sizeDelta = gridManager.cellSize;
+            }
+
+            MoveMarker marker = markerObject.GetComponent<MoveMarker>();
+            if (marker == null)
+            {
+                Destroy(markerObject);
+                continue;
+            }
+
+            marker.SetSelfDestructRangeAppearance(redSemiTransparent);
+            selfDestructRangeMarkers.Add(marker);
+        }
+    }
+
+    public void ClearSelfDestructRangeMarkers()
+    {
+        for (int i = 0; i < selfDestructRangeMarkers.Count; i++)
+        {
+            if (selfDestructRangeMarkers[i] != null)
+            {
+                Destroy(selfDestructRangeMarkers[i].gameObject);
+            }
+        }
+        selfDestructRangeMarkers.Clear();
+    }
+
     /// <summary>
-    /// 필드, 대기석 및 씬의 모든 기물에 남아있는 전투 버프(보호, 회피, 역공, 무적)를 제거합니다.
+    /// 필드, 대기석 및 씬의 모든 기물에 남아있는 버프와 상태를 제거합니다.
     /// 스테이지가 끝날 때 호출됩니다.
     /// </summary>
     public void ClearAllPieceBuffs()
@@ -2365,6 +2492,36 @@ public class PieceManager : MonoBehaviour
 
         float duration = Mathf.Clamp(direction.magnitude / 900f, 0.08f, 0.18f);
         projectileRect.DOAnchorPos(end, duration).SetEase(Ease.InQuad).OnComplete(() =>
+        {
+            if (projectile != null) Destroy(projectile);
+        });
+    }
+
+    public void PlaySniperProjectile(Vector2Int fromPosition, Vector2Int targetPosition)
+    {
+        if (markersParent == null || gridManager == null) return;
+
+        GameObject projectile = new GameObject("SniperProjectile", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform projectileRect = projectile.GetComponent<RectTransform>();
+        projectileRect.SetParent(markersParent, false);
+        projectileRect.anchorMin = new Vector2(0.5f, 0.5f);
+        projectileRect.anchorMax = new Vector2(0.5f, 0.5f);
+        projectileRect.pivot = new Vector2(0.5f, 0.5f);
+        projectileRect.sizeDelta = new Vector2(26f, 4.5f);
+
+        Vector2 start = GridToUiPosition(fromPosition);
+        Vector2 end = GridToUiPosition(targetPosition);
+        Vector2 direction = end - start;
+        projectileRect.anchoredPosition = start;
+        projectileRect.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
+        projectileRect.SetAsLastSibling();
+
+        Image image = projectile.GetComponent<Image>();
+        image.color = new Color(0.25f, 0.88f, 1f, 0.95f); // 네온 시안 광선 궤적
+        image.raycastTarget = false;
+
+        float duration = Mathf.Clamp(direction.magnitude / 1400f, 0.05f, 0.12f);
+        projectileRect.DOAnchorPos(end, duration).SetEase(Ease.OutQuad).OnComplete(() =>
         {
             if (projectile != null) Destroy(projectile);
         });
