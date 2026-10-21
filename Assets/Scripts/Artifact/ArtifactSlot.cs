@@ -16,6 +16,8 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
     private LayoutGroup CountContainer;
     [SerializeField]
     private ArtifactCount CountPrefab;
+    private Image cooldownOverlayImage;
+    private TextMeshProUGUI cooldownText;
     private ArtifactData data;
     private Vector2 originalSize;
     private bool isInitialized = false;
@@ -49,9 +51,16 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
                 iconImage.preserveAspect = true;
                 iconImage.rectTransform.sizeDelta = new Vector2(24, 24);
                 iconImage.color = Color.white;
-                nameText.text = artifact.IsActive
-                    ? (artifact.StackCount > 1 ? $"({artifact.StackCount})" : string.Empty)
-                    : artifact.Level.ToString();
+                if (artifact.IsActive)
+                {
+                    string stackText = artifact.StackCount > 1 ? $"({artifact.StackCount})" : string.Empty;
+                    string levelText = artifact.CanEnhanceWhenActive ? $"Lv.{artifact.Level}" : string.Empty;
+                    nameText.text = string.IsNullOrEmpty(levelText) ? stackText : $"{stackText} {levelText}".Trim();
+                }
+                else
+                {
+                    nameText.text = artifact.Level.ToString();
+                }
             }
             else
             {
@@ -169,7 +178,66 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             return;
         }
 
+        if (cooldownOverlayImage != null) cooldownOverlayImage.gameObject.SetActive(false);
+        if (cooldownText != null) cooldownText.gameObject.SetActive(false);
         iconImage.color = isDimmed ? new Color(0.45f, 0.45f, 0.45f, 1f) : Color.white;
+    }
+
+    public void SetCooldownDim(float remainingRatio, int turnsRemaining)
+    {
+        if (iconImage == null || data == null) return;
+
+        float fill = Mathf.Clamp01(remainingRatio);
+        iconImage.color = Color.white;
+        EnsureCooldownOverlay();
+        cooldownOverlayImage.sprite = iconImage.sprite;
+        cooldownOverlayImage.preserveAspect = iconImage.preserveAspect;
+        cooldownOverlayImage.fillAmount = fill;
+        cooldownOverlayImage.gameObject.SetActive(fill > 0f);
+        cooldownText.text = turnsRemaining.ToString();
+        cooldownText.gameObject.SetActive(turnsRemaining > 0);
+    }
+
+    private void EnsureCooldownOverlay()
+    {
+        if (cooldownOverlayImage != null) return;
+
+        GameObject overlay = new GameObject("CooldownDimOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        overlay.transform.SetParent(iconImage.transform, false);
+
+        RectTransform rect = overlay.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        cooldownOverlayImage = overlay.GetComponent<Image>();
+        cooldownOverlayImage.type = Image.Type.Filled;
+        cooldownOverlayImage.fillMethod = Image.FillMethod.Vertical;
+        cooldownOverlayImage.fillOrigin = (int)Image.OriginVertical.Bottom;
+        cooldownOverlayImage.color = new Color(0f, 0f, 0f, 0.72f);
+        cooldownOverlayImage.raycastTarget = false;
+        cooldownOverlayImage.gameObject.SetActive(false);
+
+        GameObject textObject = new GameObject("CooldownTurnsText", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        textObject.transform.SetParent(iconImage.transform, false);
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+
+        cooldownText = textObject.GetComponent<TextMeshProUGUI>();
+        if (nameText != null) cooldownText.font = nameText.font;
+        cooldownText.fontSize = 14f;
+        cooldownText.fontStyle = FontStyles.Bold;
+        cooldownText.alignment = TextAlignmentOptions.Center;
+        cooldownText.color = Color.white;
+        cooldownText.raycastTarget = false;
+        Shadow textShadow = textObject.AddComponent<Shadow>();
+        textShadow.effectColor = Color.black;
+        textShadow.effectDistance = new Vector2(1f, -1f);
+        cooldownText.gameObject.SetActive(false);
     }
 
     public void ShowTooltip()

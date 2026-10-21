@@ -59,7 +59,8 @@ public sealed class PieceFlickLauncher : MonoBehaviour
         Instance.enabled &&
         !Instance.launched &&
         HasAlkkagiArtifact &&
-        Instance.IsPlayerTurn;
+        Instance.IsPlayerTurn &&
+        !ActiveArtifactController.IsTargeting;
 
     private bool HasPassiveArtifact => HasAlkkagiArtifact;
     private bool IsPlayerTurn => TurnManager.Instance != null && TurnManager.Instance.IsPlayerTurn;

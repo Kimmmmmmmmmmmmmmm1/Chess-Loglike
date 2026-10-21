@@ -405,7 +405,17 @@ public class ArtifactManager : MonoBehaviour
 
                 bool isGourd = ownedArtifacts[i] != null && ownedArtifacts[i].id == "A004";
                 bool isExhausted = isGourd && ArtifactEffectHandlers.IsGourdRecoveryExhausted();
-                slot.SetDimmed(isExhausted);
+                ActiveArtifactEffectBase activeEffect = ownedArtifacts[i] != null && ownedArtifacts[i].IsActive
+                    ? ArtifactEffectRegistry.GetActiveEffect(ownedArtifacts[i].id)
+                    : null;
+                if (!isExhausted && activeEffect is SupportSealArtifactEffect supportSeal && supportSeal.IsOnCooldown)
+                {
+                    slot.SetCooldownDim(supportSeal.CooldownRemainingRatio, supportSeal.CooldownTurnsRemaining);
+                }
+                else
+                {
+                    slot.SetDimmed(isExhausted || (activeEffect != null && activeEffect.IsOnCooldown));
+                }
             }
             else
             {

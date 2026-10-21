@@ -175,13 +175,17 @@ public class ArtifactInhanceManager : MonoBehaviour
 
             if (selectedArtifactLevel != null)
             {
-                selectedArtifactLevel.text = selectedArtifact.IsActive ? "액티브 유물" : $"Lv.{selectedArtifact.Level}/{selectedArtifact.MaxLevel}";
+                selectedArtifactLevel.text = selectedArtifact.IsActive
+                    ? (selectedArtifact.CanEnhanceWhenActive ? $"액티브 Lv.{selectedArtifact.Level}/{selectedArtifact.MaxLevel}" : "액티브 유물")
+                    : $"Lv.{selectedArtifact.Level}/{selectedArtifact.MaxLevel}";
             }
 
             int cost = selectedArtifact.CanEnhance ? enhanceCostPerLevel * selectedArtifact.Level : 0;
             if (enhanceCostText != null)
             {
-                enhanceCostText.text = selectedArtifact.IsActive ? "강화 불가" : (selectedArtifact.CanEnhance ? $"{cost} ₩" : "최대 레벨");
+                enhanceCostText.text = selectedArtifact.IsActive && !selectedArtifact.CanEnhanceWhenActive
+                    ? "강화 불가"
+                    : (selectedArtifact.CanEnhance ? $"{cost} ₩" : "최대 레벨");
             }
 
             // 강화 가능 여부 체크: 최대 레벨이 아니고 골드가 충분해야 함

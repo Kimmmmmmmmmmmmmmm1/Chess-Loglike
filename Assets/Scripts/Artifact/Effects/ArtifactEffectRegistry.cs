@@ -23,6 +23,7 @@ public static class ArtifactEffectRegistry
     public static readonly TacticalShiftArtifactEffect TacticalShift = new TacticalShiftArtifactEffect();
     public static readonly BlindnessPotionArtifactEffect BlindnessPotion = new BlindnessPotionArtifactEffect();
     public static readonly ConfusionPotionArtifactEffect ConfusionPotion = new ConfusionPotionArtifactEffect();
+    public static readonly SupportSealArtifactEffect SupportSeal = new SupportSealArtifactEffect();
 
     private static readonly Dictionary<string, ActiveArtifactEffectBase> activeEffects = BuildActiveEffects(
         Hourglass,
@@ -34,7 +35,8 @@ public static class ArtifactEffectRegistry
         PanicShot,
         TacticalShift,
         BlindnessPotion,
-        ConfusionPotion
+        ConfusionPotion,
+        SupportSeal
     );
 
     private static Dictionary<string, ActiveArtifactEffectBase> BuildActiveEffects(params ActiveArtifactEffectBase[] effects)
@@ -67,5 +69,14 @@ public static class ArtifactEffectRegistry
     {
         HeraldsHornArtifactEffect.ApplyAtBattleStart();
         TyrantsBarrage.OnBattleStarted();
+        if (SupportSeal.ResetForBattle()) ArtifactManager.Instance?.UpdateInventoryUI();
+    }
+
+    public static void OnTurnAdvanced(TurnOwner owner)
+    {
+        if (owner == TurnOwner.Player && SupportSeal.OnPlayerTurnStarted())
+        {
+            ArtifactManager.Instance?.UpdateInventoryUI();
+        }
     }
 }

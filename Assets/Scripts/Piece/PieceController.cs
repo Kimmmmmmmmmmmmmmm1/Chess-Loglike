@@ -268,6 +268,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     private Vector2 originalAnchoredPosition;
     private Canvas parentCanvas;
     private bool isDragging;
+    private bool isArtifactInventoryDrag;
     private Vector2 previousDragPosition;
     private Quaternion originalRotation;
     private Tweener rotationTween;
@@ -835,14 +836,16 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             return;
         }
 
-        // 액티브 유물 대상 선택 중에는 드래그 불가
+        bool isArtifactInventoryDrag = false;
         if (ActiveArtifactController.IsTargeting)
         {
-            return;
+            isArtifactInventoryDrag = ActiveArtifactController.TryBeginInventoryPieceDrag(this);
+            if (!isArtifactInventoryDrag) return;
         }
 
-        // canvasGroup.interactable이 false면 드래그 불가 (애니메이션 중 등)
-        if (canvasGroup != null && !canvasGroup.interactable)
+        // 액티브 유물 배치는 선택한 인벤토리 기물을 드래그할 수 있어야 하므로,
+        // 일반 기물 드래그의 상호작용 차단 조건을 적용하지 않는다.
+        if (!isArtifactInventoryDrag && canvasGroup != null && !canvasGroup.interactable)
         {
             return;
         }
@@ -874,12 +877,13 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         bool isInInventorySlot = transform.parent != null && transform.parent.GetComponent<InventorySlot>() != null;
 
         // 준비/상점/작업장 단계가 아니고 인벤토리에 있으면 드래그 불가능
-        if (!isPrepare && !isShopOrWorkshop && (currentLocation == PieceLocation.Inventory || isInInventorySlot))
+        if (!isPrepare && !isShopOrWorkshop && !isArtifactInventoryDrag &&
+            (currentLocation == PieceLocation.Inventory || isInInventorySlot))
         {
             return;
         }
 
-        if (PieceManager.Instance != null)
+        if (PieceManager.Instance != null && !isArtifactInventoryDrag)
         {
             PieceManager.Instance.SelectPiece(this);
             if (isPrepare)
@@ -943,6 +947,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         previousDragPosition = eventData.position;
         isDragging = true;
+        this.isArtifactInventoryDrag = isArtifactInventoryDrag;
         isAnyDragging = true;
         synthesisDropHandled = false;
         UpdateThreatenedVisuals();
@@ -1048,6 +1053,28 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         rotationTween?.Kill();
         rotationTween = rectTransform.DOLocalRotateQuaternion(originalRotation, 0.2f).SetEase(Ease.OutBack);
+
+        if (isArtifactInventoryDrag)
+        {
+            isArtifactInventoryDrag = false;
+            Vector2Int? targetGridPos = null;
+            GridManager grid = PieceManager.Instance != null ? PieceManager.Instance.gridManager : null;
+            if (grid != null && grid.gridCellsParent != null)
+            {
+                Camera eventCamera = parentCanvas != null && parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay
+                    ? null
+                    : (parentCanvas != null ? parentCanvas.worldCamera : null);
+                if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    grid.gridCellsParent, eventData.position, eventCamera, out Vector2 localPoint))
+                {
+                    targetGridPos = grid.GetNearestGridPosition(localPoint);
+                }
+            }
+
+            if (ActiveArtifactController.TryCompleteInventoryPieceDrag(this, targetGridPos)) return;
+            ReturnToOriginalPosition();
+            return;
+        }
 
         if (PieceManager.Instance == null)
         {

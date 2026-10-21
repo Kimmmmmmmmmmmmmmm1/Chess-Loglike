@@ -368,9 +368,15 @@ public class GameStateManager : MonoBehaviour
     private void UpdateInventoryHoverTargets(GameState newState)
     {
         bool isShop = GameManager.Instance != null && GameManager.Instance.CurrentFlowState == GameFlowState.Shop;
-        bool enableHover = newState != GameState.Prepare && !isShop;
+        bool panelsAlwaysVisible = newState == GameState.Prepare ||
+            newState == GameState.GamePlay ||
+            newState == GameState.Win ||
+            newState == GameState.GameOver ||
+            newState == GameState.Cleanup ||
+            isShop;
+        bool enableHover = !panelsAlwaysVisible;
 
-        if (newState == GameState.Prepare || isShop)
+        if (panelsAlwaysVisible)
         {
             pieceInventoryHovered = false;
             sealInventoryHovered = false;

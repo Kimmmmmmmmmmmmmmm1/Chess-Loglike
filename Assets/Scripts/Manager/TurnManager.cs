@@ -221,6 +221,7 @@ public class TurnManager : MonoBehaviour
 
         currentTurn = currentTurn == TurnOwner.Player ? TurnOwner.Opponent : TurnOwner.Player;
         OnTurnAdvanced?.Invoke(currentTurn);
+        ArtifactEffectRegistry.OnTurnAdvanced(currentTurn);
 
         if (currentTurn == TurnOwner.Opponent)
         {
@@ -256,6 +257,7 @@ public class TurnManager : MonoBehaviour
 
         currentTurn = TurnOwner.Player;
         OnTurnAdvanced?.Invoke(currentTurn);
+        ArtifactEffectRegistry.OnTurnAdvanced(currentTurn);
         CheckPlayerTurn();
     }
 
