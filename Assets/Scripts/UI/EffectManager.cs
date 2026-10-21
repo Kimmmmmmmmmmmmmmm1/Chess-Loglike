@@ -13,6 +13,16 @@ public class EffectManager : MonoBehaviour
     [SerializeField] private float spreadRadiusMultiplier = 2.5f; // 그리드 셀 크기 대비 파편 반경 비율
     private Image flashImage;
 
+    private int activeDebrisCount = 0;
+    private bool isSlowMotionActive = false;
+    private float lastExplosionTime = -10f;
+
+    public bool IsPlayingAnyDestructionEffect()
+    {
+        bool hasRecentExplosion = (Time.unscaledTime - lastExplosionTime) < 0.75f;
+        return activeDebrisCount > 0 || isSlowMotionActive || hasRecentExplosion;
+    }
+
     private void Awake()
     {
         Instance = this;
@@ -20,6 +30,7 @@ public class EffectManager : MonoBehaviour
 
     public void PlayExplosion(Vector2 worldPos, Color pieceColor, bool isEnemy, float scale = 1f)
     {
+        lastExplosionTime = Time.unscaledTime;
         int count = Mathf.RoundToInt(debrisCount * scale);
         for (int i = 0; i < count; i++)
         {
@@ -29,6 +40,7 @@ public class EffectManager : MonoBehaviour
 
     public void PlayCollapseExplosion(Vector2 worldPos, Color pieceColor, bool isEnemy, float scale = 1f)
     {
+        lastExplosionTime = Time.unscaledTime;
         int count = Mathf.RoundToInt(debrisCount * scale * 1.2f);
         for (int i = 0; i < count; i++)
         {
@@ -49,10 +61,15 @@ public class EffectManager : MonoBehaviour
             restoreSpeed = Mathf.Max(0.01f, SettingsManager.Instance.Settings.gameSpeed);
         }
 
+        isSlowMotionActive = true;
         DOTween.timeScale = 0.1f;
         DOTween.To(() => DOTween.timeScale, x => DOTween.timeScale = x, restoreSpeed, 1f)
             .SetUpdate(true)
-            .SetEase(Ease.OutQuad);
+            .SetEase(Ease.OutQuad)
+            .OnComplete(() =>
+            {
+                isSlowMotionActive = false;
+            });
     }
 
     public void PlayScreenFlash(float duration = 0.15f, float maxAlpha = 0.6f)
@@ -245,8 +262,17 @@ public class EffectManager : MonoBehaviour
             seq.SetDelay(startDelay);
         }
 
+        activeDebrisCount++;
         // 6. 삭제
-        seq.OnComplete(() => Destroy(debris));
+        seq.OnComplete(() =>
+        {
+            activeDebrisCount = Mathf.Max(0, activeDebrisCount - 1);
+            if (debris != null) Destroy(debris);
+        });
+        seq.OnKill(() =>
+        {
+            activeDebrisCount = Mathf.Max(0, activeDebrisCount - 1);
+        });
     }
 
     private bool IsPositionOnBoard(Vector2 worldPos)

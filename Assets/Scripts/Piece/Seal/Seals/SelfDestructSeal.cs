@@ -129,25 +129,33 @@ public class SelfDestructSeal : SealBase
 
     private IEnumerator ExplodeAfterDelay(List<PieceController> doomedTargets)
     {
-        if (explosionDelayAfterOwnerDeath > 0f)
+        PieceManager.Instance?.IncrementPendingDestruction();
+        try
         {
-            yield return new WaitForSecondsRealtime(explosionDelayAfterOwnerDeath);
-        }
-
-        if (PieceManager.Instance == null)
-        {
-            yield break;
-        }
-
-        for (int i = 0; i < doomedTargets.Count; i++)
-        {
-            PieceController target = doomedTargets[i];
-            if (target == null || target.CurrentLocation != PieceLocation.Board || !target.GridPosition.HasValue)
+            if (explosionDelayAfterOwnerDeath > 0f)
             {
-                continue;
+                yield return new WaitForSecondsRealtime(explosionDelayAfterOwnerDeath);
             }
 
-            PieceManager.Instance.RemovePiece(target);
+            if (PieceManager.Instance == null)
+            {
+                yield break;
+            }
+
+            for (int i = 0; i < doomedTargets.Count; i++)
+            {
+                PieceController target = doomedTargets[i];
+                if (target == null || target.CurrentLocation != PieceLocation.Board || !target.GridPosition.HasValue)
+                {
+                    continue;
+                }
+
+                PieceManager.Instance.RemovePiece(target);
+            }
+        }
+        finally
+        {
+            PieceManager.Instance?.DecrementPendingDestruction();
         }
     }
 }

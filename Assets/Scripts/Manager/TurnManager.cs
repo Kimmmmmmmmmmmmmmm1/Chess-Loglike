@@ -57,6 +57,8 @@ public class TurnManager : MonoBehaviour
 
     private void Start()
     {
+        TurnIndicatorUI.EnsureInstance();
+
         if (GameStateManager.Instance != null)
         {
             GameStateManager.Instance.OnStateChanged += OnGameStateChanged;
@@ -307,6 +309,32 @@ public class TurnManager : MonoBehaviour
 
     private IEnumerator StartOpponentTurn()
     {
+        // 1. 파괴 연출(폭발, 파편 비산, 슬로우모션, 자폭 등)이 발생한 경우 연출이 끝날 때까지 대기
+        bool hasDestructionEffect = (PieceManager.Instance != null && PieceManager.Instance.HasDestructionEffectInProgress())
+                                 || (EffectManager.Instance != null && EffectManager.Instance.IsPlayingAnyDestructionEffect());
+
+        if (hasDestructionEffect)
+        {
+            float maxWaitTime = 2.5f;
+            float elapsedWait = 0f;
+            while (elapsedWait < maxWaitTime)
+            {
+                bool isBusy = (PieceManager.Instance != null && PieceManager.Instance.HasDestructionEffectInProgress())
+                           || (EffectManager.Instance != null && EffectManager.Instance.IsPlayingAnyDestructionEffect());
+
+                if (!isBusy)
+                {
+                    break;
+                }
+
+                elapsedWait += Time.unscaledDeltaTime;
+                yield return null;
+            }
+        }
+
+        // 2. 0.5초 딜레이 (플레이어 착수 후 자연스러운 호흡 시간)
+        yield return new WaitForSeconds(0.5f);
+
         // 상대 턴 시작 시 (AI 이동 전): 보드 상태이나 타일 좌표가 없는 비정상 기물 일괄 제거
         if (PieceManager.Instance != null)
         {
@@ -314,21 +342,12 @@ public class TurnManager : MonoBehaviour
             PieceManager.Instance.EnsurePositionCacheReady();
         }
 
-        yield return new WaitForSeconds(waitTime);
-
         if (GameManager.Instance != null && GameManager.Instance.CurrentFlowState != GameFlowState.Battle)
             yield break;
 
         if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameStateManager.GameState.GamePlay)
             yield break;
 
-        // 대기 시간 후 AI 기물 평가 및 이동 직전 재검증/정리
-        if (PieceManager.Instance != null)
-        {
-            PieceManager.Instance.CleanupInvalidBoardPieces();
-            PieceManager.Instance.EnsurePositionCacheReady();
-        }
-        
         OnOpponentTurnStarted?.Invoke();
 
         bool moved = false;

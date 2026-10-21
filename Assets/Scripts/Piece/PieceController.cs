@@ -274,10 +274,14 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     private Tweener rotationTween;
     private Tweener positionTween;
     private Tweener scaleTween;
+    private Sequence activeMoveSequence;
     private Tween threatenedTween;
     private bool isThreatened;
     private Vector3 originalScale;
     private static bool isAnyDragging;
+
+    public bool IsAnimatingMove => (activeMoveSequence != null && activeMoveSequence.IsActive() && activeMoveSequence.IsPlaying())
+                                || (positionTween != null && positionTween.IsActive() && positionTween.IsPlaying());
 
     private Transform originalParent;
     public Transform OriginalParent => originalParent;
@@ -1462,8 +1466,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         positionTween?.Kill();
         scaleTween?.Kill();
+        activeMoveSequence?.Kill();
 
         Sequence placeSequence = DOTween.Sequence();
+        activeMoveSequence = placeSequence;
 
         if (moveWaypoint.HasValue)
         {
@@ -4049,6 +4055,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         rotationTween?.Kill();
         positionTween?.Kill();
         scaleTween?.Kill();
+        activeMoveSequence?.Kill();
         threatenedTween?.Kill();
     }
     // Returns active status keywords for tooltip display.

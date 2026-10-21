@@ -96,6 +96,65 @@ public class PieceManager : MonoBehaviour
     private readonly HashSet<Vector2Int> shotgunAimHighlightedPositions = new();
     private PieceController activeMovingAttacker = null;
 
+    private float lastDestructionTime = -10f;
+    private int pendingDestructionCount = 0;
+
+    public void IncrementPendingDestruction() => pendingDestructionCount++;
+    public void DecrementPendingDestruction() => pendingDestructionCount = Mathf.Max(0, pendingDestructionCount - 1);
+    public bool HasPendingDestruction => pendingDestructionCount > 0;
+
+    public bool IsBusyWithAnimations()
+    {
+        if (pieces != null)
+        {
+            for (int i = 0; i < pieces.Count; i++)
+            {
+                PieceController piece = pieces[i];
+                if (piece != null && piece.IsAnimatingMove)
+                {
+                    return true;
+                }
+            }
+        }
+
+        if (pendingDestructionCount > 0)
+        {
+            return true;
+        }
+
+        if (Time.unscaledTime - lastDestructionTime < 0.75f)
+        {
+            return true;
+        }
+
+        if (EffectManager.Instance != null && EffectManager.Instance.IsPlayingAnyDestructionEffect())
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool HasDestructionEffectInProgress()
+    {
+        if (pendingDestructionCount > 0)
+        {
+            return true;
+        }
+
+        if (Time.unscaledTime - lastDestructionTime < 0.75f)
+        {
+            return true;
+        }
+
+        if (EffectManager.Instance != null && EffectManager.Instance.IsPlayingAnyDestructionEffect())
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     public bool IsPieceMovingToCapture(PieceController piece) => piece != null && activeMovingAttacker == piece;
     private readonly List<PieceController> pieces = new();
     private readonly List<PieceController> playerPieces = new();
@@ -1023,6 +1082,8 @@ public class PieceManager : MonoBehaviour
         {
             return;
         }
+
+        lastDestructionTime = Time.unscaledTime;
 
         PlayDestroySfx();
 

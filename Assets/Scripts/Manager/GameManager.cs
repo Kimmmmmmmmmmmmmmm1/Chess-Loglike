@@ -116,9 +116,18 @@ public class GameManager : MonoBehaviour
         currentBattlePlayerCaptures.Clear();
     }
 
+    [Header("Game Over Settings")]
+    [Tooltip("게임 오버까지의 총 스테이지 수 (기본 30)")]
+    [SerializeField] private int maxStage = 30;
+    public int MaxStage => maxStage;
+    public int RemainingStagesUntilGameOver => Mathf.Max(0, maxStage - clearedStage);
+
+    public event Action<int, int> OnStageProgressUpdated; // (clearedStage, remainingStages)
+
     [Header("UI")]
     public TextMeshProUGUI coinText;
     public TextMeshProUGUI stageText;
+    [SerializeField] private TextMeshProUGUI remainingStageText;
     [SerializeField] private Button openSettingsButton;
     private Coroutine cleanupFlowCoroutine;
     private void Awake()
@@ -189,6 +198,7 @@ public class GameManager : MonoBehaviour
         SubscribeToGameStateManager();
         AddCoin(100);
         UpdateStageUI();
+        TurnIndicatorUI.EnsureInstance();
     }
 
     private void OnEnable()
@@ -231,6 +241,8 @@ public class GameManager : MonoBehaviour
                 UpdateStageUI();
             }
         }
+
+        TurnIndicatorUI.EnsureInstance();
 
         openSettingsButton = null;
 
@@ -331,6 +343,14 @@ public class GameManager : MonoBehaviour
         ClearAllFieldMarkers();
         clearedStage++;
         UpdateStageUI();
+
+        if (clearedStage >= maxStage)
+        {
+            Debug.Log($"[GameManager] 최대 스테이지 한도({maxStage}) 도달 -> 게임 오버(완료)");
+            GameStateManager.Instance.ChangeState(GameStateManager.GameState.GameOver);
+            return;
+        }
+
         AdvanceToStageSelect();
     }
 
@@ -448,6 +468,14 @@ public class GameManager : MonoBehaviour
                 TryAddAchievementProgress(AchievementIds.CombatStage20);
                 TryAddAchievementProgress(AchievementIds.CombatStage30);
                 TryAddAchievementProgress(AchievementIds.StageClearChain);
+
+                if (clearedStage >= maxStage)
+                {
+                    Debug.Log($"[GameManager] 최대 스테이지 한도({maxStage}) 도달 -> 게임 오버(완료)");
+                    GameStateManager.Instance.ChangeState(GameStateManager.GameState.GameOver);
+                    break;
+                }
+
                 GameStateManager.Instance.ChangeState(GameStateManager.GameState.Cleanup);
                 break;
             case GameStateManager.GameState.Cleanup:
@@ -712,16 +740,28 @@ public class GameManager : MonoBehaviour
 
     private void UpdateStageUI()
     {
+        int act = (clearedStage / 10) + 1;
+        int subStage = (clearedStage % 10) + 1;
+        int remaining = RemainingStagesUntilGameOver;
+
         if (stageText != null)
         {
-            int act = (clearedStage / 10) + 1;
-            int subStage = (clearedStage % 10) + 1;
-            
             stageText.text = $"{act}-{subStage}";
 
             stageText.transform.DOKill();
             stageText.transform.localScale = Vector3.one;
             stageText.transform.DOPunchScale(Vector3.one * 0.3f, 0.3f, 10, 1);
+        }
+
+        if (remainingStageText != null)
+        {
+            remainingStageText.text = $"남은 스테이지: {remaining}";
+        }
+
+        OnStageProgressUpdated?.Invoke(clearedStage, remaining);
+        if (TurnIndicatorUI.Instance != null)
+        {
+            TurnIndicatorUI.Instance.UpdateRemainingStages();
         }
     }
 

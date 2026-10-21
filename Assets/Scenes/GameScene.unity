@@ -3729,8 +3729,10 @@ MonoBehaviour:
   clearedStage: 0
   clearedBosses: 0
   Coin: 0
+  maxStage: 30
   coinText: {fileID: 1605901640}
   stageText: {fileID: 1070237591}
+  remainingStageText: {fileID: 0}
   openSettingsButton: {fileID: 1109306498}
 --- !u!4 &419916549
 Transform:
@@ -4272,15 +4274,15 @@ Camera:
   m_LensShift: {x: 0, y: 0}
   m_NormalizedViewPortRect:
     serializedVersion: 2
-    x: 0.010677084
+    x: -0.007291667
     y: 0
     width: 0.16666667
-    height: 0.58379626
+    height: 0.8666667
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 34
   orthographic: 1
-  orthographic size: 19.703123
+  orthographic size: 29.25
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -7316,7 +7318,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -0.0001990212}
+  m_AnchoredPosition: {x: 0, y: -0.00009400998}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &825000641
