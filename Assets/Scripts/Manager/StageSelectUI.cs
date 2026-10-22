@@ -28,9 +28,22 @@ public class StageSelectUI : MonoBehaviour
     private bool isSelecting = false;
     private bool lastStageHadShopOrWorkshop = false;
 
+    private readonly List<StageNodeType> currentPendingNodeTypes = new List<StageNodeType>();
+    public IReadOnlyList<StageNodeType> CurrentPendingNodeTypes => currentPendingNodeTypes;
+
+    public void SetPendingStageNodes(List<StageNodeType> nodes)
+    {
+        currentPendingNodeTypes.Clear();
+        if (nodes != null)
+        {
+            currentPendingNodeTypes.AddRange(nodes);
+        }
+    }
+
     public void ResetSelectionState()
     {
         lastStageHadShopOrWorkshop = false;
+        currentPendingNodeTypes.Clear();
     }
 
     private void Awake()
@@ -138,7 +151,28 @@ public class StageSelectUI : MonoBehaviour
         int act = ((nextStage - 1) / 10) + 1;
         int subStage = ((nextStage - 1) % 10) + 1;
 
-        var options = GenerateStageOptions(nextStage);
+        List<StageChoiceOption> options;
+        if (currentPendingNodeTypes != null && currentPendingNodeTypes.Count > 0)
+        {
+            options = new List<StageChoiceOption>();
+            foreach (var nodeType in currentPendingNodeTypes)
+            {
+                options.Add(StageChoiceOption.FromNodeType(nodeType));
+            }
+        }
+        else
+        {
+            options = GenerateStageOptions(nextStage);
+            currentPendingNodeTypes.Clear();
+            foreach (var opt in options)
+            {
+                if (opt.nodeType.HasValue)
+                {
+                    currentPendingNodeTypes.Add(opt.nodeType.Value);
+                }
+            }
+        }
+
         ShowChoices(options, $"NEXT STAGE : {act}-{subStage}", "다음 행선지를 선택하세요");
     }
 
@@ -595,6 +629,7 @@ public class StageSelectUI : MonoBehaviour
 
     private void ExecuteOption(StageChoiceOption option)
     {
+        currentPendingNodeTypes.Clear();
         Close();
 
         if (option?.onSelected != null)

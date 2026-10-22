@@ -58,6 +58,11 @@ public class ArtifactData : ScriptableObject
         stackCount = 1;
     }
 
+    public void SetStack(int count)
+    {
+        stackCount = Mathf.Max(0, count);
+    }
+
     public void AddStack(int amount = 1)
     {
         stackCount = StackCount + Mathf.Max(0, amount);
@@ -92,6 +97,11 @@ public class ArtifactData : ScriptableObject
     public void ResetLevel()
     {
         level = 1;
+    }
+
+    public void SetLevel(int targetLevel)
+    {
+        level = Mathf.Clamp(targetLevel, 1, MaxLevel);
     }
 
     public string GetTooltipTitle()

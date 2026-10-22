@@ -2081,25 +2081,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             (oneStepHasHiddenEnemy || !IsOccupied(oneStep)))
         {
             moves.Add(oneStep);
-
-            // 2. 초기 2칸 전진 (시작 진영 1~2번째 줄에서 두 칸 모두 비어있을 때)
-            int minY = gridManager.gridMinBounds.y;
-            int maxY = minY + gridManager.boardHeight - 1;
-            bool isStartRank = isEnemy
-                ? (gridPosition.Value.y >= maxY - 1)
-                : (gridPosition.Value.y <= minY + 1);
-
-            Vector2Int twoStep = gridPosition.Value + (forward * 2);
-            bool twoStepHasHiddenEnemy = IsInBounds(twoStep) &&
-                IsHiddenEnemyDuringPrepare(PieceManager.Instance.GetPieceAt(twoStep));
-            if (isStartRank && IsInBounds(twoStep) && !IsDestroyedCell(twoStep) &&
-                (twoStepHasHiddenEnemy || !IsOccupied(twoStep)))
-            {
-                moves.Add(twoStep);
-            }
         }
 
-        // 3. 대각선 전방 포획 (적 기물이 있을 때만 공격 이동 가능, 오셀로의 성역 활성 시에는 직접 포획 불가)
+        // 2. 대각선 전방 포획 (적 기물이 있을 때만 공격 이동 가능, 오셀로의 성역 활성 시에는 직접 포획 불가)
         if (!OthelloArtifactSystem.IsActive)
         {
             Vector2Int[] captureOffsets =
@@ -2406,9 +2390,21 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         SealBase sealComponent = logicObj.GetComponent<SealBase>();
         if (sealComponent != null)
         {
-            sealComponent.Initialize(data, this);
             equippedSeals.Add(sealComponent);
+            try
+            {
+                sealComponent.Initialize(data, this);
+            }
+            catch (System.Exception ex)
+            {
+                equippedSeals.Remove(sealComponent);
+                Destroy(sealObj);
+                Debug.LogException(ex);
+                return false;
+            }
+
             RefreshEquippedSealVisuals();
+            RefreshBuffAuraVisuals();
             ShotgunKingSystem.NotifyKingPartsChanged(this);
             return true;
         }
@@ -2499,6 +2495,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 else Destroy(sealToUnEquip.gameObject);
             }
             RefreshEquippedSealVisuals();
+            RefreshBuffAuraVisuals();
             ShotgunKingSystem.NotifyKingPartsChanged(this);
             return true;
         }
@@ -3536,7 +3533,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         if (pieceType == PieceType.Pawn)
         {
-            sb.Append("\n<size=85%><color=#88FF88>□:전진(초기2칸) / </color><color=#FF5555>×:대각선 포획</color></size>");
+            sb.Append("\n<size=85%><color=#88FF88>□:전진 / </color><color=#FF5555>×:대각선 포획</color></size>");
         }
         else if (pieceType == PieceType.Knight)
         {
@@ -3729,16 +3726,14 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
             case PieceType.Pawn:
             default:
-                // 폰: 전진 1칸 (및 초기 2칸)
+                // 폰: 전진 1칸
                 if (isEnemy)
                 {
                     offsets.Add(Vector2Int.down);
-                    offsets.Add(new Vector2Int(0, -2));
                 }
                 else
                 {
                     offsets.Add(Vector2Int.up);
-                    offsets.Add(new Vector2Int(0, 2));
                 }
                 break;
         }
@@ -3852,7 +3847,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         if (pieceType == PieceType.Pawn)
         {
-            sb.Append("\n<size=85%><color=#88FF88>□:전진(초기2칸) / </color><color=#FF5555>×:대각선 포획</color></size>");
+            sb.Append("\n<size=85%><color=#88FF88>□:전진 / </color><color=#FF5555>×:대각선 포획</color></size>");
         }
         else if (pieceType == PieceType.Knight)
         {
@@ -3990,7 +3985,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     {
         return type switch
         {
-            PieceType.Pawn => "※ 전방 1칸 이동(첫 이동 시 2칸) / 대각선 1칸 적 포획",
+            PieceType.Pawn => "※ 전방 1칸 이동 / 대각선 1칸 적 포획",
             PieceType.Knight => "※ 장애물 무시 L자 도약 (8방향 점프)",
             PieceType.Bishop => "※ 대각선 4방향 원거리 슬라이딩",
             PieceType.Rook => "※ 상하좌우 4방향 직선 원거리 슬라이딩",

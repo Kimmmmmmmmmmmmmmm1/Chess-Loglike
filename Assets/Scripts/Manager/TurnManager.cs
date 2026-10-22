@@ -44,6 +44,18 @@ public class TurnManager : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// 시간의 모래 등 턴 되돌리기 시 완료된 턴 수를 1 감소시키고 3수동형(동형반복) 기록을 리셋합니다.
+    /// </summary>
+    public void RollbackCompletedTurn()
+    {
+        if (completedBattleTurns > 0)
+        {
+            completedBattleTurns--;
+        }
+        ClearPositionHistory();
+    }
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -105,7 +117,10 @@ public class TurnManager : MonoBehaviour
 
     private System.Collections.Generic.Dictionary<string, int> positionHistory = new System.Collections.Generic.Dictionary<string, int>();
 
-    private void ClearPositionHistory()
+    /// <summary>
+    /// 3수동형(동형반복) 기록을 초기화합니다.
+    /// </summary>
+    public void ClearPositionHistory()
     {
         positionHistory.Clear();
     }
@@ -315,7 +330,7 @@ public class TurnManager : MonoBehaviour
 
         if (hasDestructionEffect)
         {
-            float maxWaitTime = 2.5f;
+            float maxWaitTime = 1.8f;
             float elapsedWait = 0f;
             while (elapsedWait < maxWaitTime)
             {
@@ -330,10 +345,15 @@ public class TurnManager : MonoBehaviour
                 elapsedWait += Time.unscaledDeltaTime;
                 yield return null;
             }
-        }
 
-        // 2. 0.5초 딜레이 (플레이어 착수 후 자연스러운 호흡 시간)
-        yield return new WaitForSeconds(0.5f);
+            // 연출이 이미 진행되었으므로 추가 딜레이를 최소화(0.1초)하여 즉시 반응
+            yield return new WaitForSeconds(0.1f);
+        }
+        else
+        {
+            // 연출이 없을 때만 자연스러운 착수 딜레이
+            yield return new WaitForSeconds(0.35f);
+        }
 
         // 상대 턴 시작 시 (AI 이동 전): 보드 상태이나 타일 좌표가 없는 비정상 기물 일괄 제거
         if (PieceManager.Instance != null)

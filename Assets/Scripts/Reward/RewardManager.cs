@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
+using System.Collections.Generic;
 
 public class RewardManager : MonoBehaviour
 {
@@ -327,6 +328,23 @@ public class RewardManager : MonoBehaviour
         }
     }
 
+    private List<SavedRewardCardData> pendingRewardCards = new List<SavedRewardCardData>();
+    public IReadOnlyList<SavedRewardCardData> PendingRewardCards => pendingRewardCards;
+
+    public void SetPendingRewardCards(List<SavedRewardCardData> cards)
+    {
+        pendingRewardCards.Clear();
+        if (cards != null)
+        {
+            pendingRewardCards.AddRange(cards);
+        }
+    }
+
+    public void ClearPendingRewardCards()
+    {
+        pendingRewardCards.Clear();
+    }
+
     public void OnRerollClicked()
     {
         if (GameManager.Instance == null) return;
@@ -342,6 +360,7 @@ public class RewardManager : MonoBehaviour
 
         if (GameManager.Instance.UseCoin(cost))
         {
+            ClearPendingRewardCards();
             GenerateRewards(3, currentRarity);
             UpdateRerollUI();
             if (rewardContainer != null)
@@ -677,41 +696,72 @@ public class RewardManager : MonoBehaviour
         }
 
         activeRewardCount = 0;
-        bool coinAlreadyGenerated = false;
+        bool hasSavedCards = pendingRewardCards != null && pendingRewardCards.Count > 0;
 
-        // 각 카드 슬롯마다 가중치 기반으로 완전 랜덤 추첨 (골드는 최대 1개)
-        for (int i = 0; i < count; i++)
+        if (hasSavedCards)
         {
-            GameObject obj = Instantiate(rewardButtonPrefab, rewardContainer);
-            if (obj == null)
+            for (int i = 0; i < pendingRewardCards.Count; i++)
             {
-                continue;
-            }
+                var cardData = pendingRewardCards[i];
+                GameObject obj = Instantiate(rewardButtonPrefab, rewardContainer);
+                if (obj == null) continue;
 
-            RewardButton btn = obj.GetComponent<RewardButton>();
-            if (btn != null)
-            {
-                RewardButton.RewardType randomType = GetRandomRewardType(!coinAlreadyGenerated);
-                if (randomType == RewardButton.RewardType.Coin)
+                RewardButton btn = obj.GetComponent<RewardButton>();
+                if (btn != null)
                 {
-                    coinAlreadyGenerated = true;
+                    btn.InitializeWithSavedData(this, rarity, cardData);
+                    activeRewardCount++;
                 }
-                btn.InitializeWithType(this, rarity, randomType);
-                activeRewardCount++;
+
+                obj.transform.localScale = Vector3.zero;
+                obj.transform.DOScale(Vector3.one, 0.35f)
+                    .SetEase(Ease.OutBack)
+                    .SetDelay(i * 0.08f + 0.1f)
+                    .SetUpdate(true);
+            }
+        }
+        else
+        {
+            bool coinAlreadyGenerated = false;
+            pendingRewardCards.Clear();
+
+            // 각 카드 슬롯마다 가중치 기반으로 완전 랜덤 추첨 (골드는 최대 1개)
+            for (int i = 0; i < count; i++)
+            {
+                GameObject obj = Instantiate(rewardButtonPrefab, rewardContainer);
+                if (obj == null)
+                {
+                    continue;
+                }
+
+                RewardButton btn = obj.GetComponent<RewardButton>();
+                if (btn != null)
+                {
+                    RewardButton.RewardType randomType = GetRandomRewardType(!coinAlreadyGenerated);
+                    if (randomType == RewardButton.RewardType.Coin)
+                    {
+                        coinAlreadyGenerated = true;
+                    }
+                    btn.InitializeWithType(this, rarity, randomType);
+                    activeRewardCount++;
+                    pendingRewardCards.Add(btn.GetCardData());
+                }
+
+                // 카드 등장 애니메이션: 순차적으로 팝업
+                obj.transform.localScale = Vector3.zero;
+                obj.transform.DOScale(Vector3.one, 0.35f)
+                    .SetEase(Ease.OutBack)
+                    .SetDelay(i * 0.08f + 0.1f)
+                    .SetUpdate(true);
             }
 
-            // 카드 등장 애니메이션: 순차적으로 팝업
-            obj.transform.localScale = Vector3.zero;
-            obj.transform.DOScale(Vector3.one, 0.35f)
-                .SetEase(Ease.OutBack)
-                .SetDelay(i * 0.08f + 0.1f)
-                .SetUpdate(true);
+            // 새로운 선택지 생성 직후 즉시 세이브에 기록
+            StageSaveManager.EnsureInstance()?.SaveCurrentRun(pendingReward: true);
         }
     }
 
-    public void OnRewardButtonClicked()
+    public void DisableAllRewardButtons()
     {
-        // 3개 중 하나만 선택: 선택 즉시 나머지 버튼 비활성화 및 완료 처리
         if (rewardContainer != null)
         {
             foreach (Transform child in rewardContainer)
@@ -724,12 +774,29 @@ public class RewardManager : MonoBehaviour
             }
         }
 
+        if (closeButton != null)
+        {
+            closeButton.interactable = false;
+        }
+
+        if (rerollButton != null)
+        {
+            rerollButton.interactable = false;
+        }
+    }
+
+    public void OnRewardButtonClicked()
+    {
+        // 3개 중 하나만 선택: 선택 즉시 나머지 버튼 비활성화 및 완료 처리
+        DisableAllRewardButtons();
+
         activeRewardCount = 0;
         OnRewardClaimed();
     }
 
     public void OnRewardClaimed()
     {
+        ClearPendingRewardCards();
         if (rewardPanel != null)
         {
             if (rewardContainer != null)

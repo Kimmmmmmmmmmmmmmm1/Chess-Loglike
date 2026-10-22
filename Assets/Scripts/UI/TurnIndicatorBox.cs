@@ -30,6 +30,58 @@ public class TurnIndicatorBox : MonoBehaviour
     {
         EnsureSprites();
         if (boxRect != null) boxRect.localScale = Vector3.one;
+        ApplySingleLabelLayout();
+    }
+
+    public void ApplySingleLabelLayout()
+    {
+        if (statusText != null)
+        {
+            statusText.gameObject.SetActive(false);
+        }
+
+        Transform divider = transform.Find("Face/Content/Divider");
+        if (divider == null) divider = transform.Find("Border/Face/Content/Divider");
+        if (divider != null)
+        {
+            divider.gameObject.SetActive(false);
+        }
+
+        Transform statusTrans = transform.Find("Face/Content/Status");
+        if (statusTrans == null) statusTrans = transform.Find("Border/Face/StatusText");
+        if (statusTrans != null)
+        {
+            statusTrans.gameObject.SetActive(false);
+        }
+
+        if (labelText != null)
+        {
+            RectTransform labelRect = labelText.GetComponent<RectTransform>();
+            if (labelRect != null)
+            {
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = Vector2.zero;
+                labelRect.offsetMax = Vector2.zero;
+            }
+            labelText.alignment = TextAlignmentOptions.Center;
+            labelText.fontSize = 13.5f;
+            labelText.fontStyle = FontStyles.Bold;
+        }
+
+        if (boxRect != null)
+        {
+            boxRect.sizeDelta = new Vector2(40f, 26f);
+        }
+
+        LayoutElement le = GetComponent<LayoutElement>();
+        if (le != null)
+        {
+            le.preferredWidth = 40f;
+            le.minWidth = 40f;
+            le.preferredHeight = 26f;
+            le.minHeight = 26f;
+        }
     }
 
     public void EnsureSprites()
@@ -109,7 +161,7 @@ public class TurnIndicatorBox : MonoBehaviour
         if (borderImage != null) borderImage.color = targetBorder;
         if (bgImage != null) bgImage.color = targetBg;
         if (labelText != null) labelText.color = targetText;
-        if (statusText != null) statusText.color = targetText;
+        if (statusText != null) statusText.gameObject.SetActive(false);
         if (shadowImage != null) shadowImage.gameObject.SetActive(active);
     }
 }

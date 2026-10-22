@@ -229,6 +229,7 @@ public class GameOverPanel : MonoBehaviour
 
     private void OnRestartClicked()
     {
+        StageSaveManager.ClearActiveRun();
         SceneManager.LoadScene(SceneName.TitleScene.ToString());
     }
 }

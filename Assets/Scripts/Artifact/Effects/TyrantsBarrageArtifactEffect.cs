@@ -804,10 +804,6 @@ public static class ShotgunKingSystem
         if (grid.IsInBounds(forward) && !IsDestroyedCell(grid, forward) && PieceManager.Instance.GetPieceAt(forward) == null)
         {
             targets.Add(forward);
-            Vector2Int twoForward = forward + Vector2Int.up;
-            bool startRank = origin.y <= grid.gridMinBounds.y + 1;
-            if (startRank && grid.IsInBounds(twoForward) && !IsDestroyedCell(grid, twoForward) && PieceManager.Instance.GetPieceAt(twoForward) == null)
-                targets.Add(twoForward);
         }
         foreach (int dx in new[] { -1, 1 })
         {

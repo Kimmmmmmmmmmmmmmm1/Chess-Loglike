@@ -130,6 +130,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI remainingStageText;
     [SerializeField] private Button openSettingsButton;
     private Coroutine cleanupFlowCoroutine;
+    private bool hasInitiatedContinue = false;
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -162,6 +163,7 @@ public class GameManager : MonoBehaviour
 
     public void ResetRunData()
     {
+        hasInitiatedContinue = false;
         currentFlowState = GameFlowState.None;
         currentBattleType = BattleType.Normal;
         clearedStage = 0;
@@ -187,11 +189,41 @@ public class GameManager : MonoBehaviour
         StageSelectUI.Instance?.ResetSelectionState();
     }
 
+    public void RestoreRunState(int clearedStageValue, int coinValue, int enemyCaptured, int playerCaptured, int bossesCleared)
+    {
+        clearedStage = clearedStageValue;
+        Coin = coinValue;
+        EnemyPiecesCaptured = enemyCaptured;
+        PlayerPiecesCaptured = playerCaptured;
+        clearedBosses = bossesCleared;
+        UpdateCoinUI();
+        UpdateStageUI();
+    }
+
     private void Start()
     {
         TryAddAchievementProgress(AchievementIds.OtherFirstRun);
 
         currentFlowState = GameFlowState.None;
+
+        if ((StageSaveManager.IsContinuePending || StageSaveManager.IsRestoring || StageSaveManager.HasRestoredThisSession) && !hasInitiatedContinue)
+        {
+            hasInitiatedContinue = true;
+            StartCoroutine(StageSaveManager.EnsureInstance().RestoreRunRoutine());
+            BindShortcutButtons();
+            SubscribeToGameStateManager();
+            TurnIndicatorUI.EnsureInstance();
+            return;
+        }
+
+        if (StageSaveManager.IsRestoring || StageSaveManager.HasRestoredThisSession || hasInitiatedContinue)
+        {
+            BindShortcutButtons();
+            SubscribeToGameStateManager();
+            TurnIndicatorUI.EnsureInstance();
+            return;
+        }
+
         StartCoroutine(DelayedBattleStart());
 
         BindShortcutButtons();
@@ -234,12 +266,25 @@ public class GameManager : MonoBehaviour
 
         if (stageText == null)
         {
-            GameObject stageTextObj = GameObject.Find("StageText");
-            if (stageTextObj != null)
+            GameObject displayTextObj = GameObject.Find("DisplayText");
+            if (displayTextObj != null)
             {
-                stageText = stageTextObj.GetComponent<TextMeshProUGUI>();
-                UpdateStageUI();
+                Transform stageChild = displayTextObj.transform.Find("StageText");
+                if (stageChild != null)
+                {
+                    stageText = stageChild.GetComponent<TextMeshProUGUI>();
+                }
             }
+
+            if (stageText == null)
+            {
+                GameObject stageTextObj = GameObject.Find("StageText");
+                if (stageTextObj != null)
+                {
+                    stageText = stageTextObj.GetComponent<TextMeshProUGUI>();
+                }
+            }
+            UpdateStageUI();
         }
 
         TurnIndicatorUI.EnsureInstance();
@@ -248,7 +293,12 @@ public class GameManager : MonoBehaviour
 
         BindShortcutButtons();
 
-        if (currentFlowState == GameFlowState.None)
+        if (StageSaveManager.IsContinuePending && !hasInitiatedContinue)
+        {
+            hasInitiatedContinue = true;
+            StartCoroutine(StageSaveManager.EnsureInstance().RestoreRunRoutine());
+        }
+        else if (!StageSaveManager.IsRestoring && !StageSaveManager.HasRestoredThisSession && !hasInitiatedContinue && currentFlowState == GameFlowState.None)
         {
             StartCoroutine(DelayedBattleStart());
         }
@@ -315,27 +365,48 @@ public class GameManager : MonoBehaviour
     {
         currentBattleType = battleType;
         ChangeFlowState(GameFlowState.Battle);
+
+        if (!StageSaveManager.IsRestoring)
+        {
+            StageSaveManager.EnsureInstance()?.SaveCurrentRun();
+        }
     }
 
     public void OpenShop()
     {
         ChangeFlowState(GameFlowState.Shop);
+
+        if (!StageSaveManager.IsRestoring)
+        {
+            StageSaveManager.EnsureInstance()?.SaveCurrentRun();
+        }
     }
 
     public void OpenWorkShop()
     {
         ChangeFlowState(GameFlowState.WorkShop);
+
+        if (!StageSaveManager.IsRestoring)
+        {
+            StageSaveManager.EnsureInstance()?.SaveCurrentRun();
+        }
     }
 
     public void OpenTreasure()
     {
         ChangeFlowState(GameFlowState.Treasure);
+
+        if (!StageSaveManager.IsRestoring)
+        {
+            StageSaveManager.EnsureInstance()?.SaveCurrentRun();
+        }
     }
 
     public void AdvanceToStageSelect()
     {
         ClearAllFieldMarkers();
         ChangeFlowState(GameFlowState.StageSelect);
+        StageSaveManager.EnsureInstance()?.SaveCurrentRun();
     }
 
     public void OnNonBattleStageCompleted()
@@ -347,6 +418,7 @@ public class GameManager : MonoBehaviour
         if (clearedStage >= maxStage)
         {
             Debug.Log($"[GameManager] 최대 스테이지 한도({maxStage}) 도달 -> 게임 오버(완료)");
+            StageSaveManager.ClearActiveRun();
             GameStateManager.Instance.ChangeState(GameStateManager.GameState.GameOver);
             return;
         }
@@ -472,9 +544,13 @@ public class GameManager : MonoBehaviour
                 if (clearedStage >= maxStage)
                 {
                     Debug.Log($"[GameManager] 최대 스테이지 한도({maxStage}) 도달 -> 게임 오버(완료)");
+                    StageSaveManager.ClearActiveRun();
                     GameStateManager.Instance.ChangeState(GameStateManager.GameState.GameOver);
                     break;
                 }
+
+                // WIN 발생 즉시 세이브 (보상 선택 전 상태로 저장)
+                StageSaveManager.EnsureInstance()?.SaveCurrentRun(pendingReward: true);
 
                 GameStateManager.Instance.ChangeState(GameStateManager.GameState.Cleanup);
                 break;
@@ -503,11 +579,15 @@ public class GameManager : MonoBehaviour
                 {
                     PieceInventory.Instance.SavePiecesForNextStage();
                 }
+
+                // 보상 UI 오픈 직전, 기물 정리 및 보드 복원 완료 상태로 저장 (보상 선택 전)
+                StageSaveManager.EnsureInstance()?.SaveCurrentRun(pendingReward: true);
                 break;
             case GameStateManager.GameState.GameOver:
                 ClearAllFieldMarkers();
                 TryAddAchievementProgress(AchievementIds.OtherGameOver);
                 TryAddAchievementProgress(AchievementIds.OtherGameOver5);
+                StageSaveManager.ClearActiveRun();
                 break;
         }
     }
@@ -642,6 +722,7 @@ public class GameManager : MonoBehaviour
         {
             case GameFlowState.Battle:
                 ResetBattleCaptures();
+                UpdateStageUI();
                 if (GameStateManager.Instance != null)
                 {
                             if (PieceManager.Instance != null && PieceManager.Instance.gridManager != null)
@@ -738,7 +819,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void UpdateStageUI()
+    public void UpdateStageUI()
     {
         int act = (clearedStage / 10) + 1;
         int subStage = (clearedStage % 10) + 1;

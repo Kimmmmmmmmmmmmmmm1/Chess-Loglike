@@ -1135,9 +1135,8 @@ public class PieceCardTooltipView : MonoBehaviour
 
         if (pieceType == PieceType.Pawn)
         {
-            // 폰 기본 이동 (전방 1칸, 2칸)
+            // 폰 기본 이동 (전방 1칸)
             baseTiles.Add(new Vector2Int(originCol, originRow + 1));
-            baseTiles.Add(new Vector2Int(originCol, originRow + 2));
             // 폰 대각선 포획
             pawnCaptureTiles.Add(new Vector2Int(originCol - 1, originRow + 1));
             pawnCaptureTiles.Add(new Vector2Int(originCol + 1, originRow + 1));

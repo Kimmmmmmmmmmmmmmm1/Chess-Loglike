@@ -1124,22 +1124,9 @@ public class BoardEvaluator : MonoBehaviour
             if (IsInBounds(oneStep) && !IsDestroyedCell(oneStep) && !IsOccupied(oneStep))
             {
                 moves.Add(oneStep);
-
-                // 2. 초기 2칸 전진
-                int minY = minBounds.y;
-                int maxY = minY + boardHeight - 1;
-                bool isStartRank = piece.IsEnemy
-                    ? (piece.Position.y >= maxY - 1)
-                    : (piece.Position.y <= minY + 1);
-
-                Vector2Int twoStep = piece.Position + (forward * 2);
-                if (isStartRank && IsInBounds(twoStep) && !IsDestroyedCell(twoStep) && !IsOccupied(twoStep))
-                {
-                    moves.Add(twoStep);
-                }
             }
 
-            // 3. 대각선 전방 포획
+            // 2. 대각선 전방 포획
             switch (GetActiveRuleMode())
             {
                 case RULE_OTHELLO:

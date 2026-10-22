@@ -125,6 +125,11 @@ public class SettingsManager : MonoBehaviour
         {
             TooltipManager.Instance.SetTooltipDelay(settings.tooltipDelay);
         }
+
+        if (SoundManager.Instance != null)
+        {
+            SoundManager.Instance.ApplyLivePreview(settings);
+        }
     }
 
     public bool OpenSettingsPanel()

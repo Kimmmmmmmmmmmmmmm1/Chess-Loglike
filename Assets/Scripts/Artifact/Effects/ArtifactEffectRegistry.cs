@@ -69,11 +69,13 @@ public static class ArtifactEffectRegistry
     {
         HeraldsHornArtifactEffect.ApplyAtBattleStart();
         TyrantsBarrage.OnBattleStarted();
+        Hourglass.OnBattleStarted();
         if (SupportSeal.ResetForBattle()) ArtifactManager.Instance?.UpdateInventoryUI();
     }
 
     public static void OnTurnAdvanced(TurnOwner owner)
     {
+        Hourglass.OnTurnAdvanced(owner);
         if (owner == TurnOwner.Player && SupportSeal.OnPlayerTurnStarted())
         {
             ArtifactManager.Instance?.UpdateInventoryUI();

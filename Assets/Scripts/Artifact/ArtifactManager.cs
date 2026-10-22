@@ -158,6 +158,65 @@ public class ArtifactManager : MonoBehaviour
         return index >= 0 && index < artifactSlots.Count ? artifactSlots[index] : null;
     }
 
+    public ArtifactData GetArtifactDataById(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        if (allArtifacts == null || allArtifacts.Count == 0)
+        {
+            LoadAllArtifactsFromFolder();
+        }
+        return allArtifacts.FirstOrDefault(a => a != null && a.id == id);
+    }
+
+    /// <summary>
+    /// 시간의 모래 등 턴 되돌리기 시 액티브 유물의 보유 상태를 스냅샷대로 복원합니다.
+    /// </summary>
+    public void RestoreActiveArtifacts(List<HourglassArtifactEffect.ActiveArtifactRecord> records)
+    {
+        if (records == null) return;
+
+        // 1. 현재 보유 중인 액티브 유물 중 스냅샷에 없는 것은 제거
+        var toRemove = new List<ArtifactData>();
+        foreach (var owned in ownedArtifacts)
+        {
+            if (owned != null && owned.IsActive)
+            {
+                if (!records.Any(r => r.id == owned.id))
+                {
+                    toRemove.Add(owned);
+                }
+            }
+        }
+        foreach (var rem in toRemove)
+        {
+            ownedArtifacts.Remove(rem);
+        }
+
+        // 2. 스냅샷의 각 액티브 유물 복원
+        foreach (var record in records)
+        {
+            var existing = ownedArtifacts.FirstOrDefault(a => a != null && a.id == record.id);
+            if (existing != null)
+            {
+                existing.SetStack(record.stackCount);
+            }
+            else
+            {
+                ArtifactData template = GetArtifactDataById(record.id);
+                if (template != null)
+                {
+                    ArtifactData runtime = Instantiate(template);
+                    runtime.name = template.name;
+                    runtime.ResetLevel();
+                    runtime.SetStack(record.stackCount);
+                    ownedArtifacts.Add(runtime);
+                }
+            }
+        }
+
+        UpdateInventoryUI();
+    }
+
     public void ClearArtifacts()
     {
         ActiveArtifactController.CancelIfTargeting();

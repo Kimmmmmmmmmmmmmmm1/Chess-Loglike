@@ -22,6 +22,7 @@ public class TitleManager : MonoBehaviour
     [SerializeField] private GameMode selectedMode = GameMode.Normal;
 
     [Header("Buttons")]
+    [SerializeField] private Button continueButton;
     [SerializeField] private Button gameStartButton;
     [SerializeField] private Button achievementButton;
     [SerializeField] private Button collectionButton;
@@ -40,6 +41,8 @@ public class TitleManager : MonoBehaviour
 
     private void Awake()
     {
+        EnsureContinueButton();
+
         if (achievementPanel != null)
         {
             if (achievementPanelView == null)
@@ -145,11 +148,56 @@ public class TitleManager : MonoBehaviour
         return string.IsNullOrWhiteSpace(keyName) ? DefaultOpenSettingsKey : keyName;
     }
 
+    private void EnsureContinueButton()
+    {
+        if (continueButton == null && gameStartButton != null)
+        {
+            GameObject continueObj = Instantiate(gameStartButton.gameObject, gameStartButton.transform.parent);
+            continueObj.name = "ContinueBtn";
+            continueButton = continueObj.GetComponent<Button>();
+
+            RectTransform rt = continueButton.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchoredPosition = new Vector2(0f, -30f);
+            }
+
+            continueButton.transform.SetSiblingIndex(gameStartButton.transform.GetSiblingIndex());
+        }
+
+        UpdateContinueButtonState();
+    }
+
+    private void UpdateContinueButtonState()
+    {
+        bool hasSave = StageSaveManager.HasActiveRunSave();
+        if (continueButton != null)
+        {
+            continueButton.gameObject.SetActive(hasSave);
+
+            if (hasSave)
+            {
+                StageSaveData latest = StageSaveManager.GetLatestRunData();
+                if (latest != null)
+                {
+                    int act = (latest.clearedStage / 10) + 1;
+                    int sub = (latest.clearedStage % 10) + 1;
+                    SetButtonText(continueButton, $"이어하기 ({act}-{sub})");
+                }
+                else
+                {
+                    SetButtonText(continueButton, "이어하기");
+                }
+            }
+        }
+    }
+
     private void InitializeSelectableButtons()
     {
         if (mainButtons != null) return;
 
         var list = new System.Collections.Generic.List<Button>();
+        if (continueButton != null && continueButton.gameObject.activeInHierarchy) list.Add(continueButton);
         if (gameStartButton != null) list.Add(gameStartButton);
         if (achievementButton != null) list.Add(achievementButton);
         if (collectionButton != null) list.Add(collectionButton);
@@ -244,6 +292,7 @@ public class TitleManager : MonoBehaviour
 
     private void Start()
     {
+        UpdateContinueButtonState();
         BindButtons();
 
         // Start background preload of audio used on title to avoid hitches later
@@ -262,6 +311,12 @@ public class TitleManager : MonoBehaviour
 
     private void BindButtons()
     {
+        if (continueButton != null)
+        {
+            continueButton.onClick.RemoveListener(OnContinueClicked);
+            continueButton.onClick.AddListener(OnContinueClicked);
+        }
+
         if (gameStartButton != null)
         {
             gameStartButton.onClick.RemoveListener(OnGameStartClicked);
@@ -306,6 +361,11 @@ public class TitleManager : MonoBehaviour
 
     private void UnbindButtons()
     {
+        if (continueButton != null)
+        {
+            continueButton.onClick.RemoveListener(OnContinueClicked);
+        }
+
         if (gameStartButton != null)
         {
             gameStartButton.onClick.RemoveListener(OnGameStartClicked);
@@ -341,13 +401,46 @@ public class TitleManager : MonoBehaviour
         }
     }
 
-    private void OnGameStartClicked()
+    private void OnContinueClicked()
     {
         if (!CanUseTitleShortcuts())
         {
             return;
         }
 
+        if (!StageSaveManager.HasActiveRunSave())
+        {
+            return;
+        }
+
+        StageSaveManager.HasRestoredThisSession = false;
+        StageSaveManager.IsContinuePending = true;
+
+        PlayerPrefs.SetInt("PendingGameMode", (int)selectedMode);
+        PlayerPrefs.Save();
+        SceneManager.LoadScene(gameScene.ToString());
+    }
+
+    private async void OnGameStartClicked()
+    {
+        if (!CanUseTitleShortcuts())
+        {
+            return;
+        }
+
+        if (StageSaveManager.HasActiveRunSave())
+        {
+            if (ModalManager.Instance != null)
+            {
+                bool confirmed = await ModalManager.Instance.ShowModalAsync("진행 중인 게임 데이터가 있습니다.\n새로 시작하면 이어하기 기록이 초기화됩니다. 계속하시겠습니까?");
+                if (!confirmed)
+                {
+                    return;
+                }
+            }
+        }
+
+        StageSaveManager.ClearActiveRun();
         ResetPersistentRunData();
 
         // PieceInventory now supplies initial pieces on scene load.
@@ -359,6 +452,9 @@ public class TitleManager : MonoBehaviour
 
     private void ResetPersistentRunData()
     {
+        StageSaveManager.HasRestoredThisSession = false;
+        StageSaveManager.IsContinuePending = false;
+
         if (GameManager.Instance != null)
         {
             GameManager.Instance.ResetRunData();
@@ -595,6 +691,7 @@ public class TitleManager : MonoBehaviour
     {
         bool panelsOpen = IsAnyOverlayPanelOpen();
 
+        SetButtonInteractable(continueButton, !panelsOpen);
         SetButtonInteractable(gameStartButton, !panelsOpen);
         SetButtonInteractable(achievementButton, !panelsOpen);
         SetButtonInteractable(collectionButton, !panelsOpen);

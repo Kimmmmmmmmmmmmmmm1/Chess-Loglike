@@ -252,6 +252,11 @@ public class GameStateManager : MonoBehaviour
                 PieceManager.Instance.CapturePlacementSnapshot();
             }
 
+            if (!StageSaveManager.IsRestoring)
+            {
+                StageSaveManager.EnsureInstance()?.SaveCurrentRun();
+            }
+
             if (PieceSpawner.Instance == null || !PieceSpawner.Instance.TryStartGameWithEnemyReveal())
             {
                 ChangeState(GameState.GamePlay);

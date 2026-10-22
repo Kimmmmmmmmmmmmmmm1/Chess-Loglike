@@ -6,6 +6,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
+using System.Linq;
 
 public class PieceManager : MonoBehaviour
 {
@@ -122,7 +123,7 @@ public class PieceManager : MonoBehaviour
             return true;
         }
 
-        if (Time.unscaledTime - lastDestructionTime < 0.75f)
+        if (Time.unscaledTime - lastDestructionTime < 0.25f)
         {
             return true;
         }
@@ -142,7 +143,7 @@ public class PieceManager : MonoBehaviour
             return true;
         }
 
-        if (Time.unscaledTime - lastDestructionTime < 0.75f)
+        if (Time.unscaledTime - lastDestructionTime < 0.25f)
         {
             return true;
         }
@@ -179,6 +180,7 @@ public class PieceManager : MonoBehaviour
     public IReadOnlyList<PieceController> PlayerPieces => playerPieces;
     public IReadOnlyList<PieceController> EnemyPieces => enemyPieces;
     public bool HasPlacementSnapshot => hasPlacementSnapshot && placementSnapshot.Count > 0;
+    public IReadOnlyDictionary<PieceController, Vector2Int> PlacementSnapshot => placementSnapshot;
 
     private void Awake()
     {
@@ -259,10 +261,6 @@ public class PieceManager : MonoBehaviour
             ResetTurnNumber();
             TurnLogUIManager.Instance?.ClearAllLogs();
 
-            if (!hasPlacementSnapshot)
-            {
-                CapturePlacementSnapshot();
-            }
             MovePlayerPiecesToSafety();
         }
         else if (newState == GameStateManager.GameState.GamePlay)
@@ -1309,6 +1307,7 @@ public class PieceManager : MonoBehaviour
         piece.transform.DOKill();
 
         Sequence sequence = DOTween.Sequence();
+        sequence.SetUpdate(true);
 
         if (scaleFromZeroDuration > 0f)
         {
@@ -2047,95 +2046,198 @@ public class PieceManager : MonoBehaviour
         return false;
     }
 
-    private void MovePlayerPiecesToSafety()
+    private Coroutine moveSafetyCoroutine;
+
+    public void MovePlayerPiecesToSafety()
     {
-        StartCoroutine(MovePlayerPiecesToSafetyRoutine());
+        if (moveSafetyCoroutine != null)
+        {
+            StopCoroutine(moveSafetyCoroutine);
+        }
+        moveSafetyCoroutine = StartCoroutine(MovePlayerPiecesToSafetyRoutine());
     }
 
     private IEnumerator MovePlayerPiecesToSafetyRoutine()
     {
         RemoveConversionSealedPieces();
         if (gridManager == null) yield break;
-        if (hasPlacementSnapshot)
-        {
-            foreach (var kv in placementSnapshot)
-            {
-                var piece = kv.Key;
-                var pos = kv.Value;
-                if (piece != null && !piece.IsEnemy && !piece.HasConversionSeal())
-                {
-                    piece.MoveToGrid(pos);
-                    yield return new WaitForSeconds(0.05f);
-                }
-            }
 
-            yield break;
+        // 1. 적 기물 위치 수집 (적 기물 위치는 아군이 배치될 수 없음)
+        HashSet<Vector2Int> occupiedPositions = new HashSet<Vector2Int>();
+        foreach (var piece in pieces)
+        {
+            if (piece == null || piece.CurrentLocation != PieceLocation.Board) continue;
+            if (piece.IsEnemy && piece.gridPosition.HasValue)
+            {
+                occupiedPositions.Add(piece.gridPosition.Value);
+            }
+        }
+
+        // 2. 보드 위 아군 기물 목록 수집
+        List<PieceController> allyBoardPieces = new List<PieceController>();
+        foreach (var piece in pieces)
+        {
+            if (piece == null || piece.IsEnemy || piece.CurrentLocation != PieceLocation.Board || piece.HasConversionSeal())
+            {
+                continue;
+            }
+            allyBoardPieces.Add(piece);
+        }
+
+        // 3. 기물별 의도된 위치(스냅샷 위치 또는 현재 보드 위치) 산출
+        Dictionary<PieceController, Vector2Int> intendedPositions = new Dictionary<PieceController, Vector2Int>();
+        foreach (var piece in allyBoardPieces)
+        {
+            if (hasPlacementSnapshot && placementSnapshot.TryGetValue(piece, out Vector2Int snapPos))
+            {
+                intendedPositions[piece] = snapPos;
+            }
+            else if (piece.gridPosition.HasValue)
+            {
+                intendedPositions[piece] = piece.gridPosition.Value;
+            }
         }
 
         List<PieceController> piecesToMove = new List<PieceController>();
-        HashSet<Vector2Int> occupiedPositions = new HashSet<Vector2Int>();
 
-        int safeMaxY = playerPrepareMaxY;
-
-        foreach (var piece in pieces)
+        // 4. 이미 적절한 위치(playerPrepareMaxY 이하, 보드 내, 미점유)에 있는 기물 우선 고정
+        foreach (var piece in allyBoardPieces)
         {
-            if (piece == null || piece.CurrentLocation != PieceLocation.Board || piece.HasConversionSeal()) continue;
-
-            if (piece.IsEnemy)
+            if (intendedPositions.TryGetValue(piece, out Vector2Int pos))
             {
-                if (piece.gridPosition.HasValue)
+                bool isAppropriate = gridManager.IsInBounds(pos) &&
+                                    gridManager.GetGridCell(pos) != null &&
+                                    pos.y <= playerPrepareMaxY &&
+                                    !occupiedPositions.Contains(pos);
+
+                if (isAppropriate)
                 {
-                    occupiedPositions.Add(piece.gridPosition.Value);
+                    occupiedPositions.Add(pos);
+                    if (!piece.gridPosition.HasValue || piece.gridPosition.Value != pos)
+                    {
+                        piece.MoveToGrid(pos);
+                    }
+                }
+                else
+                {
+                    piecesToMove.Add(piece);
                 }
             }
             else
             {
-                if (piece.gridPosition.HasValue && piece.gridPosition.Value.y > safeMaxY)
-                {
-                    piecesToMove.Add(piece);
-                }
-                else if (piece.gridPosition.HasValue)
-                {
-                    occupiedPositions.Add(piece.gridPosition.Value);
-                }
+                piecesToMove.Add(piece);
             }
         }
 
+        // 5. 이동이 필요한 기물 정렬:
+        // 안전선(playerPrepareMaxY)에 가까운 기물부터 차례대로 가장 가까운 유효 위치를 선점하도록 정렬
+        piecesToMove.Sort((a, b) =>
+        {
+            int yA = intendedPositions.TryGetValue(a, out var pA) ? pA.y : (a.gridPosition.HasValue ? a.gridPosition.Value.y : int.MaxValue);
+            int yB = intendedPositions.TryGetValue(b, out var pB) ? pB.y : (b.gridPosition.HasValue ? b.gridPosition.Value.y : int.MaxValue);
+            int distA = Mathf.Abs(yA - playerPrepareMaxY);
+            int distB = Mathf.Abs(yB - playerPrepareMaxY);
+            return distA.CompareTo(distB);
+        });
+
+        // 6. 각 부적절한 위치의 기물을 '가장 가까운 적절한 위치'로 이동
         foreach (var piece in piecesToMove)
         {
-            Vector2Int? targetPos = FindEmptySafePosition(occupiedPositions, safeMaxY);
+            Vector2Int fromPos = intendedPositions.TryGetValue(piece, out var p)
+                ? p
+                : (piece.gridPosition.HasValue ? piece.gridPosition.Value : new Vector2Int(gridManager.gridMinBounds.x, playerPrepareMaxY));
+
+            Vector2Int? targetPos = FindNearestValidPreparePosition(fromPos, occupiedPositions);
+
             if (targetPos.HasValue)
             {
                 occupiedPositions.Add(targetPos.Value);
                 piece.MoveToGrid(targetPos.Value);
-                yield return new WaitForSeconds(0.15f);
-            }
-        }
-    }
-
-    private Vector2Int? FindEmptySafePosition(HashSet<Vector2Int> occupied, int maxY)
-    {
-        int minX = gridManager.gridMinBounds.x;
-        int width = gridManager.boardWidth;
-        int minY = gridManager.gridMinBounds.y;
-        
-        List<int> xCoords = new List<int>();
-        for (int x = minX; x < minX + width; x++) xCoords.Add(x);
-        float centerX = minX + (width - 1) / 2f;
-        xCoords.Sort((a, b) => Mathf.Abs(a - centerX).CompareTo(Mathf.Abs(b - centerX)));
-        
-        for (int y = maxY; y >= minY; y--)
-        {
-            foreach (int x in xCoords)
-            {
-                Vector2Int pos = new Vector2Int(x, y);
-                if (!occupied.Contains(pos))
+                if (hasPlacementSnapshot)
                 {
-                    return pos;
+                    placementSnapshot[piece] = targetPos.Value;
+                }
+                yield return new WaitForSeconds(0.08f);
+            }
+            else
+            {
+                // 보드 내에 빈 유효 칸이 전혀 없는 경우 인벤토리 빈 슬롯으로 대피
+                InventorySlot emptySlot = FindEmptyInventorySlot();
+                if (emptySlot != null)
+                {
+                    piece.MoveToInventory(emptySlot.transform);
                 }
             }
         }
-        return null;
+
+        // 7. 스냅샷 갱신 및 위협/하이라이트 상태 갱신
+        CapturePlacementSnapshot();
+        UpdateThreatenedStatus();
+        moveSafetyCoroutine = null;
+    }
+
+    private InventorySlot FindEmptyInventorySlot()
+    {
+        var slots = FindObjectsByType<InventorySlot>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        var sortedSlots = slots.OrderBy(s => s.transform.GetSiblingIndex()).ToArray();
+        return sortedSlots.FirstOrDefault(slot => slot.GetComponentInChildren<PieceController>() == null && !slot.IsReserved);
+    }
+
+    /// <summary>
+    /// 지정된 기준 위치(fromPos)에서 가장 가까운 유효한 아군 배치 위치를 찾습니다.
+    /// 조건: 보드 범위 내, 플레이어 진영(y <= playerPrepareMaxY), 미점유(적 및 다른 아군 없음).
+    /// </summary>
+    public Vector2Int? FindNearestValidPreparePosition(Vector2Int fromPos, HashSet<Vector2Int> occupied)
+    {
+        if (gridManager == null) return null;
+
+        int minX = gridManager.gridMinBounds.x;
+        int maxX = gridManager.gridMinBounds.x + gridManager.boardWidth - 1;
+        int minY = gridManager.gridMinBounds.y;
+        int maxY = playerPrepareMaxY;
+
+        Vector2Int? bestPos = null;
+        float bestScore = float.MaxValue;
+
+        for (int y = maxY; y >= minY; y--)
+        {
+            for (int x = minX; x <= maxX; x++)
+            {
+                Vector2Int candidate = new Vector2Int(x, y);
+
+                if (!gridManager.IsInBounds(candidate) || gridManager.GetGridCell(candidate) == null)
+                {
+                    continue;
+                }
+
+                if (occupied != null && occupied.Contains(candidate))
+                {
+                    continue;
+                }
+
+                PieceController pieceAt = GetPieceAt(candidate);
+                if (pieceAt != null && pieceAt.IsEnemy)
+                {
+                    continue;
+                }
+
+                int dx = candidate.x - fromPos.x;
+                int dy = candidate.y - fromPos.y;
+                int manhattan = Mathf.Abs(dx) + Mathf.Abs(dy);
+                int euclideanSq = dx * dx + dy * dy;
+
+                // 유클리드 거리 최소화 우선, 동일 거리일 경우 X축 열 유지(수직 하강) 선호, 그 다음 전선(높은 Y) 선호
+                float score = euclideanSq * 100f + manhattan * 10f + Mathf.Abs(dx) * 2f - candidate.y * 0.1f;
+
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    bestPos = candidate;
+                }
+            }
+        }
+
+        return bestPos;
     }
 
     public void CapturePlacementSnapshot()

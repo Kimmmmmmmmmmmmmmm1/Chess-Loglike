@@ -16,7 +16,8 @@ public class TurnIndicatorUI : MonoBehaviour
 
     [Header("UI References")]
     [SerializeField] private RectTransform rootContainer;
-    [SerializeField] private TextMeshProUGUI remainingStagesText;
+    [UnityEngine.Serialization.FormerlySerializedAs("remainingStagesText")]
+    [SerializeField] private TextMeshProUGUI remainingTurnsText;
     [SerializeField] private TurnIndicatorBox playerBox;
     [SerializeField] private TurnIndicatorBox opponentBox;
 
@@ -72,11 +73,31 @@ public class TurnIndicatorUI : MonoBehaviour
         Canvas targetCanvas = FindTargetCanvas();
         if (targetCanvas != null)
         {
+            // 프리팹(Resources/UI/TurnIndicatorUI)이 있는 경우 인스턴스화
+            GameObject prefab = Resources.Load<GameObject>("UI/TurnIndicatorUI");
+            if (prefab != null)
+            {
+                GameObject pObj = Instantiate(prefab, targetCanvas.transform);
+                pObj.name = "TurnIndicatorUI";
+                pObj.transform.SetAsLastSibling();
+                Instance = pObj.GetComponent<TurnIndicatorUI>();
+                if (Instance != null)
+                {
+                    Instance.EnsureAllSprites();
+                    Instance.UpdateRemainingStages();
+                }
+                return Instance;
+            }
+
             GameObject obj = CreateRuntimeUI(targetCanvas.transform);
             obj.name = "TurnIndicatorUI";
             obj.transform.SetAsLastSibling();
             Instance = obj.GetComponent<TurnIndicatorUI>();
-            if (Instance != null) Instance.EnsureAllSprites();
+            if (Instance != null)
+            {
+                Instance.EnsureAllSprites();
+                Instance.UpdateRemainingStages();
+            }
             return Instance;
         }
 
@@ -140,11 +161,16 @@ public class TurnIndicatorUI : MonoBehaviour
         if (opponentBox != null) opponentBox.EnsureSprites();
     }
 
+    private void OnEnable()
+    {
+        UpdateRemainingTurns();
+    }
+
     private void Start()
     {
         EnsureAllSprites();
         SubscribeEvents();
-        UpdateRemainingStages();
+        UpdateRemainingTurns();
 
         GameStateManager.GameState currentState = GameStateManager.Instance != null
             ? GameStateManager.Instance.CurrentState
@@ -220,22 +246,25 @@ public class TurnIndicatorUI : MonoBehaviour
     private void HandleTurnAdvanced(TurnOwner turn)
     {
         UpdateTurnState(turn, immediate: false);
+        UpdateRemainingTurns();
     }
 
     private void HandlePlayerTurnStarted()
     {
         UpdateTurnState(TurnOwner.Player, immediate: false);
+        UpdateRemainingTurns();
     }
 
     private void HandleOpponentTurnStarted()
     {
         UpdateTurnState(TurnOwner.Opponent, immediate: false);
+        UpdateRemainingTurns();
     }
 
     private void HandleGameStateChanged(GameStateManager.GameState newState)
     {
         UpdateVisibility(newState, immediate: false);
-        UpdateRemainingStages();
+        UpdateRemainingTurns();
 
         if (newState == GameStateManager.GameState.Prepare)
         {
@@ -245,20 +274,82 @@ public class TurnIndicatorUI : MonoBehaviour
         {
             TurnOwner turn = TurnManager.Instance != null ? TurnManager.Instance.CurrentTurn : TurnOwner.Player;
             UpdateTurnState(turn, immediate: true);
+            UpdateRemainingTurns();
         }
     }
 
     private void HandleStageProgressUpdated(int cleared, int remaining)
     {
-        UpdateRemainingStages();
+        UpdateRemainingTurns();
+    }
+
+    public void UpdateRemainingTurns()
+    {
+        bool showTurnLimit = OthelloArtifactSystem.IsActive;
+
+        Transform badge = transform.Find("RemainingTurnsBadge");
+        if (badge == null) badge = transform.Find("RemainingStageBadge");
+
+        Transform boxes = transform.Find("BoxesContainer");
+        RectTransform boxesRect = boxes != null ? boxes.GetComponent<RectTransform>() : null;
+
+        if (badge != null)
+        {
+            badge.gameObject.SetActive(showTurnLimit);
+        }
+
+        if (boxesRect != null)
+        {
+            boxesRect.anchorMin = new Vector2(0.5f, 1f);
+            boxesRect.anchorMax = new Vector2(0.5f, 1f);
+            boxesRect.pivot = new Vector2(0.5f, 1f);
+            boxesRect.anchoredPosition = showTurnLimit ? new Vector2(0f, -20f) : new Vector2(0f, 0f);
+        }
+
+        if (rootContainer != null)
+        {
+            rootContainer.sizeDelta = showTurnLimit ? new Vector2(210f, 48f) : new Vector2(210f, 26f);
+        }
+
+        if (showTurnLimit)
+        {
+            int completedTurns = TurnManager.Instance != null ? TurnManager.Instance.CompletedBattleTurns : 0;
+            int remaining = Mathf.Max(0, OthelloArtifactSystem.MaxTurnLimit - completedTurns);
+            SetRemainingTurns(remaining);
+        }
     }
 
     public void UpdateRemainingStages()
     {
-        if (remainingStagesText == null) return;
+        UpdateRemainingTurns();
+    }
 
-        int remaining = GameManager.Instance != null ? GameManager.Instance.RemainingStagesUntilGameOver : 30;
-        remainingStagesText.text = $"남은 스테이지: {remaining}";
+    public void SetRemainingTurns(int remainingTurns)
+    {
+        if (remainingTurnsText == null)
+        {
+            Transform badge = transform.Find("RemainingTurnsBadge");
+            if (badge == null) badge = transform.Find("RemainingStageBadge");
+
+            if (badge != null)
+            {
+                remainingTurnsText = badge.GetComponentInChildren<TextMeshProUGUI>();
+            }
+            else
+            {
+                remainingTurnsText = GetComponentInChildren<TextMeshProUGUI>();
+            }
+        }
+
+        if (remainingTurnsText != null)
+        {
+            remainingTurnsText.text = $"남은 턴: {remainingTurns}";
+        }
+    }
+
+    public void SetRemainingStages(int remaining, int currentTurn = 1)
+    {
+        UpdateRemainingTurns();
     }
 
     /// <summary>
@@ -268,12 +359,12 @@ public class TurnIndicatorUI : MonoBehaviour
     {
         if (playerBox != null)
         {
-            playerBox.SetState(false, "대기중");
+            playerBox.SetState(false);
         }
 
         if (opponentBox != null)
         {
-            opponentBox.SetState(false, "대기중");
+            opponentBox.SetState(false);
         }
     }
 
@@ -290,12 +381,12 @@ public class TurnIndicatorUI : MonoBehaviour
 
         if (playerBox != null)
         {
-            playerBox.SetState(isPlayer, isPlayer ? "내 턴" : "대기중");
+            playerBox.SetState(isPlayer);
         }
 
         if (opponentBox != null)
         {
-            opponentBox.SetState(!isPlayer, !isPlayer ? "상대 턴" : "대기중");
+            opponentBox.SetState(!isPlayer);
         }
     }
 
@@ -363,18 +454,19 @@ public class TurnIndicatorUI : MonoBehaviour
         rootRect.anchorMax = new Vector2(0.5f, 1f);
         rootRect.pivot = new Vector2(0.5f, 1f);
         rootRect.anchoredPosition = new Vector2(0f, -6f);
-        rootRect.sizeDelta = new Vector2(210f, 48f);
+        rootRect.sizeDelta = new Vector2(210f, 26f);
         rootRect.localScale = Vector3.one;
 
         // 1. 남은 스테이지 뱃지 (상단)
         GameObject stageBadgeObj = new GameObject("RemainingStageBadge", typeof(RectTransform));
+        stageBadgeObj.SetActive(false);
         stageBadgeObj.transform.SetParent(root.transform, false);
         RectTransform stageBadgeRect = stageBadgeObj.GetComponent<RectTransform>();
         stageBadgeRect.anchorMin = new Vector2(0.5f, 1f);
         stageBadgeRect.anchorMax = new Vector2(0.5f, 1f);
         stageBadgeRect.pivot = new Vector2(0.5f, 1f);
         stageBadgeRect.anchoredPosition = new Vector2(0f, 0f);
-        stageBadgeRect.sizeDelta = new Vector2(130f, 16f);
+        stageBadgeRect.sizeDelta = new Vector2(145f, 16f);
         stageBadgeRect.localScale = Vector3.one;
 
         Image stageBadgeBorder = stageBadgeObj.AddComponent<Image>();
@@ -398,33 +490,35 @@ public class TurnIndicatorUI : MonoBehaviour
         stageBadgeBg.color = new Color(0.12f, 0.12f, 0.12f, 0.95f);
         stageBadgeBg.raycastTarget = false;
 
-        GameObject stageTextObj = new GameObject("StageText", typeof(RectTransform));
+        GameObject stageTextObj = new GameObject("RemainingStagesBadgeText", typeof(RectTransform));
         stageTextObj.transform.SetParent(stageBadgeFace.transform, false);
         RectTransform stageRect = stageTextObj.GetComponent<RectTransform>();
         stageRect.anchorMin = Vector2.zero;
         stageRect.anchorMax = Vector2.one;
-        stageRect.anchoredPosition = Vector2.zero;
-        stageRect.sizeDelta = Vector2.zero;
+        stageRect.offsetMin = Vector2.zero;
+        stageRect.offsetMax = Vector2.zero;
         stageRect.localScale = Vector3.one;
 
         TextMeshProUGUI stageText = stageTextObj.AddComponent<TextMeshProUGUI>();
         if (font != null) stageText.font = font;
-        stageText.text = "남은 스테이지: 30";
-        stageText.fontSize = 10f;
+        stageText.text = "남은 턴: 30";
+        stageText.fontSize = 11f;
         stageText.fontStyle = FontStyles.Bold;
         stageText.alignment = TextAlignmentOptions.Center;
         stageText.color = new Color(0.95f, 0.90f, 0.78f, 1f);
+        stageText.textWrappingMode = TextWrappingModes.NoWrap;
+        stageText.overflowMode = TextOverflowModes.Overflow;
         stageText.raycastTarget = false;
 
         // 2. 턴 박스 컨테이너 (하단, 수평 배치)
         GameObject containerObj = new GameObject("BoxesContainer", typeof(RectTransform));
         containerObj.transform.SetParent(root.transform, false);
         RectTransform containerRect = containerObj.GetComponent<RectTransform>();
-        containerRect.anchorMin = new Vector2(0.5f, 0f);
-        containerRect.anchorMax = new Vector2(0.5f, 0f);
-        containerRect.pivot = new Vector2(0.5f, 0f);
+        containerRect.anchorMin = new Vector2(0.5f, 1f);
+        containerRect.anchorMax = new Vector2(0.5f, 1f);
+        containerRect.pivot = new Vector2(0.5f, 1f);
         containerRect.anchoredPosition = new Vector2(0f, 0f);
-        containerRect.sizeDelta = new Vector2(204f, 26f);
+        containerRect.sizeDelta = new Vector2(88f, 26f);
         containerRect.localScale = Vector3.one;
 
         HorizontalLayoutGroup hlg = containerObj.AddComponent<HorizontalLayoutGroup>();
@@ -471,7 +565,7 @@ public class TurnIndicatorUI : MonoBehaviour
 
         TurnIndicatorUI uiComp = root.AddComponent<TurnIndicatorUI>();
         uiComp.rootContainer = rootRect;
-        uiComp.remainingStagesText = stageText;
+        uiComp.remainingTurnsText = stageText;
         uiComp.playerBox = pBox;
         uiComp.opponentBox = oBox;
 
@@ -497,13 +591,13 @@ public class TurnIndicatorUI : MonoBehaviour
         boxObj.transform.SetParent(parent, false);
 
         RectTransform boxRect = boxObj.GetComponent<RectTransform>();
-        boxRect.sizeDelta = new Vector2(96f, 24f);
+        boxRect.sizeDelta = new Vector2(40f, 24f);
         boxRect.localScale = Vector3.one;
 
         LayoutElement le = boxObj.AddComponent<LayoutElement>();
-        le.preferredWidth = 96f;
+        le.preferredWidth = 40f;
         le.preferredHeight = 24f;
-        le.minWidth = 96f;
+        le.minWidth = 40f;
         le.minHeight = 24f;
 
         // 1. Shadow (하단 그림자)
@@ -554,43 +648,30 @@ public class TurnIndicatorUI : MonoBehaviour
         faceImg.color = activeBg;
         faceImg.raycastTarget = false;
 
-        // 4. Label ("흑" / "백")
+        // 4. Label ("흑" / "백" 단독 중앙 배치)
         GameObject labelObj = new GameObject("LabelText", typeof(RectTransform));
         labelObj.transform.SetParent(faceObj.transform, false);
         RectTransform labelRect = labelObj.GetComponent<RectTransform>();
-        labelRect.anchorMin = new Vector2(0f, 0f);
-        labelRect.anchorMax = new Vector2(0.4f, 1f);
-        labelRect.offsetMin = new Vector2(6f, 0f);
-        labelRect.offsetMax = new Vector2(0f, 0f);
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
         labelRect.localScale = Vector3.one;
 
         TextMeshProUGUI labelTmp = labelObj.AddComponent<TextMeshProUGUI>();
         if (font != null) labelTmp.font = font;
         labelTmp.text = label;
-        labelTmp.fontSize = 11f;
+        labelTmp.fontSize = 13.5f;
         labelTmp.fontStyle = FontStyles.Bold;
-        labelTmp.alignment = TextAlignmentOptions.MidlineLeft;
+        labelTmp.alignment = TextAlignmentOptions.Center;
         labelTmp.color = activeText;
         labelTmp.raycastTarget = false;
 
-        // 5. Status ("내 턴" / "상대 턴" / "대기")
+        // 5. Status (단독 레이아웃 유지를 위해 비활성화)
         GameObject statusObj = new GameObject("StatusText", typeof(RectTransform));
         statusObj.transform.SetParent(faceObj.transform, false);
-        RectTransform statusRect = statusObj.GetComponent<RectTransform>();
-        statusRect.anchorMin = new Vector2(0.35f, 0f);
-        statusRect.anchorMax = new Vector2(1f, 1f);
-        statusRect.offsetMin = new Vector2(0f, 0f);
-        statusRect.offsetMax = new Vector2(-6f, 0f);
-        statusRect.localScale = Vector3.one;
-
+        statusObj.SetActive(false);
         TextMeshProUGUI statusTmp = statusObj.AddComponent<TextMeshProUGUI>();
-        if (font != null) statusTmp.font = font;
-        statusTmp.text = status;
-        statusTmp.fontSize = 10f;
-        statusTmp.fontStyle = FontStyles.Bold;
-        statusTmp.alignment = TextAlignmentOptions.MidlineRight;
-        statusTmp.color = activeText;
-        statusTmp.raycastTarget = false;
 
         TurnIndicatorBox boxComp = boxObj.AddComponent<TurnIndicatorBox>();
         boxComp.Initialize(

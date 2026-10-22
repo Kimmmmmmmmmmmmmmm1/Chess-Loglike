@@ -756,7 +756,7 @@ public class CollectionManager : PersistentManagerBase
                     PieceType.Rook => "가로와 세로 방향으로 거리 제한 없이 이동할 수 있습니다.",
                     PieceType.Bishop => "대각선 방향으로 거리 제한 없이 이동할 수 있습니다.",
                     PieceType.Knight => "L자 모양으로 이동합니다(2칸 직진 후 1칸 옆).\n경로상의 장애물을 무시하고 뛰어넘을 수 있습니다.",
-                    PieceType.Pawn => "앞으로 1칸 전진(첫 이동 시 2칸 가능)하며, 대각선 앞 1칸의 적을 포획합니다.\n적진 끝에 도달하면 승급합니다.",
+                    PieceType.Pawn => "앞으로 1칸 전진하며, 대각선 앞 1칸의 적을 포획합니다.\n적진 끝에 도달하면 승급합니다.",
                     PieceType.Amazon => "퀸의 행마(8방향 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다.",
                     PieceType.Chancellor => "룩의 행마(상하좌우 직선 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다.",
                     PieceType.Archbishop => "비숍의 행마(대각선 4방향 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다.",

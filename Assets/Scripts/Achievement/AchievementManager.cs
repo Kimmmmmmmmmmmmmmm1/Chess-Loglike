@@ -57,6 +57,7 @@ public class AchievementManager : PersistentManagerBase
         LoadAllAchievements();
         LoadSaveData();
         RebuildProgressLookup();
+        AchievementToastManager.EnsureInstance();
     }
 
     public override void ResetForNewRun()

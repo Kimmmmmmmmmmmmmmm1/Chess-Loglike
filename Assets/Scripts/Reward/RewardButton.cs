@@ -240,6 +240,50 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         InitializeWithType(manager, rarity, null);
     }
 
+    public SavedRewardCardData GetCardData()
+    {
+        return new SavedRewardCardData
+        {
+            rewardType = (int)type,
+            coinAmount = coinAmount,
+            pieceType = pieceType,
+            artifactId = artifactReward != null ? artifactReward.id : null,
+            attachedSealId = attachedSeal != null ? CollectionManager.GetSealId(attachedSeal) : null
+        };
+    }
+
+    public void InitializeWithSavedData(RewardManager manager, int rarity, SavedRewardCardData data)
+    {
+        this.manager = manager;
+        button = GetComponent<Button>();
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(OnClicked);
+
+        if (backgroundImage == null)
+        {
+            backgroundImage = GetComponent<Image>();
+            if (backgroundImage != null)
+            {
+                originalBgColor = backgroundImage.color;
+            }
+        }
+
+        type = (RewardType)data.rewardType;
+        coinAmount = data.coinAmount;
+        pieceType = data.pieceType;
+        if (!string.IsNullOrEmpty(data.artifactId))
+        {
+            artifactReward = ArtifactManager.Instance != null ? ArtifactManager.Instance.GetArtifactDataById(data.artifactId) : null;
+            if (artifactReward == null) artifactReward = StageSaveManager.FindArtifactData(data.artifactId);
+        }
+        if (!string.IsNullOrEmpty(data.attachedSealId))
+        {
+            attachedSeal = StageSaveManager.FindSealData(data.attachedSealId);
+        }
+
+        SetupSavedRewardContent(rarity);
+    }
+
     public void InitializeWithType(RewardManager manager, int rarity, RewardType? forcedType)
     {
         this.manager = manager;
@@ -312,19 +356,10 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
 
     private void SetupRewardContent(int rarity)
     {
-        EnsureCardLayout();
-
         bool isElite = GameManager.Instance != null && GameManager.Instance.CurrentBattleType == BattleType.Elite;
-        Color themeColor = Color.white;
-        string headerString = "보상";
-        string titleString = "";
-        string descString = "";
 
         if (type == RewardType.Coin)
         {
-            themeColor = new Color(1f, 0.85f, 0.2f, 1f); // 골드
-            headerString = "🪙 골드";
-
             if (isElite)
             {
                 coinAmount = (Random.Range(35, 65) + (rarity * 10)) * 2;
@@ -332,14 +367,6 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             else
             {
                 coinAmount = Random.Range(20, 50) + (rarity * 10);
-            }
-
-            titleString = $"+{coinAmount} Gold";
-            descString = "즉시 보유 골드에 추가됩니다.";
-
-            if (iconImage != null)
-            {
-                iconImage.color = new Color(1f, 0.85f, 0.2f, 1f);
             }
         }
         else if (type == RewardType.Piece)
@@ -373,7 +400,60 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
                     pieceType = PieceType.Pawn;
                 }
             }
+        }
+        else if (type == RewardType.Seal)
+        {
+            attachedSeal = GetRandomSeal(null, isElite: isElite);
+            if (attachedSeal == null)
+            {
+                type = RewardType.Coin;
+                coinAmount = isElite ? ((Random.Range(35, 65) + (rarity * 10)) * 2) : (Random.Range(20, 50) + (rarity * 10));
+            }
+        }
+        else if (type == RewardType.Artifact)
+        {
+            if (ArtifactManager.Instance != null)
+            {
+                artifactReward = ArtifactManager.Instance.GetRandomArtifact(
+                    excludeLegendary: true,
+                    minRarity: isElite ? ArtifactRarity.Rare : ArtifactRarity.Common
+                );
+            }
 
+            if (artifactReward == null)
+            {
+                type = RewardType.Coin;
+                coinAmount = isElite ? ((Random.Range(40, 80) + (rarity * 10)) * 2) : Random.Range(30, 60);
+            }
+        }
+
+        SetupSavedRewardContent(rarity);
+    }
+
+    private void SetupSavedRewardContent(int rarity)
+    {
+        EnsureCardLayout();
+
+        bool isElite = GameManager.Instance != null && GameManager.Instance.CurrentBattleType == BattleType.Elite;
+        Color themeColor = Color.white;
+        string headerString = "보상";
+        string titleString = "";
+        string descString = "";
+
+        if (type == RewardType.Coin)
+        {
+            themeColor = new Color(1f, 0.85f, 0.2f, 1f); // 골드
+            headerString = "🪙 골드";
+            titleString = $"+{coinAmount} Gold";
+            descString = "즉시 보유 골드에 추가됩니다.";
+
+            if (iconImage != null)
+            {
+                iconImage.color = new Color(1f, 0.85f, 0.2f, 1f);
+            }
+        }
+        else if (type == RewardType.Piece)
+        {
             if (pieceType == PieceType.Amazon)
             {
                 themeColor = new Color(1f, 0.85f, 0.2f, 1f);
@@ -416,7 +496,6 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         }
         else if (type == RewardType.Seal)
         {
-            attachedSeal = GetRandomSeal(null, isElite: isElite);
             if (attachedSeal != null)
             {
                 CollectionManager.EnsureInstance()?.RecordSealSeen(attachedSeal);
@@ -435,8 +514,6 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             }
             else
             {
-                type = RewardType.Coin;
-                coinAmount = isElite ? ((Random.Range(35, 65) + (rarity * 10)) * 2) : (Random.Range(20, 50) + (rarity * 10));
                 themeColor = new Color(1f, 0.85f, 0.2f, 1f);
                 headerString = "🪙 골드";
                 titleString = $"+{coinAmount} Gold";
@@ -445,14 +522,6 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         }
         else if (type == RewardType.Artifact)
         {
-            if (ArtifactManager.Instance != null)
-            {
-                artifactReward = ArtifactManager.Instance.GetRandomArtifact(
-                    excludeLegendary: true,
-                    minRarity: isElite ? ArtifactRarity.Rare : ArtifactRarity.Common
-                );
-            }
-
             if (artifactReward != null)
             {
                 CollectionManager.EnsureInstance()?.RecordArtifactSeen(artifactReward);
@@ -471,7 +540,10 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             else
             {
                 type = RewardType.Coin;
-                coinAmount = isElite ? ((Random.Range(40, 80) + (rarity * 10)) * 2) : Random.Range(30, 60);
+                if (coinAmount <= 0)
+                {
+                    coinAmount = isElite ? ((Random.Range(40, 80) + (rarity * 10)) * 2) : Random.Range(30, 60);
+                }
                 themeColor = new Color(1f, 0.85f, 0.2f, 1f);
                 headerString = "🪙 골드";
                 titleString = $"+{coinAmount} Gold";
@@ -600,7 +672,16 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
     private void OnClicked()
     {
         if (GameManager.Instance == null) return;
+        if (manager != null)
+        {
+            manager.DisableAllRewardButtons();
+        }
         if (button != null) button.interactable = false;
+
+        if (TooltipManager.Instance != null)
+        {
+            TooltipManager.Instance.HideTooltip(gameObject);
+        }
 
         transform.DOKill();
         transform.DOPunchScale(Vector3.one * 0.12f, 0.2f, 10, 1).SetUpdate(true)
@@ -609,10 +690,28 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
 
     private void ExecuteRewardClaim()
     {
+        if (TooltipManager.Instance != null)
+        {
+            TooltipManager.Instance.HideTooltip(gameObject);
+        }
+
+        // 선택되지 않은 다른 보상 카드들은 축소
+        if (transform.parent != null)
+        {
+            foreach (Transform sibling in transform.parent)
+            {
+                if (sibling != null && sibling != transform)
+                {
+                    sibling.DOKill();
+                    sibling.DOScale(Vector3.zero, 0.2f).SetEase(Ease.InBack).SetUpdate(true);
+                }
+            }
+        }
+
         switch (type)
         {
             case RewardType.Coin:
-                AnimateCoinFly(coinAmount);
+                AnimateCoinFly(coinAmount, FinishRewardClaim);
                 break;
             case RewardType.Piece:
                 InventorySlot emptySlot = FindEmptyInventorySlot();
@@ -621,6 +720,7 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
                     emptySlot.IsReserved = true;
                     PieceSpawner.Instance.SpawnPieceAndFlyToInventory(pieceType, transform.position, emptySlot, attachedSeal, (piece) => {
                         emptySlot.IsReserved = false;
+                        FinishRewardClaim();
                     });
                 }
                 else if (PieceInventory.Instance != null)
@@ -630,30 +730,49 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
                     {
                         SealInventory.Instance.AddSeal(attachedSeal);
                     }
+                    FinishRewardClaim();
+                }
+                else
+                {
+                    FinishRewardClaim();
                 }
                 break;
             case RewardType.Seal:
-                if (SealInventory.Instance != null && attachedSeal != null)
-                {
-                    SealInventory.Instance.AddSeal(attachedSeal);
-                }
+                AnimateSealFly(attachedSeal, FinishRewardClaim);
                 break;
             case RewardType.Artifact:
                 if (ArtifactManager.Instance != null && artifactReward != null)
                 {
-                    AnimateArtifactFly(artifactReward);
+                    AnimateArtifactFly(artifactReward, FinishRewardClaim);
+                }
+                else
+                {
+                    FinishRewardClaim();
                 }
                 break;
+            default:
+                FinishRewardClaim();
+                break;
         }
+    }
 
+    private void FinishRewardClaim()
+    {
         if (TooltipManager.Instance != null)
         {
             TooltipManager.Instance.HideTooltip(gameObject);
         }
 
+        // 보상 데이터 반영 완료 직후 저장
+        StageSaveManager.EnsureInstance()?.SaveCurrentRun(pendingReward: false);
+
         if (manager != null)
         {
             manager.OnRewardButtonClicked();
+        }
+        else if (GameManager.Instance != null)
+        {
+            GameManager.Instance.AdvanceToStageSelect();
         }
 
         Destroy(gameObject);
@@ -763,11 +882,12 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         return sortedSlots.FirstOrDefault(slot => slot.GetComponentInChildren<PieceController>() == null && !slot.IsReserved);
     }
 
-    private void AnimateCoinFly(int amount)
+    private void AnimateCoinFly(int amount, System.Action onComplete = null)
     {
-        if (GameManager.Instance.coinText == null)
+        if (GameManager.Instance == null || GameManager.Instance.coinText == null)
         {
-            GameManager.Instance.AddCoin(amount);
+            GameManager.Instance?.AddCoin(amount);
+            onComplete?.Invoke();
             return;
         }
 
@@ -806,20 +926,26 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         }
         
         Sequence seq = DOTween.Sequence();
+        seq.SetUpdate(true);
         seq.Append(flyObj.transform.DOScale(1.2f, 0.2f).SetEase(Ease.OutQuad));
         seq.Append(flyObj.transform.DOMove(GameManager.Instance.coinText.transform.position, 0.8f).SetEase(Ease.InBack));
         seq.Join(flyObj.transform.DOScale(0.5f, 0.8f).SetDelay(0.2f));
         
-        // 완료 시 시각화만 업데이트
+        // 완료 시 시각화 정리 및 콜백
         seq.OnComplete(() =>
         {
             Destroy(flyObj);
+            onComplete?.Invoke();
         });
     }
 
-    private void AnimateArtifactFly(ArtifactData artifact)
+    private void AnimateArtifactFly(ArtifactData artifact, System.Action onComplete = null)
     {
-        if (ArtifactManager.Instance == null || artifact == null) return;
+        if (ArtifactManager.Instance == null || artifact == null)
+        {
+            onComplete?.Invoke();
+            return;
+        }
 
         GameObject flyObj = new GameObject("FlyingArtifact");
         Canvas rootCanvas = GetComponentInParent<Canvas>();
@@ -851,6 +977,7 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         }
 
         Sequence seq = DOTween.Sequence();
+        seq.SetUpdate(true);
         seq.Append(flyObj.transform.DOScale(1.2f, 0.2f).SetEase(Ease.OutQuad));
         seq.Append(flyObj.transform.DOMove(targetPos, 0.8f).SetEase(Ease.InBack));
         seq.Join(flyObj.transform.DOScale(0.3f, 0.8f).SetDelay(0.2f));
@@ -863,6 +990,70 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
                 ArtifactManager.Instance.AddArtifact(artifact);
             }
             Destroy(flyObj);
+            onComplete?.Invoke();
+        });
+    }
+
+    private void AnimateSealFly(SealData seal, System.Action onComplete = null)
+    {
+        if (SealInventory.Instance != null && seal != null)
+        {
+            SealInventory.Instance.AddSeal(seal);
+        }
+
+        if (seal == null)
+        {
+            onComplete?.Invoke();
+            return;
+        }
+
+        // 인장 인벤토리 슬롯 찾기
+        Vector3 targetPos = transform.position;
+        var sealSlots = FindObjectsByType<SealInventorySlot>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .OrderBy(s => s.transform.GetSiblingIndex())
+            .ToArray();
+        int sealIdx = SealInventory.Instance != null ? SealInventory.Instance.GetSealIndex(seal) : -1;
+        if (sealIdx >= 0 && sealIdx < sealSlots.Length)
+        {
+            targetPos = sealSlots[sealIdx].transform.position;
+        }
+        else if (sealSlots.Length > 0)
+        {
+            targetPos = sealSlots[0].transform.position;
+        }
+
+        GameObject flyObj = new GameObject("FlyingSeal");
+        Canvas rootCanvas = GetComponentInParent<Canvas>();
+        if (rootCanvas != null)
+        {
+            flyObj.transform.SetParent(rootCanvas.transform, true);
+        }
+        else
+        {
+            flyObj.transform.SetParent(transform.root, true);
+        }
+
+        flyObj.transform.position = transform.position;
+        flyObj.transform.localScale = Vector3.one;
+
+        Image flyImg = flyObj.AddComponent<Image>();
+        flyImg.sprite = seal.icon != null ? seal.icon : (iconImage != null ? iconImage.sprite : null);
+        flyImg.preserveAspect = true;
+        flyImg.raycastTarget = false;
+
+        RectTransform rt = flyObj.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(48, 48);
+
+        Sequence seq = DOTween.Sequence();
+        seq.SetUpdate(true);
+        seq.Append(flyObj.transform.DOScale(1.2f, 0.2f).SetEase(Ease.OutQuad));
+        seq.Append(flyObj.transform.DOMove(targetPos, 0.6f).SetEase(Ease.InBack));
+        seq.Join(flyObj.transform.DOScale(0.4f, 0.6f).SetDelay(0.2f));
+        seq.OnComplete(() =>
+        {
+            FindFirstObjectByType<SealInventoryPanel>(FindObjectsInactive.Include)?.RefreshSealItems();
+            Destroy(flyObj);
+            onComplete?.Invoke();
         });
     }
 }

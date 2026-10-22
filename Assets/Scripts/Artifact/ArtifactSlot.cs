@@ -53,7 +53,7 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
                 iconImage.color = Color.white;
                 if (artifact.IsActive)
                 {
-                    string stackText = artifact.StackCount > 1 ? $"({artifact.StackCount})" : string.Empty;
+                    string stackText = artifact.StackCount.ToString();
                     string levelText = artifact.CanEnhanceWhenActive ? $"Lv.{artifact.Level}" : string.Empty;
                     nameText.text = string.IsNullOrEmpty(levelText) ? stackText : $"{stackText} {levelText}".Trim();
                 }

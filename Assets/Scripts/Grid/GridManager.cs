@@ -72,7 +72,21 @@ public class GridManager : MonoBehaviour
 
     public void CreateGridCells()
     {
-        if (gridCells != null) return;
+        CreateGridCells(false, false);
+    }
+
+    public void CreateGridCells(bool immediate, bool forceRecreate = false)
+    {
+        if (gridCells != null && !forceRecreate) return;
+
+        if (forceRecreate && gridCells != null)
+        {
+            foreach (var c in gridCells)
+            {
+                if (c != null && c.gameObject != null) Destroy(c.gameObject);
+            }
+            gridCells = null;
+        }
 
         if (gridCellsParent == null)
         {
@@ -80,6 +94,13 @@ public class GridManager : MonoBehaviour
             parentObj.transform.SetParent(transform, false);
             gridCellsParent = parentObj.AddComponent<RectTransform>();
             gridCellsParent.anchoredPosition = Vector2.zero;
+        }
+        else if (forceRecreate)
+        {
+            for (int i = gridCellsParent.childCount - 1; i >= 0; i--)
+            {
+                Destroy(gridCellsParent.GetChild(i).gameObject);
+            }
         }
 
         gridCells = new GridCell[boardWidth, boardHeight];
@@ -113,30 +134,39 @@ public class GridManager : MonoBehaviour
                 cell.Initialize(gridPos, rect, anchoredPos, cellSize, tileColor);
                 gridCells[x, y] = cell;
 
-                // 생성 애니메이션
-                rect.localScale = Vector3.zero;
-                rect.anchoredPosition = anchoredPos - new Vector2(0, 30f);
-                float delay = y * 0.04f + x * 0.02f;
-                rect.DOAnchorPos(anchoredPos, 0.35f).SetEase(Ease.OutBack).SetDelay(delay);
-                rect.DOScale(Vector3.one, 0.35f).SetEase(Ease.OutBack).SetDelay(delay);
+                // 생성 애니메이션 (immediate가 true이면 대기/트윈 없이 즉시 완성 배치)
+                if (immediate)
+                {
+                    rect.localScale = Vector3.one;
+                    rect.anchoredPosition = anchoredPos;
+                }
+                else
+                {
+                    rect.localScale = Vector3.zero;
+                    rect.anchoredPosition = anchoredPos - new Vector2(0, 30f);
+                    float delay = y * 0.04f + x * 0.02f;
+                    rect.DOAnchorPos(anchoredPos, 0.35f).SetEase(Ease.OutBack).SetDelay(delay);
+                    rect.DOScale(Vector3.one, 0.35f).SetEase(Ease.OutBack).SetDelay(delay);
+                }
 
                 // 체스 좌표 표기 (File: 가로 열 알파벳 a-f / Rank: 세로 행 숫자 1-5)
                 if (showCoordinateLabels)
                 {
                     Color labelColor = isLight ? lightTileTextColor : darkTileTextColor;
+                    float labelDelay = immediate ? 0f : (y * 0.04f + x * 0.02f + 0.15f);
 
                     // 1. 랭크(Rank): 가장 왼쪽 열(x == 0) 좌측 상단 구석에 행 번호 표기
                     if (x == 0)
                     {
                         int rankNumber = y + 1;
-                        CreateCoordinateLabel(rect, rankNumber.ToString(), TextAlignmentOptions.TopLeft, labelColor, delay + 0.15f);
+                        CreateCoordinateLabel(rect, rankNumber.ToString(), TextAlignmentOptions.TopLeft, labelColor, labelDelay);
                     }
 
                     // 2. 파일(File): 가장 아랫쪽 행(y == 0) 우측 하단 구석에 열 알파벳(a, b, c...) 표기
                     if (y == 0)
                     {
                         char fileChar = (char)('a' + x);
-                        CreateCoordinateLabel(rect, fileChar.ToString(), TextAlignmentOptions.BottomRight, labelColor, delay + 0.15f);
+                        CreateCoordinateLabel(rect, fileChar.ToString(), TextAlignmentOptions.BottomRight, labelColor, labelDelay);
                     }
                 }
 

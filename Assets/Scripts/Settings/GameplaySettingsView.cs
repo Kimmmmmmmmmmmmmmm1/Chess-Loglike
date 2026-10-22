@@ -201,6 +201,9 @@ public class GameplaySettingsView : MonoBehaviour
             collectionManager.ResetAllProgress();
         }
 
+        // 스테이지 세이브 파일 전체 삭제
+        StageSaveManager.DeleteAllStageSaves();
+
         // 타이틀 씬으로 돌아가서 완전히 새로 시작
         SceneManager.LoadScene(SceneName.TitleScene.ToString());
     }
