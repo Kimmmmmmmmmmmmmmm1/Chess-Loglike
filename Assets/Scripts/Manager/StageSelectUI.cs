@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using TMPro;
 using DG.Tweening;
 
@@ -30,6 +31,7 @@ public class StageSelectUI : MonoBehaviour
 
     private readonly List<StageNodeType> currentPendingNodeTypes = new List<StageNodeType>();
     public IReadOnlyList<StageNodeType> CurrentPendingNodeTypes => currentPendingNodeTypes;
+    public int CurrentNextStage { get; private set; }
 
     public void SetPendingStageNodes(List<StageNodeType> nodes)
     {
@@ -58,6 +60,25 @@ public class StageSelectUI : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    private void OnEnable()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private void OnDisable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        if (scene.name == SceneName.TitleScene.ToString())
+        {
+            Close(true);
+            ResetSelectionState();
+        }
+    }
+
     #region Generalized Choice Card API
 
     /// <summary>
@@ -68,12 +89,23 @@ public class StageSelectUI : MonoBehaviour
     {
         if (options == null || options.Count == 0) return;
 
+        if (SceneManager.GetActiveScene().name == SceneName.TitleScene.ToString())
+        {
+            Close(true);
+            return;
+        }
+
         EnsureUI();
 
         if (rootPanel != null)
         {
             rootPanel.SetActive(true);
             rootPanel.transform.SetAsLastSibling();
+
+            if (TutorialManager.Instance != null && TutorialManager.Instance.IsDialogShowing)
+            {
+                TutorialManager.Instance.BringDialogToFront();
+            }
 
             CanvasGroup cg = rootPanel.GetComponent<CanvasGroup>();
             if (cg != null)
@@ -148,11 +180,31 @@ public class StageSelectUI : MonoBehaviour
     /// </summary>
     public void Open(int nextStage)
     {
+        CurrentNextStage = nextStage;
+
+        if (SceneManager.GetActiveScene().name == SceneName.TitleScene.ToString())
+        {
+            Close(true);
+            return;
+        }
+
         int act = ((nextStage - 1) / 10) + 1;
         int subStage = ((nextStage - 1) % 10) + 1;
 
         List<StageChoiceOption> options;
-        if (currentPendingNodeTypes != null && currentPendingNodeTypes.Count > 0)
+        if (nextStage == 2 || (nextStage == 3 && TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive))
+        {
+            currentPendingNodeTypes.Clear();
+            options = GenerateStageOptions(nextStage);
+            foreach (var opt in options)
+            {
+                if (opt.nodeType.HasValue)
+                {
+                    currentPendingNodeTypes.Add(opt.nodeType.Value);
+                }
+            }
+        }
+        else if (currentPendingNodeTypes != null && currentPendingNodeTypes.Count > 0)
         {
             options = new List<StageChoiceOption>();
             foreach (var nodeType in currentPendingNodeTypes)
@@ -174,19 +226,32 @@ public class StageSelectUI : MonoBehaviour
         }
 
         ShowChoices(options, $"NEXT STAGE : {act}-{subStage}", "다음 행선지를 선택하세요");
+
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive && (nextStage == 2 || nextStage == 3))
+        {
+            TutorialManager.Instance.ShowStageSelectPhase(nextStage);
+        }
     }
 
-    public void Close()
+    public void Close(bool immediate = false)
     {
-        if (rootPanel != null && rootPanel.activeSelf)
+        if (rootPanel != null && (rootPanel.activeSelf || immediate))
         {
             CanvasGroup cg = rootPanel.GetComponent<CanvasGroup>();
             if (cg != null)
             {
                 cg.DOKill();
+                if (immediate)
+                {
+                    cg.alpha = 0f;
+                    rootPanel.SetActive(false);
+                    ClearCards();
+                    return;
+                }
+
                 cg.DOFade(0f, 0.2f).SetUpdate(true).OnComplete(() =>
                 {
-                    rootPanel.SetActive(false);
+                    if (rootPanel != null) rootPanel.SetActive(false);
                     ClearCards();
                 });
             }
@@ -195,6 +260,10 @@ public class StageSelectUI : MonoBehaviour
                 rootPanel.SetActive(false);
                 ClearCards();
             }
+        }
+        else
+        {
+            ClearCards();
         }
     }
 
@@ -217,6 +286,14 @@ public class StageSelectUI : MonoBehaviour
     public List<StageChoiceOption> GenerateStageOptions(int nextStage)
     {
         var options = new List<StageChoiceOption>();
+
+        // 튜토리얼 2, 3스테이지 선택지는 둘 다 일반 전투 제시
+        if (nextStage == 2 || (nextStage == 3 && TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive))
+        {
+            options.Add(StageChoiceOption.FromNodeType(StageNodeType.NormalBattle));
+            options.Add(StageChoiceOption.FromNodeType(StageNodeType.NormalBattle));
+            return options;
+        }
 
         // 10스테이지 배수: 보스 전투 단독 제시
         if (nextStage % 10 == 0)
@@ -384,7 +461,16 @@ public class StageSelectUI : MonoBehaviour
                 cardComp = prefabCardObj.AddComponent<StageChoiceCard>();
             }
 
-            cardComp.Setup(option, cardWidth, cardHeight, isCompact, () => ExecuteOption(option));
+            cardComp.Setup(option, cardWidth, cardHeight, isCompact, () => OnCardSelected(option, prefabCardObj));
+
+            if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive &&
+                TutorialManager.Instance.CurrentPhase == TutorialPhase.StageSelect && TutorialManager.Instance.IsCurrentStepAction())
+            {
+                if (option.nodeType == StageNodeType.NormalBattle)
+                {
+                    cardComp.SetTutorialHighlighted(true);
+                }
+            }
             return;
         }
 
@@ -610,6 +696,35 @@ public class StageSelectUI : MonoBehaviour
     private void OnCardSelected(StageChoiceOption option, GameObject cardObj)
     {
         if (isSelecting) return;
+
+        // 튜토리얼 진행 중일 때 카드 클릭 제어
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            // 1. 스테이지 선택 페이즈 대화창이 아직 안내 진행 중이고, 행동 스텝이 아닌 경우에만 클릭 차단
+            if (TutorialManager.Instance.IsDialogShowing && !TutorialManager.Instance.IsCurrentStepAction())
+            {
+                if (cardObj != null)
+                {
+                    cardObj.transform.DOKill();
+                    cardObj.transform.DOShakePosition(0.4f, new Vector3(5f, 1f, 0f), 20, 90f, false, true).SetUpdate(true);
+                }
+                return;
+            }
+
+            // 2. 튜토리얼 스테이지 선택 단계 중에는 일반 전투 카드만 선택 허용
+            if (option == null || option.nodeType != StageNodeType.NormalBattle)
+            {
+                if (cardObj != null)
+                {
+                    cardObj.transform.DOKill();
+                    cardObj.transform.DOShakePosition(0.4f, new Vector3(5f, 1f, 0f), 20, 90f, false, true).SetUpdate(true);
+                }
+                return;
+            }
+
+            TutorialManager.Instance.OnStageChoiceSelected();
+        }
+
         isSelecting = true;
 
         if (cardObj != null)

@@ -19,6 +19,7 @@ public class PiecePromotionManager : MonoBehaviour
     public Button elephantButton;                  // 상 선택 버튼
     public Button chariotButton;                   // 차 선택 버튼
     public Button cannonButton;                    // 포 선택 버튼
+    public Button QueenButton => cannonButton;
     public TextMeshProUGUI titleText;             // "기물 승급" 타이틀
     public TextMeshProUGUI descriptionText;       // 설명 텍스트
     public SealData promotionSealData;            // 승급의 인장(선택 연결)
@@ -249,6 +250,7 @@ public class PiecePromotionManager : MonoBehaviour
             descriptionText.text = "승급할 기물을 선택하세요.";
 
         UpdateButtonSprites();
+        TutorialManager.Instance?.NotifyPromotionPanelOpened();
     }
 
     private void OnPromotionSelected(PieceType promotedType)
@@ -261,6 +263,15 @@ public class PiecePromotionManager : MonoBehaviour
         if (promotedType == PieceType.King || promotedType == PieceType.Pawn)
         {
             return;
+        }
+
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            if (!TutorialManager.Instance.IsPromotionChoiceAllowed(promotedType))
+            {
+                return;
+            }
+            TutorialManager.Instance.NotifyPromotionChoiceMade(promotedType);
         }
 
         // Play promotion effect at the soldier's position, then perform the actual promotion when effect reaches target width
@@ -548,6 +559,7 @@ public class PiecePromotionManager : MonoBehaviour
                     PieceManager.Instance.CheckPieceCounts();
                 }
                 if (TurnManager.Instance != null) TurnManager.Instance.AdvanceTurn();
+                TutorialManager.Instance?.NotifyPromotionEffectCompleted();
             });
         }
         else
@@ -562,6 +574,7 @@ public class PiecePromotionManager : MonoBehaviour
                 PieceManager.Instance.CheckPieceCounts();
             }
             if (TurnManager.Instance != null) TurnManager.Instance.AdvanceTurn();
+            TutorialManager.Instance?.NotifyPromotionEffectCompleted();
         }
     }
 

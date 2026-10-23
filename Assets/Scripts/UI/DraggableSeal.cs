@@ -84,6 +84,16 @@ public class DraggableSeal : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
             return;
         }
 
+        // 튜토리얼 중 인장 드래그 허용 여부 검사 (설명 스텝 도달 전 드래그 방지)
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            if (!TutorialManager.Instance.IsSealDragAllowed(this))
+            {
+                eventData.pointerDrag = null;
+                return;
+            }
+        }
+
         // 만약 이 인장이 기물에 장착된 상태라면, 드래그 시작 시 바로 장착 해제 처리
         sourcePiece = GetComponentInParent<PieceController>();
         removedFromPiece = false;

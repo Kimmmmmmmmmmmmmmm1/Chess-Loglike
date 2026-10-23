@@ -178,6 +178,13 @@ public class StageSaveManager : MonoBehaviour
             saveData.currentFlowState = GameManager.Instance != null ? (int)GameManager.Instance.CurrentFlowState : (int)GameFlowState.Battle;
             saveData.currentBattleType = GameManager.Instance != null ? (int)GameManager.Instance.CurrentBattleType : (int)BattleType.Normal;
 
+            // 튜토리얼 진행 상태 저장
+            TutorialManager tm = TutorialManager.EnsureInstance();
+            if (tm != null && tm.IsTutorialActive)
+            {
+                saveData.tutorialData = tm.ExportTutorialSaveData();
+            }
+
             // 그리드 및 보드 크기 저장
             GridManager gm = PieceManager.Instance != null && PieceManager.Instance.gridManager != null
                 ? PieceManager.Instance.gridManager
@@ -407,6 +414,15 @@ public class StageSaveManager : MonoBehaviour
         }
 
         Debug.Log($"[StageSaveManager] Restoring Run: {saveData.stageDisplayName} (clearedStage: {saveData.clearedStage}, Coin: {saveData.coin})");
+
+        TutorialManager tm = TutorialManager.EnsureInstance();
+        if (saveData.tutorialData != null && saveData.tutorialData.isTutorialActive)
+        {
+            if (tm != null)
+            {
+                tm.PrepareTutorialRestore(saveData.tutorialData);
+            }
+        }
 
         // 1. 게임 매니저 상태 복원
         if (GameManager.Instance != null)
@@ -706,6 +722,14 @@ public class StageSaveManager : MonoBehaviour
         }
 
         isRestoring = false;
+
+        if (saveData.tutorialData != null && saveData.tutorialData.isTutorialActive)
+        {
+            if (tm != null)
+            {
+                tm.ResumeTutorialAfterRestore(saveData.tutorialData, saveData);
+            }
+        }
     }
 
     private void OnApplicationQuit()

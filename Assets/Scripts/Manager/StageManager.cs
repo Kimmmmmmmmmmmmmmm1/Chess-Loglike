@@ -4,8 +4,20 @@ using System.Linq;
 
 public class StageManager : MonoBehaviour
 {
+    public static StageManager Instance { get; private set; }
+
     private List<StageData> allNormalStageData;
     private List<StageData> allEliteStageData;
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+    }
 
     private void Start()
     {
@@ -30,11 +42,16 @@ public class StageManager : MonoBehaviour
     {
         var loadedStages = Resources.LoadAll<StageData>("Stages").ToList();
         allEliteStageData = loadedStages.Where(s => s != null && (s.isElite || s.name.Contains("Elite"))).ToList();
-        allNormalStageData = loadedStages.Where(s => s != null && !s.isElite && !s.name.Contains("Elite")).ToList();
+        allNormalStageData = loadedStages.Where(s => s != null && !s.isElite && !s.name.Contains("Elite") && !s.name.Contains("Tutorial")).ToList();
     }
 
     private void OnDestroy()
     {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+
         if (GameManager.Instance != null)
         {
             GameManager.Instance.OnFlowStateChanged -= OnGameFlowStateChanged;
@@ -78,46 +95,103 @@ public class StageManager : MonoBehaviour
         int subStage = clearedStage % 10; // 0~9
 
         bool isElite = GameManager.Instance != null && GameManager.Instance.CurrentBattleType == BattleType.Elite;
+        TutorialManager tm = TutorialManager.EnsureInstance();
+        bool isTutorial = (tm != null && tm.IsTutorialActive)
+                       || (clearedStage == 0 && tm != null && tm.ShouldShowTutorial());
         StageData selectedStage = null;
 
-        if (isElite)
+        if (isTutorial && clearedStage == 0)
         {
-            if (allEliteStageData != null && allEliteStageData.Count > 0)
+            selectedStage = Resources.Load<StageData>("Stages/Stage_Tutorial");
+            if (selectedStage != null)
             {
-                // 엘리트 스테이지: 액트 및 서브스테이지에 따라 난이도(1~3) 가중치 매칭
-                int targetEliteDiff = Mathf.Clamp(act + (subStage >= 5 ? 2 : 1), 1, 3);
-                var candidates = allEliteStageData.Where(d => d.difficulty == targetEliteDiff).ToList();
-                if (candidates.Count == 0)
-                {
-                    candidates = allEliteStageData;
-                }
-                selectedStage = candidates[Random.Range(0, candidates.Count)];
+                Debug.Log($"[StageManager] 튜토리얼 1스테이지 고정 로드 완료: {selectedStage.name}, 적 기물 수: {selectedStage.enemyPieces?.Count ?? 0}");
+            }
+            else
+            {
+                Debug.LogError("[StageManager] Stages/Stage_Tutorial 에셋 로드 실패! Resources 폴더를 확인하세요.");
             }
         }
-        else
+        else if (isTutorial && clearedStage == 1)
         {
-            if (allNormalStageData != null && allNormalStageData.Count > 0)
+            StageData baseStage = Resources.Load<StageData>("Stages/Stage_Easy_1");
+            if (baseStage != null)
             {
-                // 10스테이지 주기 일반 전투 난이도 배분 (0: 쉬움, 1: 보통, 2: 어려움, 3: 매우어려움)
-                int step = subStage <= 2 ? 0 : (subStage <= 5 ? 1 : 2);
-                int targetDifficulty = Mathf.Clamp(act + step, 0, 3);
-
-                var candidates = allNormalStageData.Where(data => data.difficulty == targetDifficulty).ToList();
-                if (candidates.Count == 0)
+                selectedStage = Instantiate(baseStage);
+                // 튜토리얼 2스테이지: 폰 승급 경로(x = 1 열)를 확보하기 위해 적 기물 배치 최적화 (적 킹: (-1, 2), 적 폰: (-1, 1))
+                selectedStage.enemyPieces = new List<PieceSpawner.PieceSpawnInfo>
                 {
-                    int minDiff = Mathf.Max(0, targetDifficulty - 1);
-                    int maxDiff = Mathf.Min(3, targetDifficulty + 1);
-                    candidates = allNormalStageData.Where(data => data.difficulty >= minDiff && data.difficulty <= maxDiff).ToList();
-                }
-
-                if (candidates.Count == 0 && allNormalStageData.Count > 0)
+                    new PieceSpawner.PieceSpawnInfo { pieceType = PieceType.King, gridCoordinate = new Vector2Int(-1, 2), seals = new List<SealData>() },
+                    new PieceSpawner.PieceSpawnInfo { pieceType = PieceType.Pawn, gridCoordinate = new Vector2Int(-1, 1), seals = new List<SealData>() }
+                };
+                Debug.Log($"[StageManager] 튜토리얼 2스테이지(프로모션) 고정 로드 완료: {selectedStage.name}, 적 기물 수: {selectedStage.enemyPieces?.Count ?? 0}");
+            }
+            else
+            {
+                Debug.LogError("[StageManager] Stages/Stage_Easy_1 에셋 로드 실패!");
+            }
+        }
+        else if (isTutorial && clearedStage == 2)
+        {
+            StageData baseStage = Resources.Load<StageData>("Stages/Stage_Easy_1");
+            if (baseStage != null)
+            {
+                selectedStage = Instantiate(baseStage);
+                // 튜토리얼 3스테이지: 낙뢰의 부적으로 파괴할 적 기물 배치 (적 킹: (0, 2), 적 나이트: (1, 1))
+                selectedStage.enemyPieces = new List<PieceSpawner.PieceSpawnInfo>
                 {
-                    candidates = allNormalStageData;
-                }
+                    new PieceSpawner.PieceSpawnInfo { pieceType = PieceType.King, gridCoordinate = new Vector2Int(0, 2), seals = new List<SealData>() },
+                    new PieceSpawner.PieceSpawnInfo { pieceType = PieceType.Knight, gridCoordinate = new Vector2Int(1, 1), seals = new List<SealData>() }
+                };
+                Debug.Log($"[StageManager] 튜토리얼 3스테이지(낙뢰의 부적) 고정 로드 완료: {selectedStage.name}, 적 기물 수: {selectedStage.enemyPieces?.Count ?? 0}");
+            }
+            else
+            {
+                Debug.LogError("[StageManager] Stages/Stage_Easy_1 에셋 로드 실패!");
+            }
+        }
 
-                if (candidates.Count > 0)
+        if (selectedStage == null)
+        {
+            if (isElite)
+            {
+                if (allEliteStageData != null && allEliteStageData.Count > 0)
                 {
+                    // 엘리트 스테이지: 액트 및 서브스테이지에 따라 난이도(1~3) 가중치 매칭
+                    int targetEliteDiff = Mathf.Clamp(act + (subStage >= 5 ? 2 : 1), 1, 3);
+                    var candidates = allEliteStageData.Where(d => d.difficulty == targetEliteDiff).ToList();
+                    if (candidates.Count == 0)
+                    {
+                        candidates = allEliteStageData;
+                    }
                     selectedStage = candidates[Random.Range(0, candidates.Count)];
+                }
+            }
+            else
+            {
+                if (allNormalStageData != null && allNormalStageData.Count > 0)
+                {
+                    // 10스테이지 주기 일반 전투 난이도 배분 (0: 쉬움, 1: 보통, 2: 어려움, 3: 매우어려움)
+                    int step = subStage <= 2 ? 0 : (subStage <= 5 ? 1 : 2);
+                    int targetDifficulty = Mathf.Clamp(act + step, 0, 3);
+
+                    var candidates = allNormalStageData.Where(data => data.difficulty == targetDifficulty).ToList();
+                    if (candidates.Count == 0)
+                    {
+                        int minDiff = Mathf.Max(0, targetDifficulty - 1);
+                        int maxDiff = Mathf.Min(3, targetDifficulty + 1);
+                        candidates = allNormalStageData.Where(data => data.difficulty >= minDiff && data.difficulty <= maxDiff).ToList();
+                    }
+
+                    if (candidates.Count == 0 && allNormalStageData.Count > 0)
+                    {
+                        candidates = allNormalStageData;
+                    }
+
+                    if (candidates.Count > 0)
+                    {
+                        selectedStage = candidates[Random.Range(0, candidates.Count)];
+                    }
                 }
             }
         }
@@ -160,6 +234,40 @@ public class StageManager : MonoBehaviour
         }
         else
         {
+        }
+    }
+
+    /// <summary>
+    /// 튜토리얼 스킵 시 현재 스테이지를 일반 스테이지로 재설정하고 적 기물을 재배치합니다.
+    /// </summary>
+    public void ReloadNormalStage()
+    {
+        if (PieceManager.Instance != null)
+        {
+            var enemies = new List<PieceController>(PieceManager.Instance.EnemyPieces);
+            foreach (var enemy in enemies)
+            {
+                if (enemy != null)
+                {
+                    Destroy(enemy.gameObject);
+                }
+            }
+        }
+
+        SetupStage();
+
+        if (PieceSpawner.Instance != null)
+        {
+            PieceSpawner.Instance.SpawnEnemyPieces();
+        }
+
+        GridManager gridManager = PieceManager.Instance != null
+            ? PieceManager.Instance.gridManager
+            : FindFirstObjectByType<GridManager>();
+        if (gridManager != null && GameStateManager.Instance != null &&
+            GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare)
+        {
+            gridManager.HighlightInvalidZones();
         }
     }
 

@@ -244,6 +244,18 @@ public class GameStateManager : MonoBehaviour
 
     private void OnGameStartButtonClick()
     {
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            if (!TutorialManager.Instance.IsGameStartAllowed())
+            {
+                if (gameStartButton != null)
+                {
+                    gameStartButton.transform.DOShakePosition(0.5f, new Vector3(5f, 1f, 0f), 30, 90f, false, true);
+                }
+                return;
+            }
+        }
+
         if (HasPlayerPiecesOnBoard())
         {
             // Capture placement snapshot at the moment the player confirms placement

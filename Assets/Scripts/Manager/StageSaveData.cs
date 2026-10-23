@@ -35,6 +35,39 @@ public class StageSaveData
     // 고정된 선택지 데이터
     public List<int> pendingStageNodeTypes = new List<int>(); // StageNodeType int values
     public List<SavedRewardCardData> pendingRewardCards = new List<SavedRewardCardData>();
+
+    // 튜토리얼 진행 데이터
+    public SavedTutorialData tutorialData;
+}
+
+[Serializable]
+public class SavedTutorialData
+{
+    public bool isTutorialActive;
+    public int currentPhase;
+    public bool isWaitingForQuestion;
+    public bool hasShownKingPlacement;
+    public bool hasShownPawnPlacement;
+    public bool hasShownPlacementComplete;
+    public bool hasShownMovement;
+    public bool hasShownCapture;
+    public bool hasShownReward;
+    public bool hasShownStageSelect;
+    public bool hasShownStageSelect3;
+    public bool hasShownPlacementPawnStage2;
+    public bool hasShownSealIntro;
+    public bool hasShownSealEquip;
+    public bool hasShownSealEquipComplete;
+    public bool hasShownSealMovement;
+    public bool hasShownPromotionAdvance2;
+    public bool hasShownPromotionAdvance3;
+    public bool hasShownPromotionChoice;
+    public bool hasShownPromotionComplete;
+    public bool hasShownRewardStage2;
+    public bool hasShownLightningIntro;
+    public bool hasShownLightningTarget;
+    public bool hasShownLightningComplete;
+    public bool hasShownPassiveArtifact;
 }
 
 [Serializable]

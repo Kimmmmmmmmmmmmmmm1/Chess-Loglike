@@ -45,6 +45,7 @@ public class AchievementPanelView : MonoBehaviour
         }
 
         EnsureTabAndButtonLabels();
+        EnsureGridLayout();
         BindToggles();
         SelectAllCategoryWithoutRefresh();
     }
@@ -52,6 +53,7 @@ public class AchievementPanelView : MonoBehaviour
     private void OnEnable()
     {
         EnsureTabAndButtonLabels();
+        EnsureGridLayout();
         AchievementManager.EnsureInstance();
         SubscribeAchievementEvents();
 
@@ -108,6 +110,7 @@ public class AchievementPanelView : MonoBehaviour
 
         StopEntryAnimations();
         ClearContent();
+        EnsureGridLayout();
         RenderCurrentPage(achievementManager);
         AnimateSpawnedEntries();
 
@@ -279,6 +282,21 @@ public class AchievementPanelView : MonoBehaviour
                 cg.alpha = 1f;
             }
             entryRect.localScale = Vector3.one;
+        }
+    }
+
+    private void EnsureGridLayout()
+    {
+        if (contentRoot == null) return;
+
+        GridLayoutGroup grid = contentRoot.GetComponent<GridLayoutGroup>();
+        if (grid != null)
+        {
+            grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+            grid.startAxis = GridLayoutGroup.Axis.Horizontal;
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = 2;
+            grid.childAlignment = TextAnchor.UpperCenter;
         }
     }
 

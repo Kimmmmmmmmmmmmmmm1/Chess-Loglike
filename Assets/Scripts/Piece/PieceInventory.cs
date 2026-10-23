@@ -117,18 +117,6 @@ public class PieceInventory : MonoBehaviour
                     }
                 }
             }
-            else
-            {
-                // ResolveSeal(null, null, 2)는 '항상 랜덤 인장 지급'을 의미합니다.
-                SealData randomSeal = EventManager.Instance.ResolveSeal(null, null, 2);
-                if (randomSeal != null)
-                {
-                    SealInventory.Instance.AddSeal(randomSeal);
-                }
-            }
-        }
-        else
-        {
         }
     }
 

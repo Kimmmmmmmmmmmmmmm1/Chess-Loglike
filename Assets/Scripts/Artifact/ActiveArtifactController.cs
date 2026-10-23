@@ -15,6 +15,9 @@ public class ActiveArtifactController : MonoBehaviour
 
     public static bool IsTargeting => Instance != null && Instance.pendingArtifact != null;
 
+    public static event System.Action<ArtifactData> OnTargetingBegan;
+    public static event System.Action OnTargetingEnded;
+
     private ArtifactData pendingArtifact;
     private ActiveArtifactEffectBase pendingEffect;
     private ArtifactSlot pendingSlot;
@@ -235,6 +238,7 @@ public class ActiveArtifactController : MonoBehaviour
         PieceManager.Instance?.HideMoveMarkers();
         slot?.SetTargetingVisual(true);
         HighlightValidTargets();
+        OnTargetingBegan?.Invoke(artifact);
         if (effect.TargetType == ActiveArtifactTargetType.InventoryPiecePlacement)
         {
             TurnLogUIManager.Instance?.AddLog("지원군의 훈장: 인벤토리의 아군 기물을 1~2랭크로 드래그하세요.", false);
@@ -255,6 +259,7 @@ public class ActiveArtifactController : MonoBehaviour
         pendingArtifact = null;
         pendingEffect = null;
         pendingSlot = null;
+        OnTargetingEnded?.Invoke();
     }
 
     private void Consume(ArtifactData artifact, ArtifactSlot slot, ActiveArtifactEffectBase effect)

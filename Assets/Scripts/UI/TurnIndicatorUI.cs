@@ -145,6 +145,12 @@ public class TurnIndicatorUI : MonoBehaviour
 
     private void Awake()
     {
+        if (SceneManager.GetActiveScene().name == "TitleScene")
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);

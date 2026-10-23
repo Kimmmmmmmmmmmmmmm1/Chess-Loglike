@@ -30,6 +30,7 @@ public class StageChoiceCard : MonoBehaviour, IPointerEnterHandler, IPointerExit
     public TextMeshProUGUI selectButtonText;
 
     private StageChoiceOption option;
+    public StageChoiceOption Option => option;
     private Action onSelectedCallback;
     private bool isAppearing = true;
     private bool isSelected = false;
@@ -201,18 +202,54 @@ public class StageChoiceCard : MonoBehaviour, IPointerEnterHandler, IPointerExit
             });
     }
 
+    private bool isTutorialHighlighted = false;
+    private Tween tutorialPulseTween;
+
+    public void SetTutorialHighlighted(bool highlighted)
+    {
+        isTutorialHighlighted = highlighted;
+        if (outline != null) outline.enabled = false;
+
+        if (highlighted)
+        {
+            StartTutorialPulse();
+        }
+        else
+        {
+            tutorialPulseTween?.Kill();
+            tutorialPulseTween = null;
+            transform.localScale = Vector3.one;
+        }
+    }
+
+    private void StartTutorialPulse()
+    {
+        tutorialPulseTween?.Kill();
+        transform.localScale = Vector3.one * 0.98f;
+        tutorialPulseTween = transform.DOScale(Vector3.one * 1.02f, 0.45f)
+            .SetLoops(-1, LoopType.Yoyo)
+            .SetEase(Ease.InOutSine)
+            .SetUpdate(true);
+    }
+
     public void OnPointerEnter(PointerEventData eventData)
     {
         if (isSelected || isAppearing) return;
 
         transform.DOKill();
         transform.DOScale(1.05f, 0.15f).SetUpdate(true);
-        if (outline != null) outline.effectDistance = new Vector2(3f, 3f);
+        if (outline != null && !isTutorialHighlighted) outline.effectDistance = new Vector2(3f, 3f);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
         if (isSelected || isAppearing) return;
+
+        if (isTutorialHighlighted)
+        {
+            StartTutorialPulse();
+            return;
+        }
 
         transform.DOKill();
         transform.DOScale(1.0f, 0.15f).SetUpdate(true);
@@ -222,6 +259,27 @@ public class StageChoiceCard : MonoBehaviour, IPointerEnterHandler, IPointerExit
     private void OnCardClicked()
     {
         if (isSelected) return;
+
+        // 튜토리얼 진행 중일 때 카드 클릭 제어
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            // 스테이지 선택 페이즈의 행동 스텝이 아니면 모든 카드 클릭 차단 (예: 패시브 유물 튜토리얼 중)
+            if (TutorialManager.Instance.CurrentPhase != TutorialPhase.StageSelect || !TutorialManager.Instance.IsCurrentStepAction())
+            {
+                transform.DOKill();
+                transform.DOShakePosition(0.4f, new Vector3(5f, 1f, 0f), 20, 90f, false, true).SetUpdate(true);
+                return;
+            }
+
+            // 일반 전투 카드만 허용
+            if (option == null || option.nodeType != StageNodeType.NormalBattle)
+            {
+                transform.DOKill();
+                transform.DOShakePosition(0.4f, new Vector3(5f, 1f, 0f), 20, 90f, false, true).SetUpdate(true);
+                return;
+            }
+        }
+
         isSelected = true;
 
         transform.DOKill();

@@ -230,6 +230,57 @@ public class GameOverPanel : MonoBehaviour
     private void OnRestartClicked()
     {
         StageSaveManager.ClearActiveRun();
+        StageSaveManager.HasRestoredThisSession = false;
+        StageSaveManager.IsContinuePending = false;
+
+        if (StageSelectUI.Instance != null)
+        {
+            StageSelectUI.Instance.Close(true);
+            StageSelectUI.Instance.ResetSelectionState();
+        }
+
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.ResetRunData();
+        }
+
+        if (PieceInventory.Instance != null)
+        {
+            PieceInventory.Instance.ClearPieces();
+            PieceInventory.Instance.ResetStageSnapshot();
+        }
+
+        if (ShopManager.Instance != null)
+        {
+            ShopManager.Instance.ResetInventoryRestoreMarker();
+            ShopManager.Instance.Close();
+        }
+
+        if (WorkShopManager.Instance != null)
+        {
+            WorkShopManager.Instance.Close();
+        }
+
+        if (TreasureManager.Instance != null)
+        {
+            TreasureManager.Instance.Close();
+        }
+
+        if (ArtifactManager.Instance != null)
+        {
+            ArtifactManager.Instance.ClearArtifacts();
+        }
+
+        if (SealInventory.Instance != null)
+        {
+            SealInventory.Instance.ClearSeals();
+        }
+
+        if (TutorialManager.Instance != null)
+        {
+            TutorialManager.Instance.AbortTutorial();
+        }
+
         SceneManager.LoadScene(SceneName.TitleScene.ToString());
     }
 }

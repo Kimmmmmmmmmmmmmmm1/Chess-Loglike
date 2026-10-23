@@ -100,6 +100,12 @@ public class SettingsButtonSelector : MonoBehaviour, ISelectHandler, IDeselectHa
         RefreshVisuals();
     }
 
+    public void SetButtonText(string text)
+    {
+        buttonBaseText = text ?? string.Empty;
+        RefreshVisuals();
+    }
+
     public void SetInteractable(bool interactable)
     {
         isInteractive = interactable;

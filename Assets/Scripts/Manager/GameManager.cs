@@ -23,7 +23,7 @@ public class GameManager : MonoBehaviour
 {
     private const string DefaultOpenSettingsKey = "F1";
 
-    private static class AchievementIds
+    public static class AchievementIds
     {
         public const string OtherFirstRun = "other_first_run";
         public const string OtherFirstEvent = "other_first_event";
@@ -202,7 +202,7 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        TryAddAchievementProgress(AchievementIds.OtherFirstRun);
+        AchievementManager.EnsureInstance();
 
         currentFlowState = GameFlowState.None;
 
@@ -231,6 +231,30 @@ public class GameManager : MonoBehaviour
         AddCoin(100);
         UpdateStageUI();
         TurnIndicatorUI.EnsureInstance();
+
+        CheckAndStartTutorial();
+    }
+
+    private void CheckAndStartTutorial()
+    {
+        if (clearedStage != 0)
+        {
+            TryAddAchievementProgress(AchievementIds.OtherFirstRun);
+            return;
+        }
+
+        TutorialManager tm = TutorialManager.EnsureInstance();
+        if (tm != null && tm.ShouldShowTutorial())
+        {
+            tm.StartTutorialFlow(() =>
+            {
+                TryAddAchievementProgress(AchievementIds.OtherFirstRun);
+            });
+        }
+        else
+        {
+            TryAddAchievementProgress(AchievementIds.OtherFirstRun);
+        }
     }
 
     private void OnEnable()
@@ -250,6 +274,40 @@ public class GameManager : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        if (scene.name == SceneName.TitleScene.ToString())
+        {
+            StopAllCoroutines();
+            currentFlowState = GameFlowState.None;
+            hasInitiatedContinue = false;
+
+            if (StageSelectUI.Instance != null)
+            {
+                StageSelectUI.Instance.Close(true);
+                StageSelectUI.Instance.ResetSelectionState();
+            }
+
+            if (ShopManager.Instance != null) ShopManager.Instance.Close();
+            if (WorkShopManager.Instance != null) WorkShopManager.Instance.Close();
+            if (TreasureManager.Instance != null) TreasureManager.Instance.Close();
+            if (TutorialManager.Instance != null)
+            {
+                TutorialManager.Instance.AbortTutorial();
+            }
+
+            if (TurnIndicatorUI.Instance != null)
+            {
+                Destroy(TurnIndicatorUI.Instance.gameObject);
+            }
+            TurnIndicatorUI[] turnUIs = FindObjectsByType<TurnIndicatorUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var ui in turnUIs)
+            {
+                if (ui != null) Destroy(ui.gameObject);
+            }
+
+            ResetRunData();
+            return;
+        }
+
         SubscribeToGameStateManager();
         Time.timeScale = 1f;
         SettingsManager.Instance?.ApplyRuntimeSettings();
@@ -298,9 +356,10 @@ public class GameManager : MonoBehaviour
             hasInitiatedContinue = true;
             StartCoroutine(StageSaveManager.EnsureInstance().RestoreRunRoutine());
         }
-        else if (!StageSaveManager.IsRestoring && !StageSaveManager.HasRestoredThisSession && !hasInitiatedContinue && currentFlowState == GameFlowState.None)
+        else if (!StageSaveManager.IsRestoring && !StageSaveManager.HasRestoredThisSession && !hasInitiatedContinue)
         {
             StartCoroutine(DelayedBattleStart());
+            CheckAndStartTutorial();
         }
     }
 
@@ -588,6 +647,12 @@ public class GameManager : MonoBehaviour
                 TryAddAchievementProgress(AchievementIds.OtherGameOver);
                 TryAddAchievementProgress(AchievementIds.OtherGameOver5);
                 StageSaveManager.ClearActiveRun();
+                currentFlowState = GameFlowState.None;
+                if (StageSelectUI.Instance != null)
+                {
+                    StageSelectUI.Instance.Close(true);
+                    StageSelectUI.Instance.ResetSelectionState();
+                }
                 break;
         }
     }

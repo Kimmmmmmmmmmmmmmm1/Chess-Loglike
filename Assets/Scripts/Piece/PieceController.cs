@@ -700,6 +700,15 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         if (PieceManager.Instance != null && currentLocation == PieceLocation.Board)
         {
+            if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.GamePlay &&
+                TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+            {
+                if (!TutorialManager.Instance.IsPieceSelectionAllowed(this))
+                {
+                    return;
+                }
+            }
+
             PieceManager.Instance.SelectPiece(this);
             if (TooltipManager.Instance != null)
             {
@@ -885,6 +894,15 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             (currentLocation == PieceLocation.Inventory || isInInventorySlot))
         {
             return;
+        }
+
+        // 튜토리얼 중에는 지정된 대상 기물만 드래그 허용 (준비 단계 배치 및 전투 단계 폰 전진)
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            if (!TutorialManager.Instance.IsPieceDragAllowed(pieceType, currentLocation))
+            {
+                return;
+            }
         }
 
         if (PieceManager.Instance != null && !isArtifactInventoryDrag)
@@ -1107,6 +1125,16 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             // 유효한 그리드 위치이고, 플레이어 진영(설정된 범위 내)인 경우
             if (targetGridPos.HasValue && targetGridPos.Value.y <= PieceManager.Instance.PlayerPrepareMaxY)
             {
+                // 튜토리얼 중 지정된 그리드 칸 이외 배치 차단
+                if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+                {
+                    if (!TutorialManager.Instance.IsPlacementAllowed(pieceType, targetGridPos.Value))
+                    {
+                        ReturnToOriginalPosition();
+                        return;
+                    }
+                }
+
                 PieceController targetPiece = PieceManager.Instance.GetPieceAt(targetGridPos.Value);
 
                 // 빈 칸이면 이동
@@ -1221,6 +1249,15 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             return;
         }
 
+        // 튜토리얼 진행 중 인장 장착 대상 기물 검증 (아군 폰만 허용)
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            if (!TutorialManager.Instance.IsSealEquipAllowed(this))
+            {
+                return;
+            }
+        }
+
         SealData sealToEquip = draggableSeal.SealData;
         if (!isEnemy && pieceType == PieceType.King && ShotgunKingSystem.IsActive)
         {
@@ -1251,6 +1288,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             FindFirstObjectByType<SealInventoryPanel>()?.RefreshSealItems();
         }
         draggableSeal.MarkDropHandledSuccessfully();
+        TutorialManager.Instance?.NotifySealEquipped(this, sealToEquip);
     }
 
     public void MarkSynthesisDropHandled()

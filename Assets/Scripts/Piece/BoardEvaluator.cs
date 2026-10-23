@@ -107,6 +107,23 @@ public class BoardEvaluator : MonoBehaviour
             int pieceId = baseState.EnemyPieceIds[i];
             SimPiece piece = baseState.GetPiece(pieceId);
             List<Vector2Int> legalMoves = GetRootLegalMoves(baseState, piece);
+            if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+            {
+                int cleared = GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0;
+                if (cleared == 0 || cleared == 1)
+                {
+                    legalMoves.RemoveAll(t =>
+                    {
+                        if (TutorialManager.Instance.IsTargetProtectedFromEnemy(t)) return true;
+                        PieceController p = PieceManager.Instance != null ? PieceManager.Instance.GetPieceAt(t) : null;
+                        return p != null && !p.IsEnemy;
+                    });
+                }
+                else
+                {
+                    legalMoves.RemoveAll(t => TutorialManager.Instance.IsTargetProtectedFromEnemy(t));
+                }
+            }
 
             for (int m = 0; m < legalMoves.Count; m++)
             {
@@ -130,6 +147,20 @@ public class BoardEvaluator : MonoBehaviour
                 if (score > bestMove.Score)
                 {
                     bestMove = new BestMove(pieceId, target, score);
+                }
+            }
+        }
+
+        // 튜토리얼 1, 2스테이지 전용 착수: 적 기물을 플레이어 사정거리 안으로 유도하여 무조건 패배하도록 유도
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive && GameManager.Instance != null && (GameManager.Instance.ClearedStage == 0 || GameManager.Instance.ClearedStage == 1))
+        {
+            if (TryGetTutorialEnemyMove(baseState, allPossibleMoves, out MoveInfo tutorialMove))
+            {
+                PieceController tutorialPiece = baseState.GetActualPiece(tutorialMove.PieceId);
+                if (tutorialPiece != null)
+                {
+                    PieceManager.Instance.TryMovePiece(tutorialPiece, tutorialMove.Target);
+                    return true;
                 }
             }
         }
@@ -209,6 +240,23 @@ public class BoardEvaluator : MonoBehaviour
             int pieceId = baseState.EnemyPieceIds[i];
             SimPiece piece = baseState.GetPiece(pieceId);
             List<Vector2Int> legalMoves = GetRootLegalMoves(baseState, piece);
+            if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+            {
+                int cleared = GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0;
+                if (cleared == 0 || cleared == 1)
+                {
+                    legalMoves.RemoveAll(t =>
+                    {
+                        if (TutorialManager.Instance.IsTargetProtectedFromEnemy(t)) return true;
+                        PieceController p = PieceManager.Instance != null ? PieceManager.Instance.GetPieceAt(t) : null;
+                        return p != null && !p.IsEnemy;
+                    });
+                }
+                else
+                {
+                    legalMoves.RemoveAll(t => TutorialManager.Instance.IsTargetProtectedFromEnemy(t));
+                }
+            }
 
             for (int m = 0; m < legalMoves.Count; m++)
             {
@@ -244,6 +292,21 @@ public class BoardEvaluator : MonoBehaviour
 
         bool moved = false;
 
+        // 튜토리얼 1, 2스테이지 전용 착수: 적 기물을 플레이어 사정거리 안으로 유도하여 무조건 패배하도록 유도
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive && GameManager.Instance != null && (GameManager.Instance.ClearedStage == 0 || GameManager.Instance.ClearedStage == 1))
+        {
+            if (TryGetTutorialEnemyMove(baseState, allPossibleMoves, out MoveInfo tutorialMove))
+            {
+                PieceController tutorialPiece = baseState.GetActualPiece(tutorialMove.PieceId);
+                if (tutorialPiece != null)
+                {
+                    moved = PieceManager.Instance.TryMovePiece(tutorialPiece, tutorialMove.Target);
+                }
+                onCompleted?.Invoke(moved);
+                yield break;
+            }
+        }
+
         float errorChance = GetErrorChance(ruleMode);
         bool makeMistake = Random.value < errorChance;
 
@@ -267,6 +330,235 @@ public class BoardEvaluator : MonoBehaviour
         }
 
         onCompleted?.Invoke(moved);
+    }
+
+    public static int TutorialOpponentTurnCount = 0;
+
+    /// <summary>
+    /// 튜토리얼 전용 AI 착수 결정:
+    /// - 1스테이지: 3턴 전(1~2턴)에는 안전하게 전진하고, 3턴 후 기물이 잡히는 위치로 진입
+    /// - 2스테이지: 프로모션 전에는 폰 전진 경로를 방해하지 않고 안전하게 이동하며, 프로모션 완료 후 즉시 퀸/기물 사정거리로 진입하여 무조건 패배
+    /// </summary>
+    private bool TryGetTutorialEnemyMove(BoardState baseState, List<MoveInfo> allPossibleMoves, out MoveInfo chosenMove)
+    {
+        chosenMove = default;
+        if (allPossibleMoves == null || allPossibleMoves.Count == 0) return false;
+
+        TutorialOpponentTurnCount++;
+        int cleared = GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0;
+        bool isStage2 = cleared == 1;
+
+        List<MoveInfo> directCaptureOffers = new List<MoveInfo>();
+        List<MoveInfo> safeForwardMoves = new List<MoveInfo>();
+
+        foreach (var move in allPossibleMoves)
+        {
+            PieceController mover = baseState.GetActualPiece(move.PieceId);
+            if (mover == null) continue;
+
+            // 튜토리얼 중 플레이어의 기물을 포획하는 상황 원천 차단 (AI 무조건 패배 보장)
+            PieceController targetPiece = PieceManager.Instance != null ? PieceManager.Instance.GetPieceAt(move.Target) : null;
+            if (targetPiece != null && !targetPiece.IsEnemy)
+            {
+                continue;
+            }
+
+            // 이동한 위치가 플레이어 기물의 포획 범위(공격 가능 타일)인지 검사
+            bool isThreatened = IsTileThreatenedByPlayer(move.Target);
+            if (isThreatened)
+            {
+                directCaptureOffers.Add(move);
+            }
+            else
+            {
+                safeForwardMoves.Add(move);
+            }
+        }
+
+        bool shouldOfferCapture = false;
+        if (isStage2)
+        {
+            // 2스테이지: 프로모션이 완료되었거나 3턴 이상 경과한 경우 무조건 잡히는 위치로 진입
+            shouldOfferCapture = (TutorialManager.Instance != null && TutorialManager.Instance.IsPromotionComplete) || TutorialOpponentTurnCount >= 3;
+        }
+        else
+        {
+            // 1스테이지: 3턴 이상 경과 시 포획 유도
+            shouldOfferCapture = TutorialOpponentTurnCount >= 3;
+        }
+
+        // 1. 아직 플레이어에게 잡히지 않고 안전하게 움직여야 하는 단계
+        if (!shouldOfferCapture)
+        {
+            if (safeForwardMoves.Count > 0)
+            {
+                // 폰의 안전한 전진이 있다면 폰을 우선 이동
+                List<MoveInfo> pawnSafeMoves = safeForwardMoves.FindAll(m => {
+                    PieceController p = baseState.GetActualPiece(m.PieceId);
+                    return p != null && p.Type == PieceType.Pawn;
+                });
+
+                List<MoveInfo> candidates = (pawnSafeMoves.Count > 0) ? pawnSafeMoves : safeForwardMoves;
+
+                MoveInfo bestSafeMove = candidates[0];
+                float minDistance = float.MaxValue;
+
+                foreach (var move in candidates)
+                {
+                    float dist = GetMinDistanceToPlayerPieces(move.Target);
+                    if (dist < minDistance)
+                    {
+                        minDistance = dist;
+                        bestSafeMove = move;
+                    }
+                }
+
+                chosenMove = bestSafeMove;
+                return true;
+            }
+
+            if (allPossibleMoves.Count > 0)
+            {
+                chosenMove = allPossibleMoves[0];
+                return true;
+            }
+        }
+        else // 2. 플레이어가 잡을 수 있는 위치로 확정 진입하여 무조건 패배!
+        {
+            if (directCaptureOffers.Count > 0)
+            {
+                // 1스테이지에서는 폰 우선 포획 유도
+                if (!isStage2)
+                {
+                    List<MoveInfo> pawnOffers = directCaptureOffers.FindAll(m => {
+                        PieceController p = baseState.GetActualPiece(m.PieceId);
+                        return p != null && p.Type == PieceType.Pawn;
+                    });
+                    if (pawnOffers.Count > 0)
+                    {
+                        chosenMove = pawnOffers[Random.Range(0, pawnOffers.Count)];
+                        return true;
+                    }
+                }
+
+                // 2스테이지 또는 1스테이지 잔여 기물: 잡히는 수 중 랜덤 선택하여 헌납
+                chosenMove = directCaptureOffers[Random.Range(0, directCaptureOffers.Count)];
+                return true;
+            }
+
+            if (safeForwardMoves.Count > 0)
+            {
+                // 아직 사정거리 밖이라도 플레이어에게 가장 가까이 접근하여 다음 턴에 잡히도록 유도
+                MoveInfo bestMove = safeForwardMoves[0];
+                float minDistance = float.MaxValue;
+
+                foreach (var move in safeForwardMoves)
+                {
+                    float dist = GetMinDistanceToPlayerPieces(move.Target);
+                    if (dist < minDistance)
+                    {
+                        minDistance = dist;
+                        bestMove = move;
+                    }
+                }
+
+                chosenMove = bestMove;
+                return true;
+            }
+
+            if (allPossibleMoves.Count > 0)
+            {
+                chosenMove = allPossibleMoves[0];
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 해당 타일이 현재 보드 위의 아군(플레이어) 기물들에게 공격/포획 가능한 위치인지 판정합니다.
+    /// </summary>
+    private bool IsTileThreatenedByPlayer(Vector2Int tile)
+    {
+        if (PieceManager.Instance == null) return false;
+
+        var pieces = PieceManager.Instance.Pieces;
+        if (pieces == null) return false;
+
+        for (int i = 0; i < pieces.Count; i++)
+        {
+            var p = pieces[i];
+            if (p == null || p.IsEnemy || p.CurrentLocation != PieceLocation.Board || !p.gridPosition.HasValue)
+                continue;
+
+            Vector2Int pos = p.gridPosition.Value;
+
+            switch (p.Type)
+            {
+                case PieceType.Pawn:
+                    // 폰은 전방 대각선 1칸 포획 (플레이어 전방은 y + 1)
+                    if (tile == new Vector2Int(pos.x - 1, pos.y + 1) || tile == new Vector2Int(pos.x + 1, pos.y + 1))
+                    {
+                        return true;
+                    }
+                    break;
+
+                case PieceType.King:
+                    // 킹은 인접 8방향 1칸
+                    int kdx = Mathf.Abs(tile.x - pos.x);
+                    int kdy = Mathf.Abs(tile.y - pos.y);
+                    if (kdx <= 1 && kdy <= 1 && (kdx > 0 || kdy > 0))
+                    {
+                        return true;
+                    }
+                    break;
+
+                case PieceType.Knight:
+                    int ndx = Mathf.Abs(tile.x - pos.x);
+                    int ndy = Mathf.Abs(tile.y - pos.y);
+                    if ((ndx == 1 && ndy == 2) || (ndx == 2 && ndy == 1))
+                    {
+                        return true;
+                    }
+                    break;
+
+                default:
+                    // 퀸, 룩, 비숍 등 기타 기물은 후보 수 목록 검사
+                    var moves = p.GetCandidateMoves();
+                    if (moves != null && moves.Contains(tile))
+                    {
+                        return true;
+                    }
+                    break;
+            }
+        }
+
+        return false;
+    }
+
+    private float GetMinDistanceToPlayerPieces(Vector2Int tile)
+    {
+        if (PieceManager.Instance == null) return float.MaxValue;
+
+        var pieces = PieceManager.Instance.Pieces;
+        if (pieces == null) return float.MaxValue;
+
+        float minDist = float.MaxValue;
+        for (int i = 0; i < pieces.Count; i++)
+        {
+            var p = pieces[i];
+            if (p == null || p.IsEnemy || p.CurrentLocation != PieceLocation.Board || !p.gridPosition.HasValue)
+                continue;
+
+            float dist = Vector2Int.Distance(tile, p.gridPosition.Value);
+            if (dist < minDist)
+            {
+                minDist = dist;
+            }
+        }
+
+        return minDist;
     }
 
     private static List<Vector2Int> GetRootLegalMoves(BoardState state, SimPiece piece)

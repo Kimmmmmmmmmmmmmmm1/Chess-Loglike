@@ -39,7 +39,40 @@ public static class TurnIndicatorSceneBuilder
 
         EnsureDirectories();
         GameObject prefab = GenerateOrUpdatePrefab();
-        EnsureInActiveScene(prefab);
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (activeScene.isLoaded)
+        {
+            if (activeScene.name == "GameScene")
+            {
+                EnsureInActiveScene(prefab);
+            }
+            else
+            {
+                CleanStrayFromScene(activeScene);
+            }
+        }
+    }
+
+    public static void CleanStrayFromScene(Scene scene)
+    {
+        TurnIndicatorUI[] strays = Object.FindObjectsByType<TurnIndicatorUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        bool dirty = false;
+        foreach (var stray in strays)
+        {
+            if (stray != null && stray.gameObject.scene == scene)
+            {
+                Object.DestroyImmediate(stray.gameObject);
+                dirty = true;
+            }
+        }
+
+        if (dirty && !EditorApplication.isPlayingOrWillChangePlaymode && !EditorApplication.isPlaying)
+        {
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log($"[TurnIndicatorSceneBuilder] Cleaned stray TurnIndicatorUI from '{scene.name}' scene.");
+        }
     }
 
     private static void EnsureDirectories()
@@ -74,6 +107,12 @@ public static class TurnIndicatorSceneBuilder
 
         Scene activeScene = SceneManager.GetActiveScene();
         if (!activeScene.isLoaded) return;
+
+        if (activeScene.name != "GameScene")
+        {
+            CleanStrayFromScene(activeScene);
+            return;
+        }
 
         // Canvas 오브젝트 탐색
         Canvas canvas = FindTargetCanvas(activeScene);

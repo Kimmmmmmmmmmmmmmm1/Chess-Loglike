@@ -172,6 +172,11 @@ public class GridManager : MonoBehaviour
 
             }
         }
+
+        if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare)
+        {
+            HighlightInvalidZones();
+        }
     }
 
     public void SetBoardSize(int[] size, Vector2Int minBounds)
@@ -193,6 +198,10 @@ public class GridManager : MonoBehaviour
         if (sizeChanged && gridCells != null)
         {
             ResizeGridCells();
+        }
+        else if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare)
+        {
+            HighlightInvalidZones();
         }
     }
 
@@ -241,6 +250,12 @@ public class GridManager : MonoBehaviour
         RefreshCoordinateLabels();
         lastMoveFrom = null;
         lastMoveTo = null;
+
+        if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare)
+        {
+            HighlightInvalidZones();
+            StartCoroutine(HighlightInvalidZoneRoutine());
+        }
     }
 
     private void CreateGridCell(int x, int y, bool animate)

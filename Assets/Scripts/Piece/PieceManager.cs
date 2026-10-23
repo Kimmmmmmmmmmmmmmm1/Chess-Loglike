@@ -1437,6 +1437,15 @@ public class PieceManager : MonoBehaviour
             {
                 return false;
             }
+
+            // 튜토리얼 중 지정된 기물/이동 경로만 허용 (폰 승급 강제 전진)
+            if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+            {
+                if (!TutorialManager.Instance.IsPieceMoveAllowed(piece, gridPosition))
+                {
+                    return false;
+                }
+            }
         }
 
         Vector2Int fromPosition = piece.gridPosition.Value;

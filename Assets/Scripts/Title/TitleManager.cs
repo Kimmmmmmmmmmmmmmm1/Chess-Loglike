@@ -180,9 +180,16 @@ public class TitleManager : MonoBehaviour
                 StageSaveData latest = StageSaveManager.GetLatestRunData();
                 if (latest != null)
                 {
-                    int act = (latest.clearedStage / 10) + 1;
-                    int sub = (latest.clearedStage % 10) + 1;
-                    SetButtonText(continueButton, $"이어하기 ({act}-{sub})");
+                    if (latest.tutorialData != null && latest.tutorialData.isTutorialActive)
+                    {
+                        SetButtonText(continueButton, $"이어하기 (튜토리얼 {latest.clearedStage + 1})");
+                    }
+                    else
+                    {
+                        int act = (latest.clearedStage / 10) + 1;
+                        int sub = (latest.clearedStage % 10) + 1;
+                        SetButtonText(continueButton, $"이어하기 ({act}-{sub})");
+                    }
                 }
                 else
                 {
@@ -292,6 +299,12 @@ public class TitleManager : MonoBehaviour
 
     private void Start()
     {
+        if (StageSelectUI.Instance != null)
+        {
+            StageSelectUI.Instance.Close(true);
+            StageSelectUI.Instance.ResetSelectionState();
+        }
+
         UpdateContinueButtonState();
         BindButtons();
 
@@ -474,6 +487,11 @@ public class TitleManager : MonoBehaviour
         if (ArtifactManager.Instance != null)
         {
             ArtifactManager.Instance.ClearArtifacts();
+        }
+
+        if (SealInventory.Instance != null)
+        {
+            SealInventory.Instance.ClearSeals();
         }
 
         if (GameStateManager.Instance != null)

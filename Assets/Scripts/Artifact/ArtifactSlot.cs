@@ -19,6 +19,7 @@ public class ArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
     private Image cooldownOverlayImage;
     private TextMeshProUGUI cooldownText;
     private ArtifactData data;
+    public ArtifactData Artifact => data;
     private Vector2 originalSize;
     private bool isInitialized = false;
     private readonly List<ArtifactCount> countInstances = new List<ArtifactCount>();

@@ -12,10 +12,16 @@ public class GameplaySettingsView : MonoBehaviour
     [SerializeField] private SettingsChoiceSelector tooltipDelaySelector; // Immediate, 0.5s, 1s
     [SerializeField] private Toggle autoEndTurnToggle;
     [SerializeField] private Toggle simpleTurnLogToggle;
+    [SerializeField] private Button exitToMainButton; // exit to main title button
     [SerializeField] private Button resetSaveDataButton; // red warning button
 
     private SettingsData staged;
     private GameObject lastSelectedObject;
+
+    private void Awake()
+    {
+        EnsureExitToMainButton();
+    }
 
     private void OnEnable()
     {
@@ -76,10 +82,77 @@ public class GameplaySettingsView : MonoBehaviour
             SetToggleLabel(simpleTurnLogToggle, "간소화된 턴 로그", "켜짐", "꺼짐");
         }
 
+        if (exitToMainButton != null)
+        {
+            var btnSel = exitToMainButton.GetComponent<SettingsButtonSelector>();
+            if (btnSel != null)
+            {
+                btnSel.SetLabel("메인으로 나가기");
+                btnSel.SetButtonText("나가기");
+            }
+
+            var keySel = exitToMainButton.GetComponent<SettingsKeyBindingSelector>();
+            if (keySel != null)
+            {
+                keySel.SetLabel("메인으로 나가기");
+                keySel.SetKeyText("나가기");
+            }
+        }
+
         if (resetSaveDataButton != null)
         {
             var sel = resetSaveDataButton.GetComponent<SettingsButtonSelector>();
             if (sel != null) sel.SetLabel("데이터 관리");
+        }
+    }
+
+    private void EnsureExitToMainButton()
+    {
+        if (exitToMainButton != null) return;
+
+        Transform existing = transform.Find("ExitToMainButton");
+        if (existing == null) existing = transform.Find("ExitButton");
+        if (existing != null)
+        {
+            exitToMainButton = existing.GetComponent<Button>();
+            if (exitToMainButton != null) return;
+        }
+
+        if (resetSaveDataButton != null)
+        {
+            GameObject newBtnObj = Instantiate(resetSaveDataButton.gameObject, transform);
+            newBtnObj.name = "ExitToMainButton";
+            newBtnObj.transform.SetSiblingIndex(resetSaveDataButton.transform.GetSiblingIndex());
+
+            exitToMainButton = newBtnObj.GetComponent<Button>();
+
+            var texts = newBtnObj.GetComponentsInChildren<TextMeshProUGUI>(true);
+            foreach (var t in texts)
+            {
+                if (t.name == "Label")
+                {
+                    t.text = "메인으로 나가기";
+                }
+                else
+                {
+                    t.text = "나가기";
+                    t.color = Color.white;
+                }
+            }
+
+            var btnSel = newBtnObj.GetComponent<SettingsButtonSelector>();
+            if (btnSel != null)
+            {
+                btnSel.SetLabel("메인으로 나가기");
+                btnSel.SetButtonText("나가기");
+            }
+
+            var keySel = newBtnObj.GetComponent<SettingsKeyBindingSelector>();
+            if (keySel != null)
+            {
+                keySel.SetLabel("메인으로 나가기");
+                keySel.SetKeyText("나가기");
+            }
         }
     }
     private void SetToggleLabel(Toggle toggle, string label, string onText = null, string offText = null)
@@ -125,6 +198,7 @@ public class GameplaySettingsView : MonoBehaviour
         if (tooltipDelaySelector != null) tooltipDelaySelector.OnValueChanged += OnTooltipDelayChanged;
         if (autoEndTurnToggle != null) autoEndTurnToggle.onValueChanged.AddListener(OnAutoEndTurnChanged);
         if (simpleTurnLogToggle != null) simpleTurnLogToggle.onValueChanged.AddListener(OnSimpleTurnLogChanged);
+        if (exitToMainButton != null) exitToMainButton.onClick.AddListener(OnExitToMainClicked);
         if (resetSaveDataButton != null) resetSaveDataButton.onClick.AddListener(OnResetSaveDataClicked);
     }
 
@@ -135,6 +209,7 @@ public class GameplaySettingsView : MonoBehaviour
         if (tooltipDelaySelector != null) tooltipDelaySelector.OnValueChanged -= OnTooltipDelayChanged;
         if (autoEndTurnToggle != null) autoEndTurnToggle.onValueChanged.RemoveListener(OnAutoEndTurnChanged);
         if (simpleTurnLogToggle != null) simpleTurnLogToggle.onValueChanged.RemoveListener(OnSimpleTurnLogChanged);
+        if (exitToMainButton != null) exitToMainButton.onClick.RemoveListener(OnExitToMainClicked);
         if (resetSaveDataButton != null) resetSaveDataButton.onClick.RemoveListener(OnResetSaveDataClicked);
     }
 
@@ -204,7 +279,50 @@ public class GameplaySettingsView : MonoBehaviour
         // 스테이지 세이브 파일 전체 삭제
         StageSaveManager.DeleteAllStageSaves();
 
+        // 튜토리얼 진행 기록 초기화 (첫 시작 상태로 복구)
+        TutorialManager.ResetTutorialProgress();
+
+        // 세션 복원 플래그 초기화
+        StageSaveManager.HasRestoredThisSession = false;
+        StageSaveManager.IsContinuePending = false;
+
+        // GameManager 런 데이터 초기화
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.ResetRunData();
+        }
+
         // 타이틀 씬으로 돌아가서 완전히 새로 시작
+        SceneManager.LoadScene(SceneName.TitleScene.ToString());
+    }
+
+    private async void OnExitToMainClicked()
+    {
+        bool isInTitle = SceneManager.GetActiveScene().name == SceneName.TitleScene.ToString();
+        if (isInTitle)
+        {
+            SettingPanelView.CloseSingleton();
+            return;
+        }
+
+        if (ModalManager.Instance != null)
+        {
+            bool confirmed = await ModalManager.Instance.ShowModalAsync("메인 화면으로 나가시겠습니까?\n진행 상황은 현재 스테이지 시작 시점으로 저장됩니다.");
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
+        Time.timeScale = 1f;
+
+        // 인게임 진행 상황 저장 (메인에서 이어하기 가능)
+        StageSaveManager.EnsureInstance()?.SaveCurrentRun();
+
+        // 설정 패널 닫기
+        SettingPanelView.CloseSingleton();
+
+        // 메인 타이틀 씬으로 이동
         SceneManager.LoadScene(SceneName.TitleScene.ToString());
     }
 
@@ -258,6 +376,7 @@ public class GameplaySettingsView : MonoBehaviour
         if (tooltipDelaySelector != null && tooltipDelaySelector.SelectableButton != null) return tooltipDelaySelector.SelectableButton;
         if (autoEndTurnToggle != null) return autoEndTurnToggle;
         if (simpleTurnLogToggle != null) return simpleTurnLogToggle;
+        if (exitToMainButton != null) return exitToMainButton;
         return resetSaveDataButton;
     }
 
@@ -268,6 +387,7 @@ public class GameplaySettingsView : MonoBehaviour
             || selectedObject == (tooltipDelaySelector != null && tooltipDelaySelector.SelectableButton != null ? tooltipDelaySelector.SelectableButton.gameObject : null)
             || selectedObject == (autoEndTurnToggle != null ? autoEndTurnToggle.gameObject : null)
             || selectedObject == (simpleTurnLogToggle != null ? simpleTurnLogToggle.gameObject : null)
+            || selectedObject == (exitToMainButton != null ? exitToMainButton.gameObject : null)
             || selectedObject == (resetSaveDataButton != null ? resetSaveDataButton.gameObject : null);
     }
 
@@ -275,6 +395,7 @@ public class GameplaySettingsView : MonoBehaviour
     {
         SettingsSelectionTextUtility.SetMarkedToggleText(autoEndTurnToggle, IsSelected(autoEndTurnToggle));
         SettingsSelectionTextUtility.SetMarkedToggleText(simpleTurnLogToggle, IsSelected(simpleTurnLogToggle));
+        SettingsSelectionTextUtility.SetMarkedButtonText(exitToMainButton, IsSelected(exitToMainButton));
         SettingsSelectionTextUtility.SetMarkedButtonText(resetSaveDataButton, IsSelected(resetSaveDataButton));
     }
 

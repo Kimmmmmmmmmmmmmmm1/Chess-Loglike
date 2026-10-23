@@ -284,6 +284,128 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         SetupSavedRewardContent(rarity);
     }
 
+    public void InitializeWithFixedSeal(RewardManager manager, int rarity, SealData seal)
+    {
+        this.manager = manager;
+        button = GetComponent<Button>();
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(OnClicked);
+
+        if (backgroundImage == null)
+        {
+            backgroundImage = GetComponent<Image>();
+            if (backgroundImage != null)
+            {
+                originalBgColor = backgroundImage.color;
+            }
+        }
+
+        type = RewardType.Seal;
+        attachedSeal = seal;
+        SetupSavedRewardContent(rarity);
+    }
+
+    public void InitializeWithFixedArtifact(RewardManager manager, int rarity, ArtifactData artifact)
+    {
+        this.manager = manager;
+        button = GetComponent<Button>();
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(OnClicked);
+
+        if (backgroundImage == null)
+        {
+            backgroundImage = GetComponent<Image>();
+            if (backgroundImage != null)
+            {
+                originalBgColor = backgroundImage.color;
+            }
+        }
+
+        type = RewardType.Artifact;
+        artifactReward = artifact;
+        SetupSavedRewardContent(rarity);
+    }
+
+    private bool isTutorialHighlighted = false;
+
+    /// <summary>
+    /// 튜토리얼 중 지정된 보상 카드를 강조 표시합니다 (펄스 애니메이션 + 황금빛 외곽선 + 최상단 소팅오더).
+    /// </summary>
+    public void SetTutorialHighlighted(bool highlighted)
+    {
+        isTutorialHighlighted = highlighted;
+        Canvas cardCanvas = GetComponent<Canvas>();
+        GraphicRaycaster raycaster = GetComponent<GraphicRaycaster>();
+
+        if (highlighted)
+        {
+            if (cardCanvas == null) cardCanvas = gameObject.AddComponent<Canvas>();
+            cardCanvas.overrideSorting = true;
+            Canvas parentCanvas = transform.parent != null ? transform.parent.GetComponentInParent<Canvas>() : null;
+            cardCanvas.sortingOrder = parentCanvas != null ? Mathf.Max(parentCanvas.sortingOrder + 50, 1000) : 1000;
+
+            if (raycaster == null) raycaster = gameObject.AddComponent<GraphicRaycaster>();
+            raycaster.enabled = true;
+
+            if (cardOutline != null)
+            {
+                cardOutline.enabled = false;
+            }
+
+            if (!isHovered)
+            {
+                StartTutorialPulse();
+            }
+        }
+        else
+        {
+            if (cardCanvas != null)
+            {
+                cardCanvas.overrideSorting = false;
+            }
+            if (raycaster != null)
+            {
+                raycaster.enabled = false;
+            }
+
+            transform.DOKill();
+            transform.localScale = Vector3.one;
+            if (cardOutline != null)
+            {
+                cardOutline.effectColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
+                cardOutline.effectDistance = new Vector2(1f, 1f);
+            }
+        }
+    }
+
+    private void StartTutorialPulse()
+    {
+        transform.DOKill();
+        transform.localScale = Vector3.one * 0.98f;
+        transform.DOScale(Vector3.one * 1.02f, 0.45f)
+            .SetLoops(-1, LoopType.Yoyo)
+            .SetEase(Ease.InOutSine)
+            .SetUpdate(true);
+    }
+
+    /// <summary>
+    /// 튜토리얼 중 선택 불가능한 보상 카드를 비활성화 및 반투명 처리합니다.
+    /// </summary>
+    public void SetTutorialDisabled(bool disabled)
+    {
+        if (button == null) button = GetComponent<Button>();
+        if (button != null)
+        {
+            button.interactable = !disabled;
+        }
+
+        CanvasGroup cg = GetComponent<CanvasGroup>();
+        if (cg == null) cg = gameObject.AddComponent<CanvasGroup>();
+        cg.alpha = disabled ? 0.35f : 1f;
+        cg.interactable = !disabled;
+        cg.blocksRaycasts = !disabled;
+    }
+
     public void InitializeWithType(RewardManager manager, int rarity, RewardType? forcedType)
     {
         this.manager = manager;
@@ -766,6 +888,11 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         // 보상 데이터 반영 완료 직후 저장
         StageSaveManager.EnsureInstance()?.SaveCurrentRun(pendingReward: false);
 
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            TutorialManager.Instance.OnRewardSelected();
+        }
+
         if (manager != null)
         {
             manager.OnRewardButtonClicked();
@@ -786,7 +913,7 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         transform.DOKill();
         transform.DOScale(Vector3.one * hoverScale, hoverDuration).SetEase(Ease.OutQuad).SetUpdate(true);
 
-        if (cardOutline != null)
+        if (cardOutline != null && !isTutorialHighlighted)
         {
             cardOutline.effectDistance = new Vector2(3f, 3f);
         }
@@ -836,11 +963,25 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         isHovered = false;
 
         transform.DOKill();
-        transform.DOScale(Vector3.one, hoverDuration).SetEase(Ease.OutQuad).SetUpdate(true);
+        if (isTutorialHighlighted)
+        {
+            StartTutorialPulse();
+        }
+        else
+        {
+            transform.DOScale(Vector3.one, hoverDuration).SetEase(Ease.OutQuad).SetUpdate(true);
+        }
 
         if (cardOutline != null)
         {
-            cardOutline.effectDistance = new Vector2(2f, 2f);
+            if (isTutorialHighlighted)
+            {
+                cardOutline.enabled = false;
+            }
+            else
+            {
+                cardOutline.effectDistance = new Vector2(2f, 2f);
+            }
         }
 
         if (backgroundImage != null)
