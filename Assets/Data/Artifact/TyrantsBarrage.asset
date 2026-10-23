@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a81c7032dbb2493eaa5c8e1cdc35369, type: 3}
+  m_Name: TyrantsBarrage
+  m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
+  id: SHOTCUN
+  artifactName: "\uD3ED\uAD70\uC758 \uB09C\uC0AC"
+  description: "\uD68D\uB4DD \uC2DC \uD0B9\uC744 \uC81C\uC678\uD55C \uC544\uAD70 \uAE30\uBB3C\uC744 \uD310\uB9E4\uD558\uACE0 \uC0F7\uAC74 \uD0B9\uC73C\uB85C \uC804\uD658\uD569\uB2C8\uB2E4. \uB9E4 \uC804\uD22C \uC2DC\uC791 \uC2DC \uD0B9\uC5D0\uAC8C \uBCF4\uD638 2\uD68C\uB97C \uBD80\uC5EC\uD569\uB2C8\uB2E4. \uC655\uC740 \uC0AC\uAC70\uB9AC 3\uCE78\uC5D0\uC11C \uC9C1\uC120 \uC0AC\uACA9\uD558\uBA70, \uC774\uB3D9\uD558\uBA74 \uD0C4\uC57D 1\uBC1C\uC744 \uC7A5\uC804\uD569\uB2C8\uB2E4 (\uAE30\uBCF8 \uD0C4\uCC3D 2\uBC1C). \uC778\uC7A5\uC744 \uD0B9\uC5D0 \uC7A5\uCC29\uD558\uAC70\uB098 \uACF5\uBC29\uC5D0\uC11C \uD569\uC131\uD558\uBA74 \uC0F7\uAC74 \uD0B9 \uC804\uC6A9 \uD30C\uCE20 8\uC885 \uC911 \uD558\uB098\uB85C \uBB34\uC791\uC704 \uBCC0\uD658\uB429\uB2C8\uB2E4."
+  flavorText: "\uD3ED\uAD70\uC740 \uD63C\uC790\uC11C \uC804\uC7C1\uC744 \uC774\uB04C \uD544\uC694\uAC00 \uC5C6\uB2E4."
+  rarity: 3
+  icon: {fileID: 3286163911610860551, guid: 29eb8a141f0148d995217ea89d67e273, type: 3}
+  price: 450
+  isSoldInShop: 1
+  isGaugeRequired: 1
+  artifactType: 0
+  maxLevel: 1
+  level: 1

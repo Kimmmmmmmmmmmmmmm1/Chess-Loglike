@@ -47,7 +47,7 @@ ScriptedImporter:
       serializedVersion: 2
       x: 0
       y: 0
-      width: 185
+      width: 256
       height: 256
     SpriteID: 274655d7cd1124b8c8f17b6048db3c48
     PhysicsOutlines: []

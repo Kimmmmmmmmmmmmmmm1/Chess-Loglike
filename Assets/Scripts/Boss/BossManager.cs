@@ -82,7 +82,7 @@ public class BossManager : MonoBehaviour
 
     private bool IsBossStage()
     {
-        if (GameManager.Instance != null && (GameManager.Instance.ClearedStage + 1) % 5 == 0)
+        if (GameManager.Instance != null && (GameManager.Instance.ClearedStage + 1) % 10 == 0)
         {
             return true;
         }

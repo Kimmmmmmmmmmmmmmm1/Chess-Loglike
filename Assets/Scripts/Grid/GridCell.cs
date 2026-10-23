@@ -1,8 +1,9 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using DG.Tweening;
 
-public class GridCell : MonoBehaviour
+public class GridCell : MonoBehaviour, IPointerClickHandler
 {
     public Vector2Int gridPosition;
     public RectTransform rectTransform;
@@ -10,10 +11,47 @@ public class GridCell : MonoBehaviour
     private Vector2 originalPosition;
     
     private Image cellImage;
+    private Image artifactTargetHighlight;
     private Color originalColor;
     
     public Image CellImage => cellImage;
     public Color OriginalColor => originalColor;
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (ActiveArtifactController.IsTargeting)
+        {
+            eventData.Use();
+            return;
+        }
+
+        if (!isDestroyed && ShotgunKingSystem.TryHandleShotAimClick(gridPosition, eventData.button))
+        {
+            eventData.Use();
+        }
+    }
+
+    public void SetArtifactTargetHighlight(bool active)
+    {
+        if (artifactTargetHighlight == null)
+        {
+            GameObject overlay = new GameObject("ArtifactTargetHighlight", typeof(RectTransform), typeof(Image));
+            overlay.transform.SetParent(transform, false);
+            overlay.transform.SetAsLastSibling();
+
+            RectTransform overlayRect = overlay.GetComponent<RectTransform>();
+            overlayRect.anchorMin = Vector2.zero;
+            overlayRect.anchorMax = Vector2.one;
+            overlayRect.offsetMin = Vector2.zero;
+            overlayRect.offsetMax = Vector2.zero;
+
+            artifactTargetHighlight = overlay.GetComponent<Image>();
+            artifactTargetHighlight.color = new Color(0.35f, 0.9f, 0.55f, 0.28f);
+            artifactTargetHighlight.raycastTarget = false;
+        }
+
+        artifactTargetHighlight.gameObject.SetActive(active && !isDestroyed);
+    }
     
     private Coroutine shakeCoroutine;
 

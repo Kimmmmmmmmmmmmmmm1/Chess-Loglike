@@ -141,6 +141,10 @@ public class LastStandSeal : SealBase
                 TurnLogUIManager.Instance?.AddLog($"[{owner.PieceType}] {sideName} 기물이 홀로 남아 최후의 인장의 무적이 해제되었습니다!", owner.IsEnemy);
             }
         }
+        else
+        {
+            owner.RefreshBuffAuraVisuals();
+        }
     }
 
     /// <summary>

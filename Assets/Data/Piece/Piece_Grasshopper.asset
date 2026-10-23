@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PieceData
   id: Grasshopper
   pieceType: 11
-  pieceName: "\uADF8\uB798\uC2A4\uD638\uD37C"
+  pieceName: Grasshopper
   icon: {fileID: 2300904481167334120, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
   rarity: 3
   score: 3

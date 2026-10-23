@@ -95,6 +95,10 @@ public class TurnLogEntry : MonoBehaviour
         if (textComp == null)
         {
             textComp = GetComponent<TextMeshProUGUI>();
+            if (textComp == null)
+            {
+                textComp = GetComponentInChildren<TextMeshProUGUI>();
+            }
         }
         
         if (textComp != null)
@@ -102,6 +106,34 @@ public class TurnLogEntry : MonoBehaviour
             textComp.text = text;
             textComp.color = color;
         }
+    }
+
+    /// <summary>
+    /// 시간 역행 등으로 인해 무효화된 로그에 취소선 및 흐린 색상 적용
+    /// </summary>
+    public void ApplyStrikethrough()
+    {
+        if (textComp == null)
+        {
+            textComp = GetComponent<TextMeshProUGUI>();
+            if (textComp == null)
+            {
+                textComp = GetComponentInChildren<TextMeshProUGUI>();
+            }
+        }
+
+        if (textComp != null)
+        {
+            string current = textComp.text;
+            if (!string.IsNullOrEmpty(current) && !current.StartsWith("<s>"))
+            {
+                textComp.text = $"<s>{current}</s>";
+            }
+            textComp.color = new Color(0.6f, 0.6f, 0.65f, 0.7f);
+        }
+
+        // 시간 역행 효과를 플레이어가 확인할 수 있도록 잠시 가시성 확보
+        Restore();
     }
 
     /// <summary>

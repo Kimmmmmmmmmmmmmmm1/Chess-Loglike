@@ -21,6 +21,7 @@ public class StageDataEditor : Editor
 
         // 1. 기본 필드 그리기
         EditorGUILayout.PropertyField(serializedObject.FindProperty("difficulty"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("isElite"));
         
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Map Settings", EditorStyles.boldLabel);

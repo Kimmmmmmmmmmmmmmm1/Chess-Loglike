@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -5,7 +6,19 @@ using TMPro;
 
 public class TurnLogUIManager : MonoBehaviour
 {
-    public static TurnLogUIManager Instance { get; private set; }
+    private static TurnLogUIManager _instance;
+    public static TurnLogUIManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindFirstObjectByType<TurnLogUIManager>();
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     [Header("References")]
     public RectTransform contentParent;
@@ -28,20 +41,25 @@ public class TurnLogUIManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
-            Destroy(gameObject);
+            Destroy(this);
             return;
         }
-        Instance = this;
+        _instance = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (_instance == this)
+        {
+            _instance = null;
+        }
     }
 
     private void Start()
     {
-        if (contentParent == null && scrollRect != null)
-        {
-            contentParent = scrollRect.content;
-        }
+        EnsureReferences();
 
         if (scrollRect != null)
         {
@@ -49,19 +67,46 @@ public class TurnLogUIManager : MonoBehaviour
         }
     }
 
-    public void AddLog(string text, bool isEnemy)
+    private void EnsureReferences()
     {
+        if (scrollRect == null)
+        {
+            scrollRect = FindFirstObjectByType<ScrollRect>();
+        }
+
         if (contentParent == null)
         {
+            if (scrollRect != null && scrollRect.content != null)
+            {
+                contentParent = scrollRect.content;
+            }
+            else
+            {
+                GameObject contentObj = GameObject.Find("Content");
+                if (contentObj != null)
+                {
+                    contentParent = contentObj.GetComponent<RectTransform>();
+                }
+            }
+        }
+    }
+
+    public void AddLog(string text, bool isEnemy)
+    {
+        EnsureReferences();
+
+        if (contentParent == null)
+        {
+            Debug.LogWarning("[TurnLogUIManager] contentParent가 없어 로그를 추가할 수 없습니다: " + text);
             return;
         }
 
         GameObject entryObj = null;
         TextMeshProUGUI textComponent = null;
+
         if (logEntryPrefab != null)
         {
             entryObj = Instantiate(logEntryPrefab, contentParent);
-            textComponent = entryObj.GetComponent<TextMeshProUGUI>();
         }
         else
         {
@@ -70,54 +115,91 @@ public class TurnLogUIManager : MonoBehaviour
             textComponent = entryObj.AddComponent<TextMeshProUGUI>();
             textComponent.raycastTarget = false;
             textComponent.textWrappingMode = TextWrappingModes.Normal;
-            textComponent.fontSize = 20;
+            textComponent.fontSize = 11;
             textComponent.alignment = TextAlignmentOptions.Left;
         }
 
+        // RectTransform 위치, 스케일, 로테이션 초기화 (프리팹의 비정상 Z좌표(-681px) 등으로 인한 카메라 클리핑 방지)
+        RectTransform rt = entryObj.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.localPosition = Vector3.zero;
+            rt.localRotation = Quaternion.identity;
+            rt.localScale = Vector3.one;
+
+            if (rt.sizeDelta.y < 14f)
+            {
+                rt.sizeDelta = new Vector2(rt.sizeDelta.x > 0 ? rt.sizeDelta.x : 230f, 16f);
+            }
+        }
+
+        // LayoutElement 보장 (VerticalLayoutGroup에서 0높이로 축소되는 현상 방지)
+        LayoutElement layoutElement = entryObj.GetComponent<LayoutElement>();
+        if (layoutElement == null)
+        {
+            layoutElement = entryObj.AddComponent<LayoutElement>();
+        }
+        layoutElement.minHeight = 14f;
+        layoutElement.preferredHeight = 16f;
+
+        // TurnLogEntry 컨트롤러 설정
         TurnLogEntry entryController = entryObj.GetComponent<TurnLogEntry>();
         if (entryController == null)
         {
             entryController = entryObj.AddComponent<TurnLogEntry>();
         }
 
-        textComponent = textComponent ?? entryObj.GetComponent<TextMeshProUGUI>();
-        if (textComponent != null)
+        if (textComponent == null)
         {
-            entryController.SetText(text, isEnemy ? enemyColor : playerColor);
-        }
-        else
-        {
-            var childTextComponent = entryObj.GetComponentInChildren<TextMeshProUGUI>();
-            if (childTextComponent != null)
-            {
-                childTextComponent.text = text;
-                childTextComponent.color = isEnemy ? enemyColor : playerColor;
-            }
+            textComponent = entryObj.GetComponentInChildren<TextMeshProUGUI>();
         }
 
-        entryController.SetTimings(autoHideDelay, fadeOutDuration);
+        Color targetColor = isEnemy ? enemyColor : playerColor;
+        if (entryController != null)
+        {
+            entryController.SetText(text, targetColor);
+            entryController.SetTimings(autoHideDelay, fadeOutDuration);
+            entryController.Show(); // 알파 1.0 및 표시 상태 보장
+        }
+        else if (textComponent != null)
+        {
+            textComponent.text = text;
+            textComponent.color = targetColor;
+        }
 
         entries.Add(entryObj);
-        entryControllers.Add(entryController);
+        if (entryController != null)
+        {
+            entryControllers.Add(entryController);
+        }
 
         while (entries.Count > maxEntries)
         {
             var old = entries[0];
             entries.RemoveAt(0);
-            entryControllers.RemoveAt(0);
+            if (entryControllers.Count > 0)
+            {
+                entryControllers.RemoveAt(0);
+            }
             if (old != null) Destroy(old);
         }
 
-        if (scrollRect == null)
+        if (scrollRect == null && contentParent != null)
         {
             scrollRect = contentParent.GetComponentInParent<ScrollRect>();
         }
 
+        if (contentParent != null)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(contentParent);
+        }
+
         if (scrollRect != null)
         {
-            LayoutRebuilder.ForceRebuildLayoutImmediate(scrollRect.viewport != null
-                ? scrollRect.viewport
-                : scrollRect.GetComponent<RectTransform>());
+            if (scrollRect.viewport != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(scrollRect.viewport);
+            }
             Canvas.ForceUpdateCanvases();
             suppressScrollEvent = true;
             scrollRect.verticalNormalizedPosition = 0f;
@@ -125,7 +207,40 @@ public class TurnLogUIManager : MonoBehaviour
         }
     }
 
-    private System.Collections.IEnumerator ClearSuppressScrollNextFrame()
+    /// <summary>
+    /// 현재까지 기록된 턴 로그 엔트리 개수를 반환합니다.
+    /// </summary>
+    public int GetLogCount()
+    {
+        return entries.Count;
+    }
+
+    /// <summary>
+    /// 지정한 인덱스부터 현재까지의 모든 로그에 취소선을 적용합니다 (시간 역행 시 사용).
+    /// </summary>
+    public void ApplyStrikethroughFromIndex(int startIndex)
+    {
+        if (startIndex < 0) startIndex = 0;
+
+        for (int i = startIndex; i < entries.Count; i++)
+        {
+            if (i < entryControllers.Count && entryControllers[i] != null)
+            {
+                entryControllers[i].ApplyStrikethrough();
+            }
+            else if (entries[i] != null)
+            {
+                var tmp = entries[i].GetComponentInChildren<TextMeshProUGUI>();
+                if (tmp != null && !string.IsNullOrEmpty(tmp.text) && !tmp.text.StartsWith("<s>"))
+                {
+                    tmp.text = $"<s>{tmp.text}</s>";
+                    tmp.color = new Color(0.6f, 0.6f, 0.65f, 0.7f);
+                }
+            }
+        }
+    }
+
+    private IEnumerator ClearSuppressScrollNextFrame()
     {
         yield return null;
         suppressScrollEvent = false;

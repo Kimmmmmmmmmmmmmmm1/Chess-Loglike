@@ -59,6 +59,8 @@ public class PiecesSynthManager : MonoBehaviour
         Instance = this;
     }
 
+    private Button backButton;
+
     private void Start()
     {
         if (synthesisPanel != null)
@@ -69,14 +71,67 @@ public class PiecesSynthManager : MonoBehaviour
         if (synthesisButton != null)
         {
             synthesisButton.onClick.AddListener(OnSynthesisClick);
+            var synText = synthesisButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (synText != null) synText.text = "합성하기";
         }
 
         if (clearButton != null)
         {
             clearButton.onClick.AddListener(OnClearClick);
+            var clrText = clearButton.GetComponentInChildren<TextMeshProUGUI>();
+            if (clrText != null) clrText.text = "슬롯 비우기";
         }
 
         ClearPreviewSealIcons();
+        EnsureBackButton();
+    }
+
+    private void EnsureBackButton()
+    {
+        if (backButton != null || synthesisPanel == null) return;
+
+        // synthesisPanel 상단에 뒤로가기 버튼 배치
+        GameObject backObj = new GameObject("SynthBackButton");
+        backObj.transform.SetParent(synthesisPanel.transform, false);
+
+        RectTransform rt = backObj.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(0f, 1f);
+        rt.pivot = new Vector2(0f, 1f);
+        rt.anchoredPosition = new Vector2(10f, -10f);
+        rt.sizeDelta = new Vector2(65f, 24f);
+
+        Image img = backObj.AddComponent<Image>();
+        img.color = new Color(0.2f, 0.2f, 0.25f, 0.9f);
+
+        backButton = backObj.AddComponent<Button>();
+        backButton.onClick.AddListener(OnBackClick);
+
+        GameObject textObj = new GameObject("Text");
+        textObj.transform.SetParent(backObj.transform, false);
+        RectTransform textRt = textObj.AddComponent<RectTransform>();
+        textRt.anchorMin = Vector2.zero;
+        textRt.anchorMax = Vector2.one;
+        textRt.anchoredPosition = Vector2.zero;
+        textRt.sizeDelta = Vector2.zero;
+
+        TextMeshProUGUI tmp = textObj.AddComponent<TextMeshProUGUI>();
+        if (titleText != null) tmp.font = titleText.font;
+        tmp.text = "← 뒤로";
+        tmp.fontSize = 11f;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = Color.white;
+    }
+
+    public void OnBackClick()
+    {
+        OnClearClick();
+        CloseSynthesisPanel();
+
+        if (WorkShopManager.Instance != null)
+        {
+            WorkShopManager.Instance.ReturnToMain();
+        }
     }
 
     /// <summary>
@@ -89,19 +144,24 @@ public class PiecesSynthManager : MonoBehaviour
             synthesisPanel.SetActive(true);
         }
 
+        EnsureBackButton();
+
         // 초기화
         piece1 = null;
         piece2 = null;
         ResetPreviewState();
         UpdateSlotUI();
 
-        if (descriptionText != null)
+        if (titleText != null)
         {
-            descriptionText.text = "[기물 합성]\n인벤토리에서 기물 2개를 슬롯에 배치하세요.\n" +
-                "두 기물의 인장(Seal)을 병합하거나\n" +
-                "새로운 체스 기물로 합성합니다.";
+            titleText.text = "⚒️ 기물 합성";
         }
 
+        if (descriptionText != null)
+        {
+            descriptionText.text = "인벤토리에서 기물 2개를 슬롯에 드래그하여 배치하세요.\n" +
+                "합성 시 새로운 체스 기물로 진화하며 인장이 보존/통합됩니다.";
+        }
     }
 
     /// <summary>
@@ -607,7 +667,7 @@ public class PiecesSynthManager : MonoBehaviour
             }
         }
 
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(0.4f);
 
         // 슬롯 초기화
         piece1 = null;
@@ -615,12 +675,9 @@ public class PiecesSynthManager : MonoBehaviour
         ResetPreviewState();
         UpdateSlotUI();
 
-        yield return new WaitForSeconds(0.5f);
-
-        // 작업 완료 후 워크샵 종료
-        if (WorkShopManager.Instance != null)
+        if (descriptionText != null)
         {
-            WorkShopManager.Instance.OnWorkShopComplete();
+            descriptionText.text = "<color=#00FF88>★ 합성 성공!</color>\n대기석에 새로운 기물이 생성되었습니다.\n추가로 기물을 합성하거나 [← 뒤로]를 누르세요.";
         }
     }
 

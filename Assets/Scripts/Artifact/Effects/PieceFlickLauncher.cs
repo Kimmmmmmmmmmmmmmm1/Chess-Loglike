@@ -9,7 +9,7 @@ public sealed class PieceFlickLauncher : MonoBehaviour
 
     [Header("발사 힘 / 드래그 설정")]
     [Tooltip("최대 발사 힘 (Impulse 기준값)")]
-    [SerializeField] private float power = 60f;
+    [SerializeField] private float power = 45f;
     [Tooltip("최대로 당길 수 있는 드래그 거리 (픽셀/UI 단위)")]
     [SerializeField] private float maxDragDistance = 220f;
     [Tooltip("발사로 인정되는 최소 드래그 거리 (이보다 짧게 당기고 놓으면 취소)")]
@@ -19,13 +19,21 @@ public sealed class PieceFlickLauncher : MonoBehaviour
     [SerializeField] private float minChargeRatio = 0.35f;
     [Tooltip("최대로 당겼을 때 적용되는 최대 힘 비율 (0~2)")]
     [Range(0f, 2f)]
-    [SerializeField] private float maxChargeRatio = 1.0f;
+    [SerializeField] private float maxChargeRatio = 0.75f;
+    [Tooltip("가벼운 기물(질량 1)의 기본 발사 속도 배율")]
+    [SerializeField] private float lightMassSpeedScale = 0.52f;
+    [Tooltip("무거운 기물(질량 8.5 이상)의 발사 속도/추진력 배율 (클수록 무거운 기물이 더 강하게 밀고 나감)")]
+    [SerializeField] private float heavyMassSpeedScale = 1.0f;
 
     [Header("참조 및 조준선 설정")]
     [SerializeField] private LineRenderer aimLine;
     [SerializeField] private PhysicsGridSynchronizer synchronizer;
     [Tooltip("UI 조준선 두께")]
     [SerializeField] private float uiAimLineThickness = 16f;
+    [Tooltip("조준선 색상 (Hex 코드, 예: #FFFFFF)")]
+    [SerializeField] private string aimLineStartColorHex = "#FFFFFF";
+    [SerializeField] private string aimLineEndColorHex = "#FFFFFF";
+    [SerializeField] private string uiAimLineColorHex = "#FFFFFF";
 
     private PieceController selectedPiece;
     private Vector3 dragStart;
@@ -51,7 +59,8 @@ public sealed class PieceFlickLauncher : MonoBehaviour
         Instance.enabled &&
         !Instance.launched &&
         HasAlkkagiArtifact &&
-        Instance.IsPlayerTurn;
+        Instance.IsPlayerTurn &&
+        !ActiveArtifactController.IsTargeting;
 
     private bool HasPassiveArtifact => HasAlkkagiArtifact;
     private bool IsPlayerTurn => TurnManager.Instance != null && TurnManager.Instance.IsPlayerTurn;
@@ -62,6 +71,15 @@ public sealed class PieceFlickLauncher : MonoBehaviour
         GameObject go = new GameObject(nameof(PieceFlickLauncher));
         Instance = go.AddComponent<PieceFlickLauncher>();
         return Instance;
+    }
+
+    private static Color ParseHexColor(string hex)
+    {
+        if (ColorUtility.TryParseHtmlString(hex, out Color color))
+        {
+            return color;
+        }
+        return Color.white;
     }
 
     private void Awake()
@@ -81,8 +99,8 @@ public sealed class PieceFlickLauncher : MonoBehaviour
         {
             aimLine.useWorldSpace = true;
             aimLine.material = new Material(Shader.Find("Sprites/Default"));
-            aimLine.startColor = new Color(1f, 0.85f, 0.15f, 1f);
-            aimLine.endColor = new Color(1f, 0.35f, 0.05f, 1f);
+            aimLine.startColor = ParseHexColor(aimLineStartColorHex);
+            aimLine.endColor = ParseHexColor(aimLineEndColorHex);
             aimLine.widthMultiplier = 12f;
             aimLine.sortingOrder = 32767;
         }
@@ -92,7 +110,7 @@ public sealed class PieceFlickLauncher : MonoBehaviour
             lineObject.transform.SetParent(canvasRect, false);
             uiAimLine = lineObject.GetComponent<RectTransform>();
             uiAimImage = lineObject.GetComponent<Image>();
-            uiAimImage.color = new Color(1f, 0.55f, 0.05f, 1f);
+            uiAimImage.color = ParseHexColor(uiAimLineColorHex);
             uiAimImage.raycastTarget = false;
             uiAimLine.anchorMin = new Vector2(0.5f, 0.5f);
             uiAimLine.anchorMax = new Vector2(0.5f, 0.5f);
@@ -298,6 +316,8 @@ public sealed class PieceFlickLauncher : MonoBehaviour
         PieceManager.Instance?.ClearSelection();
         PieceManager.Instance?.HideMoveMarkers();
 
+        AchievementManager.Instance?.AddProgress("combat_alkkagi_flick", 1);
+
         // 모든 보드 기물의 물리 설정을 먼저 초기화한 뒤 발사 힘을 가함 (velocity가 0으로 덮어써지지 않도록)
         synchronizer.BeginMonitoring();
 
@@ -305,20 +325,28 @@ public sealed class PieceFlickLauncher : MonoBehaviour
         if (body == null) body = piece.gameObject.AddComponent<Rigidbody>();
         if (piece.GetComponent<Collider>() == null) piece.gameObject.AddComponent<BoxCollider>();
 
-        body.mass = synchronizer != null ? synchronizer.GetPieceMass(piece.PieceType) : PhysicsGridSynchronizer.GetMass(piece.PieceType);
+        body.mass = synchronizer != null ? synchronizer.GetPieceMass(piece) : PhysicsGridSynchronizer.GetMass(piece);
         body.useGravity = false;
-        body.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
+        body.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationY;
         body.isKinematic = false;
         body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
 
         Vector3 planarDelta = new Vector3(screenDelta.x, screenDelta.y, 0f);
         Vector3 direction = planarDelta.normalized;
         float dragRatio = Mathf.Clamp01(planarDelta.magnitude / Mathf.Max(1f, maxDragDistance));
         float chargeRatio = Mathf.Lerp(minChargeRatio, maxChargeRatio, dragRatio);
-        body.AddForce(direction * (power * chargeRatio), ForceMode.Impulse);
+
+        // ForceMode.Impulse는 질량(mass)으로 나뉘어 속도가 결정되므로,
+        // 질량을 곱해 무거운 기물이 느려지지 않게 보정하고 질량이 클수록 추가 추진력 배율을 부여
+        float massNormalized = Mathf.Clamp01((body.mass - 1f) / 7.5f);
+        float massSpeedScale = Mathf.Lerp(lightMassSpeedScale, heavyMassSpeedScale, massNormalized);
+        float finalImpulse = power * chargeRatio * body.mass * massSpeedScale;
+
+        body.AddForce(direction * finalImpulse, ForceMode.Impulse);
     }
 
-    private void Cancel()
+    public void Cancel()
     {
         selectedPiece = null;
         dragging = false;

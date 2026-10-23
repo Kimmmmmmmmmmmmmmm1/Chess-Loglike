@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
+  m_Name: Hook
+  m_EditorClassIdentifier: Assembly-CSharp::SealData
+  sealName: "갈고리의 인장"
+  rarity: 2
+  description: "이 기물이 적을 포획하지 않고 단순 이동을 마쳤을 때, 이동한 방향의 일직선상에 있는 첫 번째 적 기물을 내 기물 바로 앞 칸으로 강제로 끌어당기고 1턴동안 혼란 상태를 부여합니다."
+  flavorText: "도망칠 수 없다. 거리는 단지 환상일 뿐이다."
+  icon: {fileID: 3286163911610860551, guid: 7890abcdef0123456789abcdef012343, type: 3}
+  isSoldInShop: 1
+  sealPrefab: {fileID: 7711002200000000001, guid: 7890abcdef0123456789abcdef012342, type: 3}
+  compatiblePieces: []
+  effectType: 3
+  effectValue: 0
+

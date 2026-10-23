@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
+using System.Collections.Generic;
 
 public class RewardManager : MonoBehaviour
 {
@@ -69,10 +70,22 @@ public class RewardManager : MonoBehaviour
     /// </summary>
     public RewardButton.RewardType GetRandomRewardType(bool allowCoin = true)
     {
+        bool isElite = GameManager.Instance != null && GameManager.Instance.CurrentBattleType == BattleType.Elite;
+
         float pWeight = Mathf.Max(0f, pieceWeight);
         float sWeight = Mathf.Max(0f, sealWeight);
         float aWeight = Mathf.Max(0f, artifactWeight);
         float cWeight = allowCoin ? Mathf.Max(0f, coinWeight) : 0f;
+        if (ShotgunKingSystem.IsActive) pWeight = 0f;
+
+        // 엘리트 전투 시 유물/인장/고급 기물 위주로 보상 타입 가중치 보정 (골드 선택지 최소화)
+        if (isElite)
+        {
+            aWeight = 35f;
+            sWeight = 35f;
+            pWeight = 25f;
+            cWeight = allowCoin ? 5f : 0f;
+        }
 
         float totalWeight = pWeight + sWeight + aWeight + cWeight;
         if (totalWeight <= 0f)
@@ -190,7 +203,7 @@ public class RewardManager : MonoBehaviour
                 horizontal = rewardContainer.gameObject.AddComponent<HorizontalLayoutGroup>();
             }
 
-            horizontal.spacing = 10f;
+            horizontal.spacing = 15f;
             horizontal.childAlignment = TextAnchor.MiddleCenter;
             horizontal.childControlWidth = false;
             horizontal.childControlHeight = false;
@@ -216,8 +229,8 @@ public class RewardManager : MonoBehaviour
                 RectTransform scrollRectTransform = rewardScrollRect.GetComponent<RectTransform>();
                 if (scrollRectTransform != null)
                 {
-                    scrollRectTransform.sizeDelta = new Vector2(500f, 64f);
-                    scrollRectTransform.anchoredPosition = new Vector2(0f, -10f);
+                    scrollRectTransform.sizeDelta = new Vector2(490f, 185f);
+                    scrollRectTransform.anchoredPosition = new Vector2(0f, -4f);
                 }
 
                 if (rewardScrollRect.verticalScrollbar != null)
@@ -315,6 +328,23 @@ public class RewardManager : MonoBehaviour
         }
     }
 
+    private List<SavedRewardCardData> pendingRewardCards = new List<SavedRewardCardData>();
+    public IReadOnlyList<SavedRewardCardData> PendingRewardCards => pendingRewardCards;
+
+    public void SetPendingRewardCards(List<SavedRewardCardData> cards)
+    {
+        pendingRewardCards.Clear();
+        if (cards != null)
+        {
+            pendingRewardCards.AddRange(cards);
+        }
+    }
+
+    public void ClearPendingRewardCards()
+    {
+        pendingRewardCards.Clear();
+    }
+
     public void OnRerollClicked()
     {
         if (GameManager.Instance == null) return;
@@ -330,6 +360,7 @@ public class RewardManager : MonoBehaviour
 
         if (GameManager.Instance.UseCoin(cost))
         {
+            ClearPendingRewardCards();
             GenerateRewards(3, currentRarity);
             UpdateRerollUI();
             if (rewardContainer != null)
@@ -343,13 +374,27 @@ public class RewardManager : MonoBehaviour
     {
         if (newState == GameStateManager.GameState.Reward)
         {
-            int difficulty = 1;
-            if (GameManager.Instance != null)
+            int cleared = GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0;
+            BattleType bType = GameManager.Instance != null ? GameManager.Instance.CurrentBattleType : BattleType.Normal;
+            bool bossCleared = GameManager.Instance != null && GameManager.Instance.BossJustCleared;
+
+            int rarity = 0;
+            if (bType == BattleType.Boss || bossCleared)
             {
-                difficulty = GameManager.Instance.ClearedStage + 1;
+                // 보스 전투: 전설/에픽급 확정 (최소 3)
+                rarity = Mathf.Max(3, (cleared / 3) + 1);
+            }
+            else if (bType == BattleType.Elite)
+            {
+                // 엘리트 전투: 고급(Rare 이상) 확정 (최소 2)
+                rarity = Mathf.Max(2, (cleared / 3) + 1);
+            }
+            else
+            {
+                // 일반 전투
+                rarity = Mathf.Clamp(cleared / 3, 0, 3);
             }
 
-            int rarity = difficulty / 2;
             ShowRewards(3, rarity);
         }
     }
@@ -379,12 +424,16 @@ public class RewardManager : MonoBehaviour
             }
         }
 
-        // 1단계: 기본 보상(전투 정산) 창 먼저 표시
+        // 전투 정산 결과 계산 및 골드 즉시 흡수 연출 (정산 팝업 클릭 대기 생략)
         currentBattleReward = GameManager.Instance != null
             ? GameManager.Instance.CalculateBattleReward(pieceData)
             : default;
 
-        ShowSettlementPhase(currentBattleReward);
+        Vector3 startPos = rewardPanel != null ? rewardPanel.transform.position : transform.position;
+        PlayCoinFlyAnimation(currentBattleReward.TotalReward, startPos, null);
+
+        // 정산 팝업 없이 곧바로 3지선다 보상 선택창으로 진입
+        ShowChoicePhase(count, rarity);
     }
 
     private void ShowSettlementPhase(GameManager.BattleRewardResult result)
@@ -476,17 +525,34 @@ public class RewardManager : MonoBehaviour
         if (rewardPanelRect != null)
         {
             rewardPanelRect.DOKill();
-            rewardPanelRect.DOSizeDelta(new Vector2(520f, 220f), 0.25f).SetEase(Ease.OutQuad);
+            rewardPanelRect.DOSizeDelta(new Vector2(540f, 250f), 0.25f).SetEase(Ease.OutQuad);
             rewardPanelRect.anchoredPosition = Vector2.zero;
         }
 
         if (titleText != null)
         {
-            titleText.text = "보상 선택";
+            BattleType bType = GameManager.Instance != null ? GameManager.Instance.CurrentBattleType : BattleType.Normal;
+            bool bossCleared = GameManager.Instance != null && GameManager.Instance.BossJustCleared;
+
+            string header;
+            if (bType == BattleType.Boss || bossCleared)
+            {
+                header = $"💀 보스 격파! (+{currentBattleReward.TotalReward}G)";
+            }
+            else if (bType == BattleType.Elite)
+            {
+                header = $"🔥 엘리트 승리! (+{currentBattleReward.TotalReward}G)";
+            }
+            else
+            {
+                header = $"⚔️ 전투 승리! (+{currentBattleReward.TotalReward}G)";
+            }
+            titleText.text = header;
+
             RectTransform titleRect = titleText.GetComponent<RectTransform>();
             if (titleRect != null)
             {
-                titleRect.anchoredPosition = new Vector2(0f, 78f);
+                titleRect.anchoredPosition = new Vector2(0f, 102f);
             }
         }
 
@@ -503,22 +569,32 @@ public class RewardManager : MonoBehaviour
             RectTransform scrollRectTransform = rewardScrollRect.GetComponent<RectTransform>();
             if (scrollRectTransform != null)
             {
-                scrollRectTransform.sizeDelta = new Vector2(500f, 64f);
-                scrollRectTransform.anchoredPosition = new Vector2(0f, -10f);
+                scrollRectTransform.sizeDelta = new Vector2(490f, 185f);
+                scrollRectTransform.anchoredPosition = new Vector2(0f, -4f);
             }
         }
 
         if (rerollButton != null)
         {
-            rerollButton.gameObject.SetActive(true);
-            UpdateRerollUI();
+            bool isTutorial = TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive;
+            rerollButton.gameObject.SetActive(!isTutorial);
+            if (!isTutorial)
+            {
+                RectTransform rerollRect = rerollButton.GetComponent<RectTransform>();
+                if (rerollRect != null)
+                {
+                    rerollRect.anchoredPosition = new Vector2(215f, 102f);
+                }
+                UpdateRerollUI();
+            }
         }
 
         // 닫기 / 선택 완료 버튼 설정
         if (closeButton != null)
         {
-            closeButton.gameObject.SetActive(true);
-            closeButton.interactable = true;
+            bool isTutorial = TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive;
+            closeButton.gameObject.SetActive(!isTutorial);
+            closeButton.interactable = !isTutorial;
             if (closeButtonText != null)
             {
                 closeButtonText.text = "선택 완료";
@@ -526,14 +602,31 @@ public class RewardManager : MonoBehaviour
             RectTransform btnRect = closeButton.GetComponent<RectTransform>();
             if (btnRect != null)
             {
-                btnRect.anchoredPosition = new Vector2(0f, -75f);
+                btnRect.anchoredPosition = new Vector2(0f, -108f);
+                btnRect.sizeDelta = new Vector2(100f, 24f);
             }
 
             closeButton.onClick.RemoveAllListeners();
-            closeButton.onClick.AddListener(OnRewardClaimed);
+            if (!isTutorial)
+            {
+                closeButton.onClick.AddListener(OnRewardClaimed);
+            }
         }
 
         GenerateRewards(count, rarity);
+
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            int cleared = GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0;
+            if (cleared == 1)
+            {
+                TutorialManager.Instance.ShowRewardPhase();
+            }
+            else if (cleared == 2)
+            {
+                TutorialManager.Instance.ShowRewardStage2Phase();
+            }
+        }
     }
 
     private void PlayCoinFlyAnimation(int amount, Vector3 startPos, System.Action onComplete)
@@ -611,6 +704,10 @@ public class RewardManager : MonoBehaviour
     private void GenerateRewards(int count, int rarity)
     {
         if (rewardContainer == null) return;
+        if (rewardButtonPrefab == null)
+        {
+            rewardButtonPrefab = Resources.Load<GameObject>("UI/RewardBtn");
+        }
         if (rewardButtonPrefab == null) return;
 
         // 기존 버튼 제거
@@ -620,48 +717,156 @@ public class RewardManager : MonoBehaviour
         }
 
         activeRewardCount = 0;
-        bool coinAlreadyGenerated = false;
+        bool hasSavedCards = pendingRewardCards != null && pendingRewardCards.Count > 0;
+        bool isTutorial = TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive;
 
-        // 각 카드 슬롯마다 가중치 기반으로 완전 랜덤 추첨 (골드는 최대 1개)
-        for (int i = 0; i < count; i++)
+        if (hasSavedCards)
         {
-            GameObject obj = Instantiate(rewardButtonPrefab, rewardContainer);
-            if (obj == null)
+            for (int i = 0; i < pendingRewardCards.Count; i++)
             {
-                continue;
-            }
+                var cardData = pendingRewardCards[i];
+                GameObject obj = Instantiate(rewardButtonPrefab, rewardContainer);
+                if (obj == null) continue;
 
-            RewardButton btn = obj.GetComponent<RewardButton>();
-            if (btn != null)
-            {
-                RewardButton.RewardType randomType = GetRandomRewardType(!coinAlreadyGenerated);
-                if (randomType == RewardButton.RewardType.Coin)
+                RewardButton btn = obj.GetComponent<RewardButton>();
+                if (btn != null)
                 {
-                    coinAlreadyGenerated = true;
-                }
-                btn.InitializeWithType(this, rarity, randomType);
-                activeRewardCount++;
-            }
-
-            // 버튼 등장 애니메이션: 순차적으로 팝업
-            obj.transform.localScale = Vector3.zero;
-            obj.transform.DOScale(Vector3.one, 0.4f)
-                .SetEase(Ease.OutBack)
-                .SetDelay(i * 0.1f + 0.2f)
-                .SetUpdate(true)
-                .OnComplete(() =>
-                {
-                    if (btn != null && btn.AttachedSeal != null)
+                    btn.InitializeWithSavedData(this, rarity, cardData);
+                    if (isTutorial && i != 0)
                     {
-                        btn.PlaySealEffect(btn.AttachedSeal.rarity);
+                        btn.SetTutorialDisabled(true);
                     }
-                });
+                    activeRewardCount++;
+                }
+
+                if (isTutorial && i == 0)
+                {
+                    obj.transform.localScale = Vector3.zero;
+                    obj.transform.DOScale(Vector3.one, 0.3f)
+                        .SetEase(Ease.OutBack)
+                        .SetUpdate(true)
+                        .OnComplete(() =>
+                        {
+                            if (btn != null)
+                            {
+                                btn.SetTutorialHighlighted(true);
+                            }
+                        });
+                }
+                else
+                {
+                    obj.transform.localScale = Vector3.zero;
+                    obj.transform.DOScale(Vector3.one, 0.35f)
+                        .SetEase(Ease.OutBack)
+                        .SetDelay(i * 0.08f + 0.1f)
+                        .SetUpdate(true);
+                }
+            }
+        }
+        else
+        {
+            bool coinAlreadyGenerated = false;
+            pendingRewardCards.Clear();
+
+            // 각 카드 슬롯마다 가중치 기반으로 완전 랜덤 추첨 (골드는 최대 1개)
+            for (int i = 0; i < count; i++)
+            {
+                GameObject obj = Instantiate(rewardButtonPrefab, rewardContainer);
+                if (obj == null)
+                {
+                    continue;
+                }
+
+                RewardButton btn = obj.GetComponent<RewardButton>();
+                if (btn != null)
+                {
+                    if (isTutorial && i == 0)
+                    {
+                        int cleared = GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0;
+                        if (cleared == 1)
+                        {
+                            // 튜토리얼 1스테이지 전용 확정 보상: 부서진 비숍의 인장 (Seal/Diagnal)
+                            SealData brokenBishopSeal = Resources.Load<SealData>("Seal/Diagnal");
+                            if (brokenBishopSeal != null)
+                            {
+                                btn.InitializeWithFixedSeal(this, rarity, brokenBishopSeal);
+                            }
+                            else
+                            {
+                                btn.InitializeWithType(this, rarity, RewardButton.RewardType.Seal);
+                            }
+                        }
+                        else if (cleared == 2)
+                        {
+                            // 튜토리얼 2스테이지 전용 확정 보상: 낙뢰의 부적 (Artifact/LightningTalisman)
+                            ArtifactData lightningArtifact = StageSaveManager.FindArtifactData("AC02");
+                            if (lightningArtifact != null)
+                            {
+                                btn.InitializeWithFixedArtifact(this, rarity, lightningArtifact);
+                            }
+                            else
+                            {
+                                btn.InitializeWithType(this, rarity, RewardButton.RewardType.Artifact);
+                            }
+                        }
+                        else
+                        {
+                            RewardButton.RewardType randomType = GetRandomRewardType(!coinAlreadyGenerated);
+                            if (randomType == RewardButton.RewardType.Coin) coinAlreadyGenerated = true;
+                            btn.InitializeWithType(this, rarity, randomType);
+                        }
+                    }
+                    else
+                    {
+                        RewardButton.RewardType randomType = GetRandomRewardType(!coinAlreadyGenerated);
+                        if (randomType == RewardButton.RewardType.Coin)
+                        {
+                            coinAlreadyGenerated = true;
+                        }
+                        btn.InitializeWithType(this, rarity, randomType);
+
+                        // 튜토리얼 중 다른 선택지는 비활성화하여 오직 비숍 인장만 선택 가능하도록 제한
+                        if (isTutorial)
+                        {
+                            btn.SetTutorialDisabled(true);
+                        }
+                    }
+                    activeRewardCount++;
+                    pendingRewardCards.Add(btn.GetCardData());
+                }
+
+                // 카드 등장 애니메이션: 순차적으로 팝업
+                if (isTutorial && i == 0)
+                {
+                    obj.transform.localScale = Vector3.zero;
+                    obj.transform.DOScale(Vector3.one, 0.3f)
+                        .SetEase(Ease.OutBack)
+                        .SetUpdate(true)
+                        .OnComplete(() =>
+                        {
+                            if (btn != null)
+                            {
+                                btn.SetTutorialHighlighted(true);
+                            }
+                        });
+                }
+                else
+                {
+                    obj.transform.localScale = Vector3.zero;
+                    obj.transform.DOScale(Vector3.one, 0.35f)
+                        .SetEase(Ease.OutBack)
+                        .SetDelay(i * 0.08f + 0.1f)
+                        .SetUpdate(true);
+                }
+            }
+
+            // 새로운 선택지 생성 직후 즉시 세이브에 기록
+            StageSaveManager.EnsureInstance()?.SaveCurrentRun(pendingReward: true);
         }
     }
 
-    public void OnRewardButtonClicked()
+    public void DisableAllRewardButtons()
     {
-        // 3개 중 하나만 선택: 선택 즉시 나머지 버튼 비활성화 및 완료 처리
         if (rewardContainer != null)
         {
             foreach (Transform child in rewardContainer)
@@ -674,12 +879,38 @@ public class RewardManager : MonoBehaviour
             }
         }
 
+        if (closeButton != null)
+        {
+            closeButton.interactable = false;
+        }
+
+        if (rerollButton != null)
+        {
+            rerollButton.interactable = false;
+        }
+    }
+
+    public void OnRewardButtonClicked()
+    {
+        // 3개 중 하나만 선택: 선택 즉시 나머지 버튼 비활성화 및 완료 처리
+        DisableAllRewardButtons();
+
         activeRewardCount = 0;
         OnRewardClaimed();
     }
 
     public void OnRewardClaimed()
     {
+        // 튜토리얼 진행 중에는 보상 카드를 직접 선택하지 않고 나가기/닫기를 누르는 것을 완전 차단
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            if (activeRewardCount > 0)
+            {
+                return;
+            }
+        }
+
+        ClearPendingRewardCards();
         if (rewardPanel != null)
         {
             if (rewardContainer != null)
@@ -713,13 +944,13 @@ public class RewardManager : MonoBehaviour
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.BossJustCleared = false;
-                // 전투 -> 보상 -> 상점 -> 다음 전투 순서로 전환
-                GameManager.Instance.ChangeFlowState(GameFlowState.Shop);
+                // 전투 보상 완료 후 다음 행선지 선택(StageSelect)으로 전환
+                GameManager.Instance.AdvanceToStageSelect();
             }
         }
         else if (GameManager.Instance != null)
         {
-            GameManager.Instance.ChangeFlowState(GameFlowState.Shop);
+            GameManager.Instance.AdvanceToStageSelect();
         }
     }
 

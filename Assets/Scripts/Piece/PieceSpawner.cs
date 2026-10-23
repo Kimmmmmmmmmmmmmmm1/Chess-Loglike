@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Linq;
 
 public class PieceSpawner : MonoBehaviour
 {
@@ -121,6 +122,7 @@ public class PieceSpawner : MonoBehaviour
 
         if (PieceManager.Instance != null)
         {
+            PieceManager.Instance.MovePlayerPiecesToSafety();
             PieceManager.Instance.UpdateThreatenedStatus();
         }
     }
@@ -296,6 +298,10 @@ public class PieceSpawner : MonoBehaviour
         if (piece != null)
         {
             piece.Initialize(pieceType, false); // 아군 기물로 초기화 [데이터]
+            if (attachedSeal != null)
+            {
+                piece.EquipSeal(attachedSeal);
+            }
             
             // 비행 중에는 보드 로직(Grid 0,0 등)에 간섭하지 않도록 매니저에서 임시 해제 [데이터]
             if (PieceManager.Instance != null)
@@ -316,7 +322,7 @@ public class PieceSpawner : MonoBehaviour
             {
                 if (piece != null)
                 {
-                    if (attachedSeal != null)
+                    if (attachedSeal != null && (piece.EquippedSeals == null || !piece.EquippedSeals.Any(s => s != null && s.Data == attachedSeal)))
                     {
                         piece.EquipSeal(attachedSeal);
                     }
@@ -332,11 +338,13 @@ public class PieceSpawner : MonoBehaviour
 
     private void SpawnGroup(List<PieceSpawnInfo> pieces, bool isEnemy, ref float delayAccumulator)
     {
-        if (piecePrefab == null) return;
+        if (piecePrefab == null || pieces == null) return;
+
+        List<PieceSpawnInfo> spawnList = isEnemy ? StageManager.SanitizeEnemyPieces(pieces) : pieces;
 
         Transform parent = piecesParent != null ? piecesParent : transform;
 
-        foreach (var info in pieces)
+        foreach (var info in spawnList)
         {
             GameObject pieceObj = Instantiate(piecePrefab, parent);
             pieceObj.name = $"PiecePrefab(Clone)@SpawnGroup[{(isEnemy ? "Enemy" : "Ally")}_{info.pieceType}_{info.gridCoordinate}]";

@@ -1,0 +1,13 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="12" cy="12" r="12" fill="#0288D1"/>
+  <!-- Knight Leap Trajectory Arc -->
+  <path d="M5.5 16.5C7.5 7 16.5 7 18.5 16.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M16 15.2L18.5 16.5L19 13.8" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Dual Shotgun Shells loaded at apex -->
+  <rect x="9.8" y="9.5" width="2" height="4.5" rx="0.5" fill="white"/>
+  <rect x="12.6" y="9.5" width="2" height="4.5" rx="0.5" fill="white"/>
+  <line x1="9.8" y1="12.5" x2="11.8" y2="12.5" stroke="#0288D1" stroke-width="0.8"/>
+  <line x1="12.6" y1="12.5" x2="14.6" y2="12.5" stroke="#0288D1" stroke-width="0.8"/>
+  <!-- Apex Jump Star/Burst -->
+  <path d="M12 5.5L12.5 6.8L13.8 7L12.8 8L13.1 9.2L12 8.5L10.9 9.2L11.2 8L10.2 7L11.5 6.8Z" fill="white"/>
+</svg>

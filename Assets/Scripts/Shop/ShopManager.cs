@@ -373,6 +373,11 @@ public class ShopManager : MonoBehaviour
 
     private void OnArtifactAdded(ArtifactData artifact)
     {
+        if (artifact != null && artifact.id == TyrantsBarrageArtifactEffect.Id && shopPanel != null && shopPanel.activeSelf)
+        {
+            GenerateShopItems();
+        }
+
         // A001 유물을 획득했고 상점 패널이 켜져있다면 3번째 슬롯 확장 연출 실행
         if (artifact.id == "A001" && shopPanel != null && shopPanel.activeSelf)
         {
@@ -463,18 +468,7 @@ public class ShopManager : MonoBehaviour
                 SetupRandomShopSlot(newSlot);
                 
                 // 3. 새 슬롯 확대 등장
-                newSlotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack)
-                    .OnComplete(() => 
-                    {
-                        if (newSlot.IsStandaloneSeal && newSlot.StandaloneSeal != null)
-                        {
-                            newSlot.PlaySealEffect(newSlot.StandaloneSeal.rarity);
-                        }
-                        else if (newSlot.AttachedSeal != null)
-                        {
-                            newSlot.PlaySealEffect(newSlot.AttachedSeal.rarity);
-                        }
-                    });
+                newSlotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack);
             }
         });
     }
@@ -784,7 +778,7 @@ public class ShopManager : MonoBehaviour
             
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.StartNextStage();
+                GameManager.Instance.OnNonBattleStageCompleted();
             }
         });
     }
@@ -992,20 +986,7 @@ public class ShopManager : MonoBehaviour
             
             // 등장 애니메이션: 스케일 0에서 1로 커지며 순차적으로 등장
             slotObj.transform.localScale = Vector3.zero;
-            slotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack).SetDelay(i * 0.1f)
-                .OnComplete(() => {
-                    if (slot != null)
-                    {
-                        if (slot.IsStandaloneSeal && slot.StandaloneSeal != null)
-                        {
-                            slot.PlaySealEffect(slot.StandaloneSeal.rarity);
-                        }
-                        else if (slot.AttachedSeal != null)
-                        {
-                            slot.PlaySealEffect(slot.AttachedSeal.rarity);
-                        }
-                    }
-                });
+            slotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack).SetDelay(i * 0.1f);
         }
     }
 
@@ -1018,7 +999,7 @@ public class ShopManager : MonoBehaviour
             LoadAllSealsFromFolder();
         }
 
-        bool canSpawnPiece = shopPieceData != null && shopPieceData.pieceList != null && shopPieceData.pieceList.Count > 0;
+        bool canSpawnPiece = !ShotgunKingSystem.IsActive && shopPieceData != null && shopPieceData.pieceList != null && shopPieceData.pieceList.Count > 0;
         SealData candidateSeal = GetRandomStandaloneSeal();
         bool canSpawnSeal = candidateSeal != null;
         ArtifactData candidateArtifact = ArtifactManager.Instance != null
@@ -1040,8 +1021,8 @@ public class ShopManager : MonoBehaviour
         float roll = UnityEngine.Random.Range(0f, totalWeight);
         if (roll < pWeight && canSpawnPiece)
         {
-            var pieceInfo = shopPieceData.GetRandomPiece();
-            if (pieceInfo != null)
+            var pieceInfo = shopPieceData.GetRandomPiece(excludeLegendary: true);
+            if (pieceInfo != null && pieceInfo.pieceType != PieceType.Amazon)
             {
                 SealData seal = GetRandomSeal(pieceInfo.pieceType);
                 int finalPrice = CalculatePriceWithSeal(pieceInfo.Price, seal);
@@ -1068,8 +1049,8 @@ public class ShopManager : MonoBehaviour
         // Fallback
         if (canSpawnPiece)
         {
-            var pieceInfo = shopPieceData.GetRandomPiece();
-            if (pieceInfo != null)
+            var pieceInfo = shopPieceData.GetRandomPiece(excludeLegendary: true);
+            if (pieceInfo != null && pieceInfo.pieceType != PieceType.Amazon)
             {
                 SealData seal = GetRandomSeal(pieceInfo.pieceType);
                 int finalPrice = CalculatePriceWithSeal(pieceInfo.Price, seal);
@@ -1092,22 +1073,25 @@ public class ShopManager : MonoBehaviour
 
     private SealData GetRandomStandaloneSeal()
     {
+        if (ShotgunKingSystem.IsActive) return ShotgunKingSystem.GetRandomWeaponPart();
+
         if (allSeals == null || allSeals.Count == 0)
         {
             return null;
         }
 
-        var shopSeals = allSeals.Where(s => s != null && s.isSoldInShop).ToList();
+        // 상점에서 전설 인장은 등장하지 않도록 제외
+        var shopSeals = allSeals.Where(s => s != null && s.isSoldInShop && s.rarity != SealRarity.Legendary).ToList();
         if (shopSeals.Count == 0)
         {
             return null;
         }
 
-        float roll = UnityEngine.Random.Range(0f, 15f);
+        // Epic, Rare, Common 중 가중치 추첨 (2.5 : 4 : 8 -> 총합 14.5)
+        float roll = UnityEngine.Random.Range(0f, 14.5f);
         SealRarity rarity;
-        if (roll < 0.5f) rarity = SealRarity.Legendary;
-        else if (roll < 3.0f) rarity = SealRarity.Epic;
-        else if (roll < 7.0f) rarity = SealRarity.Rare;
+        if (roll < 2.5f) rarity = SealRarity.Epic;
+        else if (roll < 6.5f) rarity = SealRarity.Rare;
         else rarity = SealRarity.Common;
 
         var candidates = shopSeals.Where(s => s.rarity == rarity).ToList();
@@ -1180,7 +1164,8 @@ public class ShopManager : MonoBehaviour
         float roll = UnityEngine.Random.Range(0f, 100f);
         
         // 스테이지 진행도에 따른 확률 보정 (0 ~ 9 스테이지까지 선형 증가)
-        float progress = Mathf.Clamp01(GameManager.Instance.ClearedStage+1 / 10f);
+        int cleared = GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0;
+        float progress = Mathf.Clamp01((cleared + 1) / 10f);
 
         float artifactBonus = 0f;
         if (ArtifactManager.Instance != null)
@@ -1194,10 +1179,9 @@ public class ShopManager : MonoBehaviour
         // 현재 적용될 총 확률 (유물 등으로 sealDropChance가 바뀌어도 비율 유지)
         float currentChance = (sealDropChance + artifactBonus) * progress;
         
-        // 누적 확률 계산 (비율: 0.5 : 2.5 : 4 : 8) -> 총합 15 기준 비율
-        if (roll < currentChance * (0.5f / 15f)) return GetRandomSealByRarity(SealRarity.Legendary, pieceType);
-        if (roll < currentChance * (3.0f / 15f)) return GetRandomSealByRarity(SealRarity.Epic, pieceType);
-        if (roll < currentChance * (7.0f / 15f)) return GetRandomSealByRarity(SealRarity.Rare, pieceType);
+        // 상점 기물 부착 인장은 전설 제외 (Epic, Rare, Common) - 총합 14.5 기준 비율
+        if (roll < currentChance * (2.5f / 14.5f)) return GetRandomSealByRarity(SealRarity.Epic, pieceType);
+        if (roll < currentChance * (6.5f / 14.5f)) return GetRandomSealByRarity(SealRarity.Rare, pieceType);
         if (roll < currentChance) return GetRandomSealByRarity(SealRarity.Common, pieceType);
 
         return null;
@@ -1205,6 +1189,8 @@ public class ShopManager : MonoBehaviour
 
     private SealData GetRandomSealByRarity(SealRarity rarity, PieceType pieceType)
     {
+        if (ShotgunKingSystem.IsActive) return ShotgunKingSystem.GetRandomWeaponPart();
+
         var candidates = allSeals.Where(s => 
             s.rarity == rarity && 
             s.isSoldInShop && // 상점 판매 가능 인장만

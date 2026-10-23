@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label="tyrants-barrage">
+  <style>
+    .f{fill:#F6E7C1}.g{fill:#E8B84A}.b{fill:#62A8C8}.p{fill:#8D79C6}.r{fill:#C96352}.d{fill:#3C312B}
+    path,rect,circle,polygon{stroke:#2B2118;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  </style>
+  <!-- Wooden stock -->
+  <path class="f" d="M3 19.5 C3.5 17 5 15.5 7.5 15 L9 16.5 C7 18 5 20.5 3 19.5 Z"/>
+  <!-- Receiver & Trigger Guard -->
+  <path class="d" d="M7.5 15 L11.5 11 L13 12.5 L9 16.5 Z"/>
+  <!-- Double Barrel -->
+  <path class="b" d="M11.5 11 L18.5 4 L20.5 6 L13 12.5 Z"/>
+  <line x1="12.5" y1="12" x2="19.5" y2="5" stroke="#2B2118" stroke-width="1.2"/>
+  <!-- King Crown on top of receiver -->
+  <path class="g" d="M8.5 10.5 L8 7.5 L10 8.5 L11.5 6.5 L13 8.5 L15 7.5 L14.5 10.5 Z"/>
+  <!-- Royal gem / cross on crown -->
+  <circle class="r" cx="11.5" cy="5.2" r="0.8"/>
+  <!-- Muzzle Blast / Ejected Shells -->
+  <rect class="r" x="18" y="11" width="2.5" height="4.5" rx="0.8" transform="rotate(-30 18 11)"/>
+  <rect class="g" x="17.8" y="14.8" width="2.5" height="1.2" rx="0.3" transform="rotate(-30 17.8 14.8)"/>
+</svg>

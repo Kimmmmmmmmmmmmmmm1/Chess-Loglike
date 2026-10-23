@@ -20,5 +20,5 @@ MonoBehaviour:
   score: 4
   description: "모든 방향으로 1칸씩 이동할 수 있습니다.
 킹이 파괴되면 게임에서 패배합니다."
-  flavorText: "체스 진영의 심장이자 최우선 보호 대상인 왕."
+  flavorText: "왕관의 무게를 견디며 전장을 지휘하는 왕."
 

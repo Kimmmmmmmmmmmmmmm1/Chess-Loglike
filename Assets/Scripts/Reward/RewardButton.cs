@@ -17,6 +17,15 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
     public TextMeshProUGUI infoText;
     public Image iconImage;
 
+    [Header("Card UI (Stage Choice Card Style)")]
+    public Image headerBg;
+    public TextMeshProUGUI headerText;
+    public TextMeshProUGUI titleText;
+    public TextMeshProUGUI descText;
+    public Outline cardOutline;
+    public Image selectBtnBg;
+    public TextMeshProUGUI selectBtnText;
+
     [Header("Hover Settings")]
     [SerializeField] private float hoverScale = 1.05f;
     [SerializeField] private float hoverDuration = 0.18f;
@@ -37,16 +46,364 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
 
     private void Awake()
     {
-        backgroundImage = GetComponent<Image>();
+        EnsureCardLayout();
+    }
+
+    public void EnsureCardLayout()
+    {
+        RectTransform rt = GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.sizeDelta = new Vector2(145f, 180f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.localScale = Vector3.one;
+        }
+
+        // 1. Root Image (카드 배경)
+        if (backgroundImage == null) backgroundImage = GetComponent<Image>();
         if (backgroundImage != null)
         {
+            backgroundImage.color = new Color(0.12f, 0.12f, 0.16f, 0.95f);
             originalBgColor = backgroundImage.color;
         }
+
+        // 2. Outline
+        if (cardOutline == null) cardOutline = GetComponent<Outline>();
+        if (cardOutline == null) cardOutline = gameObject.AddComponent<Outline>();
+        cardOutline.effectDistance = new Vector2(2f, 2f);
+
+        // 3. Header Banner
+        Transform hObj = transform.Find("Header");
+        if (hObj == null)
+        {
+            GameObject headerGo = new GameObject("Header", typeof(RectTransform));
+            headerGo.transform.SetParent(transform, false);
+            hObj = headerGo.transform;
+        }
+        RectTransform headerRect = hObj.GetComponent<RectTransform>();
+        headerRect.anchorMin = new Vector2(0f, 1f);
+        headerRect.anchorMax = new Vector2(1f, 1f);
+        headerRect.pivot = new Vector2(0.5f, 1f);
+        headerRect.anchoredPosition = new Vector2(0f, 0f);
+        headerRect.sizeDelta = new Vector2(0f, 26f);
+        headerRect.localScale = Vector3.one;
+
+        headerBg = hObj.GetComponent<Image>() ?? hObj.gameObject.AddComponent<Image>();
+
+        Transform htObj = hObj.Find("HeaderText");
+        if (htObj == null)
+        {
+            GameObject htGo = new GameObject("HeaderText", typeof(RectTransform));
+            htGo.transform.SetParent(hObj, false);
+            htObj = htGo.transform;
+        }
+        RectTransform htRect = htObj.GetComponent<RectTransform>();
+        htRect.anchorMin = Vector2.zero;
+        htRect.anchorMax = Vector2.one;
+        htRect.anchoredPosition = Vector2.zero;
+        htRect.sizeDelta = Vector2.zero;
+        htRect.localScale = Vector3.one;
+
+        headerText = htObj.GetComponent<TextMeshProUGUI>() ?? htObj.gameObject.AddComponent<TextMeshProUGUI>();
+        headerText.fontSize = 10f;
+        headerText.fontStyle = FontStyles.Bold;
+        headerText.alignment = TextAlignmentOptions.Center;
+        headerText.enableAutoSizing = true;
+        headerText.fontSizeMin = 7.5f;
+        headerText.fontSizeMax = 10.5f;
+        headerText.textWrappingMode = TextWrappingModes.NoWrap;
+        headerText.overflowMode = TextOverflowModes.Ellipsis;
+        if (infoText != null && headerText.font == null) headerText.font = infoText.font;
+
+        // 4. Center Icon
+        if (iconImage != null)
+        {
+            RectTransform iconRect = iconImage.rectTransform;
+            iconRect.anchorMin = new Vector2(0.5f, 1f);
+            iconRect.anchorMax = new Vector2(0.5f, 1f);
+            iconRect.pivot = new Vector2(0.5f, 1f);
+            iconRect.anchoredPosition = new Vector2(0f, -28f);
+            iconRect.sizeDelta = new Vector2(36f, 36f);
+            iconRect.localScale = Vector3.one;
+            iconImage.preserveAspect = true;
+        }
+
+        // 5. Title Text
+        Transform tObj = transform.Find("TitleText");
+        if (tObj == null)
+        {
+            if (infoText != null && infoText.gameObject.name != "TitleText")
+            {
+                tObj = infoText.transform;
+                tObj.name = "TitleText";
+            }
+            else
+            {
+                GameObject tGo = new GameObject("TitleText", typeof(RectTransform));
+                tGo.transform.SetParent(transform, false);
+                tObj = tGo.transform;
+            }
+        }
+        RectTransform titleRect = tObj.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0f, 1f);
+        titleRect.anchorMax = new Vector2(1f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 1f);
+        titleRect.anchoredPosition = new Vector2(0f, -66f);
+        titleRect.sizeDelta = new Vector2(-10f, 26f);
+        titleRect.localScale = Vector3.one;
+
+        titleText = tObj.GetComponent<TextMeshProUGUI>() ?? tObj.gameObject.AddComponent<TextMeshProUGUI>();
+        titleText.fontSize = 11.5f;
+        titleText.fontStyle = FontStyles.Bold;
+        titleText.alignment = TextAlignmentOptions.Center;
+        titleText.enableAutoSizing = true;
+        titleText.fontSizeMin = 8f;
+        titleText.fontSizeMax = 12f;
+        titleText.textWrappingMode = TextWrappingModes.Normal;
+        titleText.overflowMode = TextOverflowModes.Ellipsis;
+        if (infoText != null && titleText.font == null) titleText.font = infoText.font;
+        infoText = titleText;
+
+        // 6. Description Text
+        Transform dObj = transform.Find("DescText");
+        if (dObj == null)
+        {
+            GameObject dGo = new GameObject("DescText", typeof(RectTransform));
+            dGo.transform.SetParent(transform, false);
+            dObj = dGo.transform;
+        }
+        RectTransform descRect = dObj.GetComponent<RectTransform>();
+        descRect.anchorMin = new Vector2(0f, 1f);
+        descRect.anchorMax = new Vector2(1f, 1f);
+        descRect.pivot = new Vector2(0.5f, 1f);
+        descRect.anchoredPosition = new Vector2(0f, -94f);
+        descRect.sizeDelta = new Vector2(-12f, 48f);
+        descRect.localScale = Vector3.one;
+
+        descText = dObj.GetComponent<TextMeshProUGUI>() ?? dObj.gameObject.AddComponent<TextMeshProUGUI>();
+        descText.fontSize = 9.5f;
+        descText.alignment = TextAlignmentOptions.Center;
+        descText.color = new Color(0.85f, 0.85f, 0.88f, 1f);
+        descText.enableAutoSizing = true;
+        descText.fontSizeMin = 6.5f;
+        descText.fontSizeMax = 9.5f;
+        descText.textWrappingMode = TextWrappingModes.Normal;
+        descText.overflowMode = TextOverflowModes.Ellipsis;
+        if (infoText != null && descText.font == null) descText.font = infoText.font;
+
+        // 7. Select Button
+        Transform sObj = transform.Find("SelectBtn");
+        if (sObj == null)
+        {
+            GameObject sGo = new GameObject("SelectBtn", typeof(RectTransform));
+            sGo.transform.SetParent(transform, false);
+            sObj = sGo.transform;
+        }
+        RectTransform selectRect = sObj.GetComponent<RectTransform>();
+        selectRect.anchorMin = new Vector2(0f, 0f);
+        selectRect.anchorMax = new Vector2(1f, 0f);
+        selectRect.pivot = new Vector2(0.5f, 0f);
+        selectRect.anchoredPosition = new Vector2(0f, 7f);
+        selectRect.sizeDelta = new Vector2(-20f, 24f);
+        selectRect.localScale = Vector3.one;
+
+        selectBtnBg = sObj.GetComponent<Image>() ?? sObj.gameObject.AddComponent<Image>();
+
+        Transform stObj = sObj.Find("Text");
+        if (stObj == null)
+        {
+            GameObject stGo = new GameObject("Text", typeof(RectTransform));
+            stGo.transform.SetParent(sObj, false);
+            stObj = stGo.transform;
+        }
+        RectTransform stRect = stObj.GetComponent<RectTransform>();
+        stRect.anchorMin = Vector2.zero;
+        stRect.anchorMax = Vector2.one;
+        stRect.anchoredPosition = Vector2.zero;
+        stRect.sizeDelta = Vector2.zero;
+        stRect.localScale = Vector3.one;
+
+        selectBtnText = stObj.GetComponent<TextMeshProUGUI>() ?? stObj.gameObject.AddComponent<TextMeshProUGUI>();
+        selectBtnText.fontSize = 11f;
+        selectBtnText.fontStyle = FontStyles.Bold;
+        selectBtnText.alignment = TextAlignmentOptions.Center;
+        selectBtnText.color = Color.white;
+        selectBtnText.enableAutoSizing = true;
+        selectBtnText.fontSizeMin = 8f;
+        selectBtnText.fontSizeMax = 11f;
+        selectBtnText.text = "선택";
+        if (infoText != null && selectBtnText.font == null) selectBtnText.font = infoText.font;
     }
 
     public void Initialize(RewardManager manager, int rarity)
     {
         InitializeWithType(manager, rarity, null);
+    }
+
+    public SavedRewardCardData GetCardData()
+    {
+        return new SavedRewardCardData
+        {
+            rewardType = (int)type,
+            coinAmount = coinAmount,
+            pieceType = pieceType,
+            artifactId = artifactReward != null ? artifactReward.id : null,
+            attachedSealId = attachedSeal != null ? CollectionManager.GetSealId(attachedSeal) : null
+        };
+    }
+
+    public void InitializeWithSavedData(RewardManager manager, int rarity, SavedRewardCardData data)
+    {
+        this.manager = manager;
+        button = GetComponent<Button>();
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(OnClicked);
+
+        if (backgroundImage == null)
+        {
+            backgroundImage = GetComponent<Image>();
+            if (backgroundImage != null)
+            {
+                originalBgColor = backgroundImage.color;
+            }
+        }
+
+        type = (RewardType)data.rewardType;
+        coinAmount = data.coinAmount;
+        pieceType = data.pieceType;
+        if (!string.IsNullOrEmpty(data.artifactId))
+        {
+            artifactReward = ArtifactManager.Instance != null ? ArtifactManager.Instance.GetArtifactDataById(data.artifactId) : null;
+            if (artifactReward == null) artifactReward = StageSaveManager.FindArtifactData(data.artifactId);
+        }
+        if (!string.IsNullOrEmpty(data.attachedSealId))
+        {
+            attachedSeal = StageSaveManager.FindSealData(data.attachedSealId);
+        }
+
+        SetupSavedRewardContent(rarity);
+    }
+
+    public void InitializeWithFixedSeal(RewardManager manager, int rarity, SealData seal)
+    {
+        this.manager = manager;
+        button = GetComponent<Button>();
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(OnClicked);
+
+        if (backgroundImage == null)
+        {
+            backgroundImage = GetComponent<Image>();
+            if (backgroundImage != null)
+            {
+                originalBgColor = backgroundImage.color;
+            }
+        }
+
+        type = RewardType.Seal;
+        attachedSeal = seal;
+        SetupSavedRewardContent(rarity);
+    }
+
+    public void InitializeWithFixedArtifact(RewardManager manager, int rarity, ArtifactData artifact)
+    {
+        this.manager = manager;
+        button = GetComponent<Button>();
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(OnClicked);
+
+        if (backgroundImage == null)
+        {
+            backgroundImage = GetComponent<Image>();
+            if (backgroundImage != null)
+            {
+                originalBgColor = backgroundImage.color;
+            }
+        }
+
+        type = RewardType.Artifact;
+        artifactReward = artifact;
+        SetupSavedRewardContent(rarity);
+    }
+
+    private bool isTutorialHighlighted = false;
+
+    /// <summary>
+    /// 튜토리얼 중 지정된 보상 카드를 강조 표시합니다 (펄스 애니메이션 + 황금빛 외곽선 + 최상단 소팅오더).
+    /// </summary>
+    public void SetTutorialHighlighted(bool highlighted)
+    {
+        isTutorialHighlighted = highlighted;
+        Canvas cardCanvas = GetComponent<Canvas>();
+        GraphicRaycaster raycaster = GetComponent<GraphicRaycaster>();
+
+        if (highlighted)
+        {
+            if (cardCanvas == null) cardCanvas = gameObject.AddComponent<Canvas>();
+            cardCanvas.overrideSorting = true;
+            Canvas parentCanvas = transform.parent != null ? transform.parent.GetComponentInParent<Canvas>() : null;
+            cardCanvas.sortingOrder = parentCanvas != null ? Mathf.Max(parentCanvas.sortingOrder + 50, 1000) : 1000;
+
+            if (raycaster == null) raycaster = gameObject.AddComponent<GraphicRaycaster>();
+            raycaster.enabled = true;
+
+            if (cardOutline != null)
+            {
+                cardOutline.enabled = false;
+            }
+
+            if (!isHovered)
+            {
+                StartTutorialPulse();
+            }
+        }
+        else
+        {
+            if (cardCanvas != null)
+            {
+                cardCanvas.overrideSorting = false;
+            }
+            if (raycaster != null)
+            {
+                raycaster.enabled = false;
+            }
+
+            transform.DOKill();
+            transform.localScale = Vector3.one;
+            if (cardOutline != null)
+            {
+                cardOutline.effectColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
+                cardOutline.effectDistance = new Vector2(1f, 1f);
+            }
+        }
+    }
+
+    private void StartTutorialPulse()
+    {
+        transform.DOKill();
+        transform.localScale = Vector3.one * 0.98f;
+        transform.DOScale(Vector3.one * 1.02f, 0.45f)
+            .SetLoops(-1, LoopType.Yoyo)
+            .SetEase(Ease.InOutSine)
+            .SetUpdate(true);
+    }
+
+    /// <summary>
+    /// 튜토리얼 중 선택 불가능한 보상 카드를 비활성화 및 반투명 처리합니다.
+    /// </summary>
+    public void SetTutorialDisabled(bool disabled)
+    {
+        if (button == null) button = GetComponent<Button>();
+        if (button != null)
+        {
+            button.interactable = !disabled;
+        }
+
+        CanvasGroup cg = GetComponent<CanvasGroup>();
+        if (cg == null) cg = gameObject.AddComponent<CanvasGroup>();
+        cg.alpha = disabled ? 0.35f : 1f;
+        cg.interactable = !disabled;
+        cg.blocksRaycasts = !disabled;
     }
 
     public void InitializeWithType(RewardManager manager, int rarity, RewardType? forcedType)
@@ -111,83 +468,190 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             }
         }
 
+        if (ShotgunKingSystem.IsActive && type == RewardType.Piece)
+        {
+            type = RewardType.Coin;
+        }
+
         SetupRewardContent(rarity);
     }
 
     private void SetupRewardContent(int rarity)
     {
+        bool isElite = GameManager.Instance != null && GameManager.Instance.CurrentBattleType == BattleType.Elite;
+
         if (type == RewardType.Coin)
         {
-            coinAmount = Random.Range(20, 50) + (rarity * 10); // 희귀도에 따라 코인 증가
-            if (infoText != null) infoText.text = $"{coinAmount} Coin";
-        }
-        else if (type == RewardType.Piece)
-        {
-            ShopPieceData pieceData = null;
-            if (RewardService.Instance != null)
+            if (isElite)
             {
-                pieceData = RewardService.Instance.pieceData;
-            }
-            if (pieceData == null)
-            {
-                pieceData = manager != null ? manager.pieceData : null;
-            }
-
-            if (pieceData != null)
-            {
-                var pieceInfo = pieceData.GetRandomPiece();
-                pieceType = pieceInfo != null ? pieceInfo.pieceType : PieceType.Pawn;
-                if (infoText != null) infoText.text = PieceController.GetPieceNameForType(pieceType);
-                
-                if (iconImage != null && PieceManager.Instance != null)
-                {
-                    Sprite s = PieceManager.Instance.GetSpriteFor(pieceType);
-                    iconImage.sprite = s;
-                    iconImage.preserveAspect = true;
-                    iconImage.color = s != null ? Color.white : new Color(0f, 0.12f, 0f, 0.9f);
-                }
+                coinAmount = (Random.Range(35, 65) + (rarity * 10)) * 2;
             }
             else
             {
-                pieceType = PieceType.Pawn;
-                if (infoText != null) infoText.text = PieceController.GetPieceNameForType(PieceType.Pawn);
+                coinAmount = Random.Range(20, 50) + (rarity * 10);
+            }
+        }
+        else if (type == RewardType.Piece)
+        {
+            attachedSeal = null; // 보상 기물은 인장 미부착 상태로 확정
+            if (isElite)
+            {
+                // 엘리트 전투 기물: 폰 제외! 고티어 기물 확정
+                var elitePieces = new[] { PieceType.Queen, PieceType.Rook, PieceType.Chancellor, PieceType.Archbishop, PieceType.Centaur };
+                pieceType = elitePieces[Random.Range(0, elitePieces.Length)];
+            }
+            else
+            {
+                ShopPieceData pieceData = null;
+                if (RewardService.Instance != null)
+                {
+                    pieceData = RewardService.Instance.pieceData;
+                }
+                if (pieceData == null)
+                {
+                    pieceData = manager != null ? manager.pieceData : null;
+                }
+
+                if (pieceData != null)
+                {
+                    var pieceInfo = pieceData.GetRandomPiece(excludeLegendary: true);
+                    pieceType = (pieceInfo != null && pieceInfo.pieceType != PieceType.Amazon) ? pieceInfo.pieceType : PieceType.Pawn;
+                }
+                else
+                {
+                    pieceType = PieceType.Pawn;
+                }
+            }
+        }
+        else if (type == RewardType.Seal)
+        {
+            attachedSeal = GetRandomSeal(null, isElite: isElite);
+            if (attachedSeal == null)
+            {
+                type = RewardType.Coin;
+                coinAmount = isElite ? ((Random.Range(35, 65) + (rarity * 10)) * 2) : (Random.Range(20, 50) + (rarity * 10));
+            }
+        }
+        else if (type == RewardType.Artifact)
+        {
+            if (ArtifactManager.Instance != null)
+            {
+                artifactReward = ArtifactManager.Instance.GetRandomArtifact(
+                    excludeLegendary: true,
+                    minRarity: isElite ? ArtifactRarity.Rare : ArtifactRarity.Common
+                );
+            }
+
+            if (artifactReward == null)
+            {
+                type = RewardType.Coin;
+                coinAmount = isElite ? ((Random.Range(40, 80) + (rarity * 10)) * 2) : Random.Range(30, 60);
+            }
+        }
+
+        SetupSavedRewardContent(rarity);
+    }
+
+    private void SetupSavedRewardContent(int rarity)
+    {
+        EnsureCardLayout();
+
+        bool isElite = GameManager.Instance != null && GameManager.Instance.CurrentBattleType == BattleType.Elite;
+        Color themeColor = Color.white;
+        string headerString = "보상";
+        string titleString = "";
+        string descString = "";
+
+        if (type == RewardType.Coin)
+        {
+            themeColor = new Color(1f, 0.85f, 0.2f, 1f); // 골드
+            headerString = "🪙 골드";
+            titleString = $"+{coinAmount} Gold";
+            descString = "즉시 보유 골드에 추가됩니다.";
+
+            if (iconImage != null)
+            {
+                iconImage.color = new Color(1f, 0.85f, 0.2f, 1f);
+            }
+        }
+        else if (type == RewardType.Piece)
+        {
+            if (pieceType == PieceType.Amazon)
+            {
+                themeColor = new Color(1f, 0.85f, 0.2f, 1f);
+                headerString = "⭐ 전설 기물";
+            }
+            else if (pieceType == PieceType.Queen || pieceType == PieceType.Rook || pieceType == PieceType.Chancellor || pieceType == PieceType.Archbishop || pieceType == PieceType.Centaur)
+            {
+                themeColor = new Color(0f, 0.95f, 1f, 1f);
+                headerString = "👑 고급 기물";
+            }
+            else
+            {
+                themeColor = new Color(0.55f, 0.82f, 1f, 1f);
+                headerString = "♟️ 기물 영입";
+            }
+
+            titleString = PieceController.GetPieceNameForType(pieceType);
+
+            PieceData pieceDataObj = PieceData.GetData(pieceType);
+            string pieceDesc = pieceDataObj != null && !string.IsNullOrEmpty(pieceDataObj.description)
+                ? pieceDataObj.description
+                : PieceController.GetSpecialRuleTextForType(pieceType);
+
+            descString = !string.IsNullOrEmpty(pieceDesc) ? pieceDesc : "대기석으로 즉시 영입합니다.";
+            
+            if (iconImage != null && PieceManager.Instance != null)
+            {
+                Sprite s = PieceManager.Instance.GetSpriteFor(pieceType);
+                iconImage.sprite = s;
+                iconImage.preserveAspect = true;
+                iconImage.color = s != null ? Color.white : new Color(0f, 0.12f, 0f, 0.9f);
+            }
+
+            if (attachedSeal != null)
+            {
+                CreateSealIcon(attachedSeal);
             }
 
             CollectionManager.EnsureInstance()?.RecordPieceSeen(pieceType);
         }
         else if (type == RewardType.Seal)
         {
-            attachedSeal = GetRandomSeal(null); // 특정 기물 타입에 제약 없이 인장 획득
             if (attachedSeal != null)
             {
                 CollectionManager.EnsureInstance()?.RecordSealSeen(attachedSeal);
-                if (infoText != null) infoText.text = attachedSeal.sealName;
+                themeColor = GetRarityColor(attachedSeal.rarity);
+                headerString = $"📜 인장 [{GetRarityKorean(attachedSeal.rarity)}]";
+                titleString = attachedSeal.sealName;
+                descString = !string.IsNullOrEmpty(attachedSeal.description) ? attachedSeal.description : "기물에 장착 가능한 인장";
+
                 if (iconImage != null)
                 {
                     iconImage.sprite = attachedSeal.icon;
                     iconImage.preserveAspect = true;
+                    iconImage.color = Color.white;
                 }
                 CreateSealIcon(attachedSeal);
             }
-            else // 획득할 인장이 없으면 코인으로 대체
+            else
             {
-                type = RewardType.Coin;
-                coinAmount = Random.Range(20, 50) + (rarity * 10);
-                if (infoText != null) infoText.text = $"{coinAmount} Coin";
+                themeColor = new Color(1f, 0.85f, 0.2f, 1f);
+                headerString = "🪙 골드";
+                titleString = $"+{coinAmount} Gold";
+                descString = "즉시 보유 골드에 추가됩니다.";
             }
         }
         else if (type == RewardType.Artifact)
         {
-            // 유물 보상 시도
-            if (ArtifactManager.Instance != null)
-            {
-                artifactReward = ArtifactManager.Instance.GetRandomArtifact();
-            }
-
             if (artifactReward != null)
             {
                 CollectionManager.EnsureInstance()?.RecordArtifactSeen(artifactReward);
-                if (infoText != null) infoText.text = artifactReward.artifactName;
+                themeColor = GetRarityColor((SealRarity)(int)artifactReward.rarity);
+                headerString = $"🔮 유물 [{GetRarityKorean((SealRarity)(int)artifactReward.rarity)}]";
+                titleString = artifactReward.artifactName;
+                descString = !string.IsNullOrEmpty(artifactReward.description) ? artifactReward.description : "패시브 효과 유물";
+
                 if (iconImage != null)
                 {
                     iconImage.sprite = artifactReward.icon;
@@ -197,29 +661,101 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
             }
             else
             {
-                // 유물이 없거나(다 모음) 매니저가 없으면 코인으로 대체
                 type = RewardType.Coin;
-                coinAmount = Random.Range(30, 60);
-                if (infoText != null) infoText.text = $"{coinAmount} Coin";
+                if (coinAmount <= 0)
+                {
+                    coinAmount = isElite ? ((Random.Range(40, 80) + (rarity * 10)) * 2) : Random.Range(30, 60);
+                }
+                themeColor = new Color(1f, 0.85f, 0.2f, 1f);
+                headerString = "🪙 골드";
+                titleString = $"+{coinAmount} Gold";
+                descString = "즉시 보유 골드에 추가됩니다.";
             }
+        }
+
+        // 카드 시각 요소에 테마 색상 및 텍스트 반영
+        if (headerText != null) headerText.text = headerString;
+        if (titleText != null)
+        {
+            titleText.text = titleString;
+            titleText.color = themeColor;
+        }
+        if (descText != null) descText.text = descString;
+        if (infoText != null) infoText.text = titleString;
+
+        if (headerBg != null)
+        {
+            Color hColor = themeColor;
+            hColor.a = 0.35f;
+            headerBg.color = hColor;
+        }
+
+        if (cardOutline != null)
+        {
+            cardOutline.effectColor = themeColor;
+            cardOutline.effectDistance = new Vector2(2f, 2f);
+        }
+
+        if (selectBtnBg != null)
+        {
+            Color bColor = themeColor * 0.85f;
+            bColor.a = 1f;
+            selectBtnBg.color = bColor;
         }
     }
 
-    private SealData GetRandomSeal(PieceType? pieceType)
+    private Color GetRarityColor(SealRarity rarity)
     {
+        switch (rarity)
+        {
+            case SealRarity.Legendary: return new Color(1f, 0.85f, 0.2f, 1f); // Gold
+            case SealRarity.Epic: return new Color(0.85f, 0.45f, 1f, 1f); // Purple
+            case SealRarity.Rare: return new Color(0f, 0.85f, 1f, 1f); // Cyan
+            default: return new Color(0.75f, 0.8f, 0.9f, 1f); // Common
+        }
+    }
+
+    private string GetRarityKorean(SealRarity rarity)
+    {
+        switch (rarity)
+        {
+            case SealRarity.Legendary: return "전설";
+            case SealRarity.Epic: return "영웅";
+            case SealRarity.Rare: return "희귀";
+            default: return "일반";
+        }
+    }
+
+    private SealData GetRandomSeal(PieceType? pieceType, bool isElite = false)
+    {
+        if (ShotgunKingSystem.IsActive) return ShotgunKingSystem.GetRandomWeaponPart();
         if (ShopManager.Instance == null || ShopManager.Instance.allSeals == null) return null;
 
-        // 상점의 희귀도 분포 비율을 따름 (0.5 : 2.5 : 4 : 8) -> 총합 15
-        float roll = Random.Range(0f, 15f);
-        
         SealRarity rarity;
-        if (roll < 0.5f) rarity = SealRarity.Legendary;
-        else if (roll < 3.0f) rarity = SealRarity.Epic;
-        else if (roll < 7.0f) rarity = SealRarity.Rare;
-        else rarity = SealRarity.Common;
+        if (isElite)
+        {
+            // 엘리트 전투 인장: Common 배제! Epic(50%)과 Rare(50%) 확정
+            rarity = Random.value < 0.5f ? SealRarity.Epic : SealRarity.Rare;
+        }
+        else
+        {
+            // 일반 전투 보상 인장: 전설 제외 (Epic, Rare, Common 중 가중치 추첨)
+            float roll = Random.Range(0f, 14.5f);
+            if (roll < 2.5f) rarity = SealRarity.Epic;
+            else if (roll < 6.5f) rarity = SealRarity.Rare;
+            else rarity = SealRarity.Common;
+        }
 
-        var candidates = ShopManager.Instance.allSeals.Where(s => s.rarity == rarity && s.isSoldInShop &&
+        var candidates = ShopManager.Instance.allSeals.Where(s => s.rarity == rarity && s.rarity != SealRarity.Legendary && s.isSoldInShop &&
             (pieceType == null || s.compatiblePieces == null || s.compatiblePieces.Count == 0 || s.compatiblePieces.Contains(pieceType.Value))).ToList();
+
+        if (candidates.Count == 0 && isElite)
+        {
+            // 다른 고등급(Rare/Epic)으로 폴백
+            SealRarity fallbackRarity = (rarity == SealRarity.Epic) ? SealRarity.Rare : SealRarity.Epic;
+            candidates = ShopManager.Instance.allSeals.Where(s => s.rarity == fallbackRarity && s.rarity != SealRarity.Legendary && s.isSoldInShop &&
+                (pieceType == null || s.compatiblePieces == null || s.compatiblePieces.Count == 0 || s.compatiblePieces.Contains(pieceType.Value))).ToList();
+        }
 
         if (candidates.Count == 0) return null;
         return candidates[Random.Range(0, candidates.Count)];
@@ -252,110 +788,118 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
 
     public void PlaySealEffect(SealRarity rarity)
     {
-        if (sealIconImage == null) return;
-
-        // 초기화
-        sealIconImage.transform.DOKill();
-        sealIconImage.transform.localScale = Vector3.one;
-        sealIconImage.color = Color.white;
-
-        switch (rarity)
-        {
-            case SealRarity.Common:
-                sealIconImage.transform.DOPunchScale(Vector3.one * 0.3f, 0.5f, 10, 1);
-                break;
-            case SealRarity.Rare:
-                sealIconImage.transform.DOPunchScale(Vector3.one * 0.4f, 0.6f, 10, 1);
-                SpawnParticles(6, new Color(0f, 0.5f, 1f), 60f, 0.6f);
-                break;
-            case SealRarity.Epic:
-                sealIconImage.transform.DOPunchScale(Vector3.one * 0.5f, 0.8f, 10, 1);
-                sealIconImage.transform.DOShakeRotation(0.8f, 30f, 10, 90);
-                SpawnParticles(12, new Color(0.8f, 0f, 1f), 90f, 0.8f);
-                break;
-            case SealRarity.Legendary:
-                Sequence seq = DOTween.Sequence();
-                seq.Append(sealIconImage.transform.DOPunchScale(Vector3.one * 0.7f, 1.0f, 10, 1));
-                seq.Join(sealIconImage.transform.DOShakeRotation(1.0f, 45f, 10, 90));
-                seq.Join(sealIconImage.DOColor(new Color(1f, 0.8f, 0f), 0.2f).SetLoops(6, LoopType.Yoyo));
-                seq.OnComplete(() => sealIconImage.color = Color.white);
-                SpawnParticles(20, new Color(1f, 0.9f, 0.2f), 130f, 1.2f);
-                break;
-        }
-    }
-
-    private void SpawnParticles(int count, Color color, float distance, float duration)
-    {
-        for (int i = 0; i < count; i++)
-        {
-            GameObject p = new GameObject("SealParticle");
-            p.transform.SetParent(transform, true);
-            p.transform.position = sealIconImage.transform.position;
-            
-            Image img = p.AddComponent<Image>();
-            if (sealIconImage.sprite != null) img.sprite = sealIconImage.sprite;
-            img.color = color;
-            img.raycastTarget = false;
-
-            float scale = Random.Range(0.3f, 0.6f);
-            p.transform.localScale = Vector3.one * scale;
-
-            float angle = Random.Range(0f, 360f);
-            Vector3 dir = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad), 0);
-            
-            p.transform.DOMove(p.transform.position + dir * distance, duration).SetEase(Ease.OutQuad);
-            p.transform.DOScale(0f, duration).SetEase(Ease.InQuad);
-            p.transform.DORotate(new Vector3(0, 0, Random.Range(-180f, 180f)), duration);
-            img.DOFade(0f, duration).OnComplete(() => Destroy(p));
-        }
+        // 희귀/고등급 아이템 등장 이펙트 비활성화
     }
 
     private void OnClicked()
     {
         if (GameManager.Instance == null) return;
-
-        switch (type)
+        if (manager != null)
         {
-            case RewardType.Coin:
-                AnimateCoinFly(coinAmount);
-                break;
-            case RewardType.Piece:
-                InventorySlot emptySlot = FindEmptyInventorySlot();
-                if (emptySlot != null && PieceSpawner.Instance != null)
-                {
-                    emptySlot.IsReserved = true;
-                    // 인장 지급 로직이 변경되었으므로, 여기서는 인장 없이 기물만 생성합니다.
-                    PieceSpawner.Instance.SpawnPieceAndFlyToInventory(pieceType, transform.position, emptySlot, null, (piece) => {
-                        emptySlot.IsReserved = false;
-                    });
-                }
-                else if (PieceInventory.Instance != null)
-                {
-                    PieceInventory.Instance.AddPiece(pieceType);
-                }
-                break;
-            case RewardType.Seal:
-                if (SealInventory.Instance != null && attachedSeal != null)
-                {
-                    SealInventory.Instance.AddSeal(attachedSeal);
-                }
-                break;
-            case RewardType.Artifact:
-                if (ArtifactManager.Instance != null && artifactReward != null)
-                {
-                    AnimateArtifactFly(artifactReward);
-                }
-                break;
+            manager.DisableAllRewardButtons();
         }
+        if (button != null) button.interactable = false;
 
         if (TooltipManager.Instance != null)
         {
             TooltipManager.Instance.HideTooltip(gameObject);
         }
 
+        transform.DOKill();
+        transform.DOPunchScale(Vector3.one * 0.12f, 0.2f, 10, 1).SetUpdate(true)
+            .OnComplete(ExecuteRewardClaim);
+    }
+
+    private void ExecuteRewardClaim()
+    {
+        if (TooltipManager.Instance != null)
+        {
+            TooltipManager.Instance.HideTooltip(gameObject);
+        }
+
+        // 선택되지 않은 다른 보상 카드들은 축소
+        if (transform.parent != null)
+        {
+            foreach (Transform sibling in transform.parent)
+            {
+                if (sibling != null && sibling != transform)
+                {
+                    sibling.DOKill();
+                    sibling.DOScale(Vector3.zero, 0.2f).SetEase(Ease.InBack).SetUpdate(true);
+                }
+            }
+        }
+
+        switch (type)
+        {
+            case RewardType.Coin:
+                AnimateCoinFly(coinAmount, FinishRewardClaim);
+                break;
+            case RewardType.Piece:
+                InventorySlot emptySlot = FindEmptyInventorySlot();
+                if (emptySlot != null && PieceSpawner.Instance != null)
+                {
+                    emptySlot.IsReserved = true;
+                    PieceSpawner.Instance.SpawnPieceAndFlyToInventory(pieceType, transform.position, emptySlot, attachedSeal, (piece) => {
+                        emptySlot.IsReserved = false;
+                        FinishRewardClaim();
+                    });
+                }
+                else if (PieceInventory.Instance != null)
+                {
+                    PieceInventory.Instance.AddPiece(pieceType);
+                    if (attachedSeal != null && SealInventory.Instance != null)
+                    {
+                        SealInventory.Instance.AddSeal(attachedSeal);
+                    }
+                    FinishRewardClaim();
+                }
+                else
+                {
+                    FinishRewardClaim();
+                }
+                break;
+            case RewardType.Seal:
+                AnimateSealFly(attachedSeal, FinishRewardClaim);
+                break;
+            case RewardType.Artifact:
+                if (ArtifactManager.Instance != null && artifactReward != null)
+                {
+                    AnimateArtifactFly(artifactReward, FinishRewardClaim);
+                }
+                else
+                {
+                    FinishRewardClaim();
+                }
+                break;
+            default:
+                FinishRewardClaim();
+                break;
+        }
+    }
+
+    private void FinishRewardClaim()
+    {
+        if (TooltipManager.Instance != null)
+        {
+            TooltipManager.Instance.HideTooltip(gameObject);
+        }
+
+        // 보상 데이터 반영 완료 직후 저장
+        StageSaveManager.EnsureInstance()?.SaveCurrentRun(pendingReward: false);
+
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            TutorialManager.Instance.OnRewardSelected();
+        }
+
         if (manager != null)
         {
             manager.OnRewardButtonClicked();
+        }
+        else if (GameManager.Instance != null)
+        {
+            GameManager.Instance.AdvanceToStageSelect();
         }
 
         Destroy(gameObject);
@@ -369,13 +913,18 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         transform.DOKill();
         transform.DOScale(Vector3.one * hoverScale, hoverDuration).SetEase(Ease.OutQuad).SetUpdate(true);
 
+        if (cardOutline != null && !isTutorialHighlighted)
+        {
+            cardOutline.effectDistance = new Vector2(3f, 3f);
+        }
+
         if (backgroundImage != null)
         {
             backgroundImage.DOKill();
             Color highlightColor = new Color(
-                Mathf.Min(1f, originalBgColor.r + 0.15f),
-                Mathf.Min(1f, originalBgColor.g + 0.15f),
-                Mathf.Min(1f, originalBgColor.b + 0.15f),
+                Mathf.Min(1f, originalBgColor.r + 0.08f),
+                Mathf.Min(1f, originalBgColor.g + 0.08f),
+                Mathf.Min(1f, originalBgColor.b + 0.08f),
                 originalBgColor.a
             );
             backgroundImage.DOColor(highlightColor, hoverDuration).SetUpdate(true);
@@ -414,7 +963,26 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         isHovered = false;
 
         transform.DOKill();
-        transform.DOScale(Vector3.one, hoverDuration).SetEase(Ease.OutQuad).SetUpdate(true);
+        if (isTutorialHighlighted)
+        {
+            StartTutorialPulse();
+        }
+        else
+        {
+            transform.DOScale(Vector3.one, hoverDuration).SetEase(Ease.OutQuad).SetUpdate(true);
+        }
+
+        if (cardOutline != null)
+        {
+            if (isTutorialHighlighted)
+            {
+                cardOutline.enabled = false;
+            }
+            else
+            {
+                cardOutline.effectDistance = new Vector2(2f, 2f);
+            }
+        }
 
         if (backgroundImage != null)
         {
@@ -455,11 +1023,12 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         return sortedSlots.FirstOrDefault(slot => slot.GetComponentInChildren<PieceController>() == null && !slot.IsReserved);
     }
 
-    private void AnimateCoinFly(int amount)
+    private void AnimateCoinFly(int amount, System.Action onComplete = null)
     {
-        if (GameManager.Instance.coinText == null)
+        if (GameManager.Instance == null || GameManager.Instance.coinText == null)
         {
-            GameManager.Instance.AddCoin(amount);
+            GameManager.Instance?.AddCoin(amount);
+            onComplete?.Invoke();
             return;
         }
 
@@ -498,20 +1067,26 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         }
         
         Sequence seq = DOTween.Sequence();
+        seq.SetUpdate(true);
         seq.Append(flyObj.transform.DOScale(1.2f, 0.2f).SetEase(Ease.OutQuad));
         seq.Append(flyObj.transform.DOMove(GameManager.Instance.coinText.transform.position, 0.8f).SetEase(Ease.InBack));
         seq.Join(flyObj.transform.DOScale(0.5f, 0.8f).SetDelay(0.2f));
         
-        // 완료 시 시각화만 업데이트
+        // 완료 시 시각화 정리 및 콜백
         seq.OnComplete(() =>
         {
             Destroy(flyObj);
+            onComplete?.Invoke();
         });
     }
 
-    private void AnimateArtifactFly(ArtifactData artifact)
+    private void AnimateArtifactFly(ArtifactData artifact, System.Action onComplete = null)
     {
-        if (ArtifactManager.Instance == null || artifact == null) return;
+        if (ArtifactManager.Instance == null || artifact == null)
+        {
+            onComplete?.Invoke();
+            return;
+        }
 
         GameObject flyObj = new GameObject("FlyingArtifact");
         Canvas rootCanvas = GetComponentInParent<Canvas>();
@@ -543,6 +1118,7 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         }
 
         Sequence seq = DOTween.Sequence();
+        seq.SetUpdate(true);
         seq.Append(flyObj.transform.DOScale(1.2f, 0.2f).SetEase(Ease.OutQuad));
         seq.Append(flyObj.transform.DOMove(targetPos, 0.8f).SetEase(Ease.InBack));
         seq.Join(flyObj.transform.DOScale(0.3f, 0.8f).SetDelay(0.2f));
@@ -555,6 +1131,70 @@ public class RewardButton : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
                 ArtifactManager.Instance.AddArtifact(artifact);
             }
             Destroy(flyObj);
+            onComplete?.Invoke();
+        });
+    }
+
+    private void AnimateSealFly(SealData seal, System.Action onComplete = null)
+    {
+        if (SealInventory.Instance != null && seal != null)
+        {
+            SealInventory.Instance.AddSeal(seal);
+        }
+
+        if (seal == null)
+        {
+            onComplete?.Invoke();
+            return;
+        }
+
+        // 인장 인벤토리 슬롯 찾기
+        Vector3 targetPos = transform.position;
+        var sealSlots = FindObjectsByType<SealInventorySlot>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+            .OrderBy(s => s.transform.GetSiblingIndex())
+            .ToArray();
+        int sealIdx = SealInventory.Instance != null ? SealInventory.Instance.GetSealIndex(seal) : -1;
+        if (sealIdx >= 0 && sealIdx < sealSlots.Length)
+        {
+            targetPos = sealSlots[sealIdx].transform.position;
+        }
+        else if (sealSlots.Length > 0)
+        {
+            targetPos = sealSlots[0].transform.position;
+        }
+
+        GameObject flyObj = new GameObject("FlyingSeal");
+        Canvas rootCanvas = GetComponentInParent<Canvas>();
+        if (rootCanvas != null)
+        {
+            flyObj.transform.SetParent(rootCanvas.transform, true);
+        }
+        else
+        {
+            flyObj.transform.SetParent(transform.root, true);
+        }
+
+        flyObj.transform.position = transform.position;
+        flyObj.transform.localScale = Vector3.one;
+
+        Image flyImg = flyObj.AddComponent<Image>();
+        flyImg.sprite = seal.icon != null ? seal.icon : (iconImage != null ? iconImage.sprite : null);
+        flyImg.preserveAspect = true;
+        flyImg.raycastTarget = false;
+
+        RectTransform rt = flyObj.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(48, 48);
+
+        Sequence seq = DOTween.Sequence();
+        seq.SetUpdate(true);
+        seq.Append(flyObj.transform.DOScale(1.2f, 0.2f).SetEase(Ease.OutQuad));
+        seq.Append(flyObj.transform.DOMove(targetPos, 0.6f).SetEase(Ease.InBack));
+        seq.Join(flyObj.transform.DOScale(0.4f, 0.6f).SetDelay(0.2f));
+        seq.OnComplete(() =>
+        {
+            FindFirstObjectByType<SealInventoryPanel>(FindObjectsInactive.Include)?.RefreshSealItems();
+            Destroy(flyObj);
+            onComplete?.Invoke();
         });
     }
 }

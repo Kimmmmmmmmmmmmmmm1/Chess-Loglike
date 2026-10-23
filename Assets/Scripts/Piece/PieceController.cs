@@ -37,7 +37,11 @@ public enum PieceBuffType
     [InspectorName("역공")]
     Counterattack,
     [InspectorName("무적")]
-    Invincibility
+    Invincibility,
+    [InspectorName("실명")]
+    Blindness,
+    [InspectorName("혼란")]
+    Confusion
 }
 
 public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerUpHandler, IPointerClickHandler, ISealDropTarget
@@ -131,13 +135,24 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     [SerializeField] private int counterattackStacks;
     [Tooltip("무적 턴 수. 0은 비활성, -1은 무한 지속입니다.")]
     [SerializeField] private int invincibilityTurns;
-    private readonly Image[] buffAuraImages = new Image[4];
-    private static Sprite buffAuraSprite;
+    [Tooltip("상태 지속 턴 수.")]
+    [SerializeField] private int blindnessTurns;
+    [SerializeField] private int confusionTurns;
+    [Header("Buff Icon Visuals")]
+    [Tooltip("기물 크기 반투명 버프 아이콘 불투명도 (0.0 ~ 1.0)")]
+    [SerializeField] [Range(0.1f, 1f)] private float buffIconAlpha = 0.7f;
+    [Tooltip("버프 아이콘 크기 (0,0이면 기물 이미지 크기를 자동으로 따름)")]
+    [SerializeField] private Vector2 buffIconCustomSize = Vector2.zero;
+    private readonly Image[] buffAuraImages = new Image[6];
     public PieceLocation CurrentLocation => currentLocation;
     public int ProtectionStacks => protectionStacks;
     public int EvasionStacks => evasionStacks;
     public int CounterattackStacks => counterattackStacks;
     public int InvincibilityTurns => invincibilityTurns;
+    public int BlindnessTurns => blindnessTurns;
+    public int ConfusionTurns => confusionTurns;
+    public bool IsBlind => blindnessTurns > 0;
+    public bool IsConfused => confusionTurns > 0;
     public bool IsInvincible
     {
         get
@@ -149,6 +164,24 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 {
                     if (equippedSeals[i] != null && equippedSeals[i].IsInvincible) return true;
                 }
+            }
+            return false;
+        }
+    }
+
+    public bool CanSnipeWithoutMoving
+    {
+        get
+        {
+            if (GetComponentInChildren<SniperSeal>() != null) return true;
+            if (equippedSeals == null) return false;
+            for (int i = 0; i < equippedSeals.Count; i++)
+            {
+                SealBase seal = equippedSeals[i];
+                if (seal == null) continue;
+                if (seal.CanSnipeWithoutMoving) return true;
+                if (seal is SniperSeal) return true;
+                if (seal.Data != null && (seal.Data.sealName == "저격의 인장" || seal.Data.name == "Sniper" || seal.Data.name == "SniperSeal")) return true;
             }
             return false;
         }
@@ -194,26 +227,61 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     [SerializeField] private float sealIconSize = 20f;
     [SerializeField] private GameObject sealIconPrefab; // 인장 아이콘 프리팹 연결
     [SerializeField] private float sealIconSpacing = 10f;
+    [SerializeField] private Vector2 sealIconOffset = new Vector2(20f, 20f);
     [SerializeField] private float duplicateSealCycleInterval = 1.2f;
     [SerializeField] private float duplicateSealSwitchDuration = 0.18f;
     [SerializeField] private List<SealBase> equippedSeals = new List<SealBase>();
     public List<SealBase> EquippedSeals => equippedSeals;
     public SealData PrimarySealData => (equippedSeals != null && equippedSeals.Count > 0 && equippedSeals[0] != null) ? equippedSeals[0].Data : null;
+
+    /// <summary>
+    /// 기물에 장착된 모든 유효한 인장 데이터(SealData) 리스트를 반환합니다.
+    /// </summary>
+    public List<SealData> GetAllEquippedSealData()
+    {
+        var list = new List<SealData>();
+        if (equippedSeals != null)
+        {
+            foreach (var seal in equippedSeals)
+            {
+                if (seal != null && seal.Data != null)
+                {
+                    list.Add(seal.Data);
+                }
+            }
+        }
+        return list;
+    }
+    public event System.Action<PieceController, SealData, int, int> OnEquippedSealVisualChanged;
+    private SealData currentDisplaySealData;
+    private int currentDisplaySealIndex;
+    public SealData CurrentDisplaySealData => currentDisplaySealData != null ? currentDisplaySealData : PrimarySealData;
+    public int CurrentDisplaySealIndex => currentDisplaySealIndex;
     private Coroutine duplicateSealCycleCoroutine;
+
+    public Vector2 GetSealIconOffset()
+    {
+        return sealIconOffset != Vector2.zero ? sealIconOffset : new Vector2(sealIconSize, sealIconSize);
+    }
 
     private RectTransform rectTransform;
     private Vector2 originalAnchoredPosition;
     private Canvas parentCanvas;
     private bool isDragging;
+    private bool isArtifactInventoryDrag;
     private Vector2 previousDragPosition;
     private Quaternion originalRotation;
     private Tweener rotationTween;
     private Tweener positionTween;
     private Tweener scaleTween;
+    private Sequence activeMoveSequence;
     private Tween threatenedTween;
     private bool isThreatened;
     private Vector3 originalScale;
     private static bool isAnyDragging;
+
+    public bool IsAnimatingMove => (activeMoveSequence != null && activeMoveSequence.IsActive() && activeMoveSequence.IsPlaying())
+                                || (positionTween != null && positionTween.IsActive() && positionTween.IsPlaying());
 
     private Transform originalParent;
     public Transform OriginalParent => originalParent;
@@ -351,6 +419,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     private void OnEnable()
     {
         RegisterSelf();
+        if (equippedSeals != null && equippedSeals.Count > 1 && duplicateSealCycleCoroutine == null)
+        {
+            RefreshEquippedSealVisuals();
+        }
     }
 
     private void OnDisable()
@@ -396,6 +468,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         if (isThreatened && !isDragging && currentLocation == PieceLocation.Board && isGamePlay)
         {
+            // 알까기 물리 시뮬레이션 중에는 위치 강제 고정(떨림)을 수행하지 않음
+            if (PieceFlickLauncher.IsPhysicsActive) return;
+
             // 놀라는 애니메이션 중에는 떨지 않음
             if (isStartling) return;
 
@@ -605,6 +680,11 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             {
                 TooltipManager.Instance.ShowPieceTooltip(pieceType, PrimarySealData, transform.position, gameObject, true);
             }
+
+            if (currentLocation == PieceLocation.Board && gridPosition.HasValue && HasSelfDestructSeal())
+            {
+                PieceManager.Instance?.ShowSelfDestructRangeMarkers(gridPosition.Value);
+            }
             return;
         }
 
@@ -620,10 +700,24 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         if (PieceManager.Instance != null && currentLocation == PieceLocation.Board)
         {
+            if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.GamePlay &&
+                TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+            {
+                if (!TutorialManager.Instance.IsPieceSelectionAllowed(this))
+                {
+                    return;
+                }
+            }
+
             PieceManager.Instance.SelectPiece(this);
             if (TooltipManager.Instance != null)
             {
                 TooltipManager.Instance.ShowPieceTooltip(pieceType, PrimarySealData, transform.position, gameObject, false);
+            }
+
+            if (gridPosition.HasValue && HasSelfDestructSeal())
+            {
+                PieceManager.Instance?.ShowSelfDestructRangeMarkers(gridPosition.Value);
             }
             return;
         }
@@ -689,6 +783,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         {
             PieceManager.Instance.ClearSelection();
         }
+
+        PieceManager.Instance?.ClearSelfDestructRangeMarkers();
     }
 
     public void OnPointerDown(PointerEventData eventData)
@@ -726,7 +822,19 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             return;
         }
 
-        if (!isDragging && !isAnyDragging) SelectSelf();
+        if (ShotgunKingSystem.TryHandleDaggerAttack(this, eventData.button))
+        {
+            eventData.Use();
+            return;
+        }
+
+        if (gridPosition.HasValue && ShotgunKingSystem.TryHandleShotAimClick(gridPosition.Value, eventData.button))
+        {
+            eventData.Use();
+            return;
+        }
+
+        if (!isDragging && !isAnyDragging && eventData.button == PointerEventData.InputButton.Left) SelectSelf();
     }
 
     public void OnBeginDrag(PointerEventData eventData)
@@ -741,14 +849,16 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             return;
         }
 
-        // 액티브 유물 대상 선택 중에는 드래그 불가
+        bool isArtifactInventoryDrag = false;
         if (ActiveArtifactController.IsTargeting)
         {
-            return;
+            isArtifactInventoryDrag = ActiveArtifactController.TryBeginInventoryPieceDrag(this);
+            if (!isArtifactInventoryDrag) return;
         }
 
-        // canvasGroup.interactable이 false면 드래그 불가 (애니메이션 중 등)
-        if (canvasGroup != null && !canvasGroup.interactable)
+        // 액티브 유물 배치는 선택한 인벤토리 기물을 드래그할 수 있어야 하므로,
+        // 일반 기물 드래그의 상호작용 차단 조건을 적용하지 않는다.
+        if (!isArtifactInventoryDrag && canvasGroup != null && !canvasGroup.interactable)
         {
             return;
         }
@@ -780,12 +890,22 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         bool isInInventorySlot = transform.parent != null && transform.parent.GetComponent<InventorySlot>() != null;
 
         // 준비/상점/작업장 단계가 아니고 인벤토리에 있으면 드래그 불가능
-        if (!isPrepare && !isShopOrWorkshop && (currentLocation == PieceLocation.Inventory || isInInventorySlot))
+        if (!isPrepare && !isShopOrWorkshop && !isArtifactInventoryDrag &&
+            (currentLocation == PieceLocation.Inventory || isInInventorySlot))
         {
             return;
         }
 
-        if (PieceManager.Instance != null)
+        // 튜토리얼 중에는 지정된 대상 기물만 드래그 허용 (준비 단계 배치 및 전투 단계 폰 전진)
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            if (!TutorialManager.Instance.IsPieceDragAllowed(pieceType, currentLocation))
+            {
+                return;
+            }
+        }
+
+        if (PieceManager.Instance != null && !isArtifactInventoryDrag)
         {
             PieceManager.Instance.SelectPiece(this);
             if (isPrepare)
@@ -849,6 +969,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         previousDragPosition = eventData.position;
         isDragging = true;
+        this.isArtifactInventoryDrag = isArtifactInventoryDrag;
         isAnyDragging = true;
         synthesisDropHandled = false;
         UpdateThreatenedVisuals();
@@ -955,6 +1076,28 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         rotationTween?.Kill();
         rotationTween = rectTransform.DOLocalRotateQuaternion(originalRotation, 0.2f).SetEase(Ease.OutBack);
 
+        if (isArtifactInventoryDrag)
+        {
+            isArtifactInventoryDrag = false;
+            Vector2Int? targetGridPos = null;
+            GridManager grid = PieceManager.Instance != null ? PieceManager.Instance.gridManager : null;
+            if (grid != null && grid.gridCellsParent != null)
+            {
+                Camera eventCamera = parentCanvas != null && parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay
+                    ? null
+                    : (parentCanvas != null ? parentCanvas.worldCamera : null);
+                if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    grid.gridCellsParent, eventData.position, eventCamera, out Vector2 localPoint))
+                {
+                    targetGridPos = grid.GetNearestGridPosition(localPoint);
+                }
+            }
+
+            if (ActiveArtifactController.TryCompleteInventoryPieceDrag(this, targetGridPos)) return;
+            ReturnToOriginalPosition();
+            return;
+        }
+
         if (PieceManager.Instance == null)
         {
             ReturnToOriginalPosition();
@@ -982,6 +1125,16 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             // 유효한 그리드 위치이고, 플레이어 진영(설정된 범위 내)인 경우
             if (targetGridPos.HasValue && targetGridPos.Value.y <= PieceManager.Instance.PlayerPrepareMaxY)
             {
+                // 튜토리얼 중 지정된 그리드 칸 이외 배치 차단
+                if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+                {
+                    if (!TutorialManager.Instance.IsPlacementAllowed(pieceType, targetGridPos.Value))
+                    {
+                        ReturnToOriginalPosition();
+                        return;
+                    }
+                }
+
                 PieceController targetPiece = PieceManager.Instance.GetPieceAt(targetGridPos.Value);
 
                 // 빈 칸이면 이동
@@ -1048,10 +1201,16 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 MoveMarker targetMarker = PieceManager.Instance.GetMarkerAtPosition(eventData.position);
                 if (targetMarker != null)
                 {
+                    Vector2Int? startGridPos = gridPosition;
                     if (!PieceManager.Instance.MoveSelectedTo(targetMarker.GridPosition))
                     {
                         ReturnToOriginalPosition();
                         PieceManager.Instance.SelectPiece(this);
+                    }
+                    else if (gridPosition.HasValue && startGridPos.HasValue && gridPosition.Value == startGridPos.Value)
+                    {
+                        // 저격 등으로 이동 없이 처치하여 좌표가 유지된 경우 드래그된 UI 아이콘을 원래 위치로 복귀
+                        ReturnToOriginalPosition();
                     }
                 }
                 else
@@ -1090,15 +1249,29 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             return;
         }
 
-        SealData sealToEquip = draggableSeal.SealData;
+        // 튜토리얼 진행 중 인장 장착 대상 기물 검증 (아군 폰만 허용)
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive)
+        {
+            if (!TutorialManager.Instance.IsSealEquipAllowed(this))
+            {
+                return;
+            }
+        }
 
-        if (HasSeal(sealToEquip))
+        SealData sealToEquip = draggableSeal.SealData;
+        if (!isEnemy && pieceType == PieceType.King && ShotgunKingSystem.IsActive)
+        {
+            sealToEquip = ShotgunKingSystem.ConvertSeal(sealToEquip);
+        }
+
+        if (HasSeal(sealToEquip) && !ShotgunKingSystem.CanEquipStackablePart(this, sealToEquip))
         {
             return;
         }
 
         // 1. 호환성 검사
-        if (sealToEquip.compatiblePieces != null && sealToEquip.compatiblePieces.Count > 0)
+        bool shotgunKingConversion = !isEnemy && pieceType == PieceType.King && ShotgunKingSystem.IsActive;
+        if (!shotgunKingConversion && sealToEquip.compatiblePieces != null && sealToEquip.compatiblePieces.Count > 0)
         {
             if (!sealToEquip.compatiblePieces.Contains(this.pieceType))
             {
@@ -1108,13 +1281,14 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
 
         // 2. 장착 시도 (SealManager를 통하지 않고 직접 처리)
-        EquipSeal(sealToEquip);
+        if (!EquipSeal(sealToEquip)) return;
         if (draggableSeal.SourcePiece == null && draggableSeal.OriginalInventoryIndex != -1)
         {
             SealInventory.Instance?.ClearSlot(draggableSeal.OriginalInventoryIndex);
             FindFirstObjectByType<SealInventoryPanel>()?.RefreshSealItems();
         }
         draggableSeal.MarkDropHandledSuccessfully();
+        TutorialManager.Instance?.NotifySealEquipped(this, sealToEquip);
     }
 
     public void MarkSynthesisDropHandled()
@@ -1122,7 +1296,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         synthesisDropHandled = true;
     }
 
-    private void ReturnToOriginalPosition()
+    public void ReturnToOriginalPosition()
     {
         positionTween?.Kill();
         rotationTween?.Kill();
@@ -1330,8 +1504,10 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         positionTween?.Kill();
         scaleTween?.Kill();
+        activeMoveSequence?.Kill();
 
         Sequence placeSequence = DOTween.Sequence();
+        activeMoveSequence = placeSequence;
 
         if (moveWaypoint.HasValue)
         {
@@ -1544,49 +1720,59 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         if (!gridPosition.HasValue) return new List<Vector2Int>();
 
         List<Vector2Int> moves;
-        switch (pieceType)
+        if (IsConfused)
         {
-            case PieceType.King:
-                moves = GetKingMoves();
-                break;
-            case PieceType.Queen:
-                moves = GetQueenMoves();
-                break;
-            case PieceType.Rook:
-                moves = GetRookMoves();
-                break;
-            case PieceType.Bishop:
-                moves = GetBishopMoves();
-                break;
-            case PieceType.Knight:
-                moves = GetKnightMoves();
-                break;
-            case PieceType.Amazon:
-                moves = GetAmazonMoves();
-                break;
-            case PieceType.Chancellor:
-                moves = GetChancellorMoves();
-                break;
-            case PieceType.Archbishop:
-                moves = GetArchbishopMoves();
-                break;
-            case PieceType.Centaur:
-                moves = GetCentaurMoves();
-                break;
-            case PieceType.Cannon:
-                moves = GetCannonMoves();
-                break;
-            case PieceType.Grasshopper:
-                moves = GetGrasshopperMoves();
-                break;
-            case PieceType.Pawn:
-            default:
-                moves = GetPawnMoves();
-                break;
+            moves = GetPawnMoves();
+        }
+        else
+        {
+            switch (pieceType)
+            {
+                case PieceType.King:
+                    moves = GetKingMoves();
+                    break;
+                case PieceType.Queen:
+                    moves = GetQueenMoves();
+                    break;
+                case PieceType.Rook:
+                    moves = GetRookMoves();
+                    break;
+                case PieceType.Bishop:
+                    moves = GetBishopMoves();
+                    break;
+                case PieceType.Knight:
+                    moves = GetKnightMoves();
+                    break;
+                case PieceType.Amazon:
+                    moves = GetAmazonMoves();
+                    break;
+                case PieceType.Chancellor:
+                    moves = GetChancellorMoves();
+                    break;
+                case PieceType.Archbishop:
+                    moves = GetArchbishopMoves();
+                    break;
+                case PieceType.Centaur:
+                    moves = GetCentaurMoves();
+                    break;
+                case PieceType.Cannon:
+                    moves = GetCannonMoves();
+                    break;
+                case PieceType.Grasshopper:
+                    moves = GetGrasshopperMoves();
+                    break;
+                case PieceType.Pawn:
+                default:
+                    moves = GetPawnMoves();
+                    break;
+            }
         }
 
         // 📌 Case A Hook: 코드 인젝션(Seal)들에게 이동 경로 수정 요청
-        foreach (var seal in equippedSeals) seal.ModifyMoves(ref moves, gridPosition.Value, isEnemy, null, IsOccupied);
+        if (!IsConfused)
+        {
+            foreach (var seal in equippedSeals) seal.ModifyMoves(ref moves, gridPosition.Value, isEnemy, null, IsOccupied);
+        }
 
         if (OthelloArtifactSystem.IsActive)
         {
@@ -1603,6 +1789,20 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceController targetPiece = PieceManager.Instance?.GetPieceAt(target);
             return targetPiece != null && targetPiece.IsEnemy != isEnemy && targetPiece.IsInvincible;
         });
+
+        if (IsBlind)
+        {
+            moves.RemoveAll(target =>
+            {
+                PieceController targetPiece = PieceManager.Instance?.GetPieceAt(target);
+                return targetPiece != null && targetPiece.IsEnemy != isEnemy && !IsHiddenEnemyDuringPrepare(targetPiece);
+            });
+        }
+
+        if (ShotgunKingSystem.IsShotgunKing(this))
+        {
+            moves.RemoveAll(target => PieceManager.Instance?.GetPieceAt(target)?.IsEnemy == true);
+        }
         return moves;
     }
 
@@ -1919,25 +2119,9 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             (oneStepHasHiddenEnemy || !IsOccupied(oneStep)))
         {
             moves.Add(oneStep);
-
-            // 2. 초기 2칸 전진 (시작 진영 1~2번째 줄에서 두 칸 모두 비어있을 때)
-            int minY = gridManager.gridMinBounds.y;
-            int maxY = minY + gridManager.boardHeight - 1;
-            bool isStartRank = isEnemy
-                ? (gridPosition.Value.y >= maxY - 1)
-                : (gridPosition.Value.y <= minY + 1);
-
-            Vector2Int twoStep = gridPosition.Value + (forward * 2);
-            bool twoStepHasHiddenEnemy = IsInBounds(twoStep) &&
-                IsHiddenEnemyDuringPrepare(PieceManager.Instance.GetPieceAt(twoStep));
-            if (isStartRank && IsInBounds(twoStep) && !IsDestroyedCell(twoStep) &&
-                (twoStepHasHiddenEnemy || !IsOccupied(twoStep)))
-            {
-                moves.Add(twoStep);
-            }
         }
 
-        // 3. 대각선 전방 포획 (적 기물이 있을 때만 공격 이동 가능, 오셀로의 성역 활성 시에는 직접 포획 불가)
+        // 2. 대각선 전방 포획 (적 기물이 있을 때만 공격 이동 가능, 오셀로의 성역 활성 시에는 직접 포획 불가)
         if (!OthelloArtifactSystem.IsActive)
         {
             Vector2Int[] captureOffsets =
@@ -2100,8 +2284,15 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             seq.OnComplete(() =>
             {
                 isStartling = false;
-                rectTransform.anchoredPosition = basePos;
+                if (!PieceFlickLauncher.IsPhysicsActive)
+                {
+                    rectTransform.anchoredPosition = basePos;
+                }
                 transform.localScale = originalScale;
+            });
+            seq.OnKill(() =>
+            {
+                isStartling = false;
             });
 
             threatenedTween = seq;
@@ -2173,9 +2364,37 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
     // --- Seal System ---
 
-    public void EquipSeal(SealData data)
+    public bool EquipSeal(SealData data)
     {
-        if (data == null) return;
+        if (data == null) return false;
+
+        // 적 기물인 경우 무의미하거나 중복 이동 능력을 부여하는 인장 장착 방지
+        if (isEnemy && data.IsUselessForPiece(pieceType, isEnemy: true))
+        {
+            return false;
+        }
+
+        // 적 기물의 최후의 인장은 스테이지당 단 1개만 허용
+        if (isEnemy && (data.sealName == "최후의 인장" || data.name == "LastStand"))
+        {
+            if (PieceManager.Instance != null && PieceManager.Instance.EnemyPieces != null)
+            {
+                foreach (var enemy in PieceManager.Instance.EnemyPieces)
+                {
+                    if (enemy != null && enemy != this && enemy.HasSealNamed("최후의 인장"))
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        if (!isEnemy && pieceType == PieceType.King)
+        {
+            data = ShotgunKingSystem.ConvertSeal(data);
+        }
+        if (ShotgunKingSystem.IsStackablePart(data) && !ShotgunKingSystem.CanEquipStackablePart(this, data))
+            return false;
 
         if (CollectionManager.Instance != null)
         {
@@ -2192,13 +2411,14 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         // 프리팹이 없으면 기본 로직이나 에러 처리
         if (data.sealPrefab == null)
         {
-            return;
+            Debug.LogWarning($"[Seal] {data.sealName} 인장 프리팹이 없어 장착할 수 없습니다.");
+            return false;
         }
 
         GameObject sealObj = CreateEquippedSealVisual(data);
         if (sealObj == null)
         {
-            return;
+            return false;
         }
 
         // 프리팹 인스턴스화 (로직이 담긴 컴포넌트 포함)
@@ -2208,13 +2428,29 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         SealBase sealComponent = logicObj.GetComponent<SealBase>();
         if (sealComponent != null)
         {
-            sealComponent.Initialize(data, this);
             equippedSeals.Add(sealComponent);
+            try
+            {
+                sealComponent.Initialize(data, this);
+            }
+            catch (System.Exception ex)
+            {
+                equippedSeals.Remove(sealComponent);
+                Destroy(sealObj);
+                Debug.LogException(ex);
+                return false;
+            }
+
             RefreshEquippedSealVisuals();
+            RefreshBuffAuraVisuals();
+            ShotgunKingSystem.NotifyKingPartsChanged(this);
+            return true;
         }
         else
         {
             Destroy(sealObj);
+            Debug.LogWarning($"[Seal] {data.sealName} 프리팹에 SealBase 컴포넌트가 없습니다.");
+            return false;
         }
     }
 
@@ -2237,7 +2473,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         if (rt != null)
         {
             rt.sizeDelta = new Vector2(sealIconSize, sealIconSize);
-            rt.anchoredPosition = new Vector2(sealIconSize, -sealIconSize + (equippedSeals.Count * sealIconSpacing));
+            Vector2 baseOffset = GetSealIconOffset();
+            rt.anchoredPosition = new Vector2(baseOffset.x, baseOffset.y + (equippedSeals.Count * sealIconSpacing));
         }
 
         DraggableSeal draggable = sealObj.GetComponent<DraggableSeal>();
@@ -2296,6 +2533,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                 else Destroy(sealToUnEquip.gameObject);
             }
             RefreshEquippedSealVisuals();
+            RefreshBuffAuraVisuals();
+            ShotgunKingSystem.NotifyKingPartsChanged(this);
             return true;
         }
         return false;
@@ -2314,6 +2553,49 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         return false;
     }
 
+    public bool HasSealNamed(string targetSealName)
+    {
+        if (string.IsNullOrEmpty(targetSealName)) return false;
+        if (equippedSeals == null) return false;
+        foreach (var seal in equippedSeals)
+        {
+            if (seal != null && seal.Data != null)
+            {
+                if (seal.Data.sealName == targetSealName || seal.Data.name == targetSealName)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public bool HasSelfDestructSeal()
+    {
+        if (pieceType != PieceType.Pawn) return false;
+        if (GetComponent<SelfDestructSeal>() != null) return true;
+        if (equippedSeals == null) return false;
+        for (int i = 0; i < equippedSeals.Count; i++)
+        {
+            SealBase seal = equippedSeals[i];
+            if (seal == null) continue;
+            if (seal is SelfDestructSeal) return true;
+            if (seal.Data != null && (seal.Data.sealName == "자폭의 인장" || seal.Data.name == "Destruction")) return true;
+        }
+        return false;
+    }
+
+    public static bool IsLongRangePiece(PieceType type)
+    {
+        return type == PieceType.Queen ||
+               type == PieceType.Rook ||
+               type == PieceType.Bishop ||
+               type == PieceType.Amazon ||
+               type == PieceType.Chancellor ||
+               type == PieceType.Archbishop ||
+               type == PieceType.Cannon;
+    }
+
     private void RefreshEquippedSealVisuals()
     {
         StopDuplicateSealCycle();
@@ -2325,7 +2607,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             RectTransform rt = seal.transform.parent as RectTransform;
             if (rt != null)
             {
-                rt.anchoredPosition = new Vector2(sealIconSize, -sealIconSize);
+                rt.anchoredPosition = GetSealIconOffset();
             }
             visibleSeals.Add(seal);
         }
@@ -2335,23 +2617,98 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             SetSealVisualVisible(visibleSeals[i], i == 0);
         }
 
+        if (visibleSeals.Count > 0 && visibleSeals[0] != null)
+        {
+            currentDisplaySealData = visibleSeals[0].Data;
+            currentDisplaySealIndex = 0;
+            OnEquippedSealVisualChanged?.Invoke(this, currentDisplaySealData, 0, visibleSeals.Count);
+        }
+        else
+        {
+            currentDisplaySealData = null;
+            currentDisplaySealIndex = 0;
+        }
+
         if (visibleSeals.Count > 1)
         {
             duplicateSealCycleCoroutine = StartCoroutine(CycleDuplicateSealVisuals(visibleSeals));
         }
     }
 
-    private IEnumerator CycleDuplicateSealVisuals(List<SealBase> seals)
+    private IEnumerator CycleDuplicateSealVisuals(List<SealBase> seals, int startIndex = 0)
     {
-        int index = 0;
+        int index = startIndex;
         while (true)
         {
             yield return new WaitForSeconds(duplicateSealCycleInterval);
             index++;
+            int activeIndex = index % seals.Count;
             for (int i = 0; i < seals.Count; i++)
             {
-                SetSealVisualVisible(seals[i], i == index % seals.Count, true);
+                SetSealVisualVisible(seals[i], i == activeIndex, true);
             }
+
+            if (activeIndex >= 0 && activeIndex < seals.Count && seals[activeIndex] != null)
+            {
+                currentDisplaySealData = seals[activeIndex].Data;
+                currentDisplaySealIndex = activeIndex;
+                OnEquippedSealVisualChanged?.Invoke(this, currentDisplaySealData, activeIndex, seals.Count);
+            }
+        }
+    }
+
+    public void SetDisplaySealByIndex(int targetIndex)
+    {
+        if (equippedSeals == null || equippedSeals.Count == 0) return;
+
+        List<SealBase> visibleSeals = new List<SealBase>();
+        foreach (var seal in equippedSeals)
+        {
+            if (seal != null && seal.Data != null)
+            {
+                visibleSeals.Add(seal);
+            }
+        }
+
+        if (visibleSeals.Count == 0) return;
+        int activeIndex = ((targetIndex % visibleSeals.Count) + visibleSeals.Count) % visibleSeals.Count;
+
+        for (int i = 0; i < visibleSeals.Count; i++)
+        {
+            SetSealVisualVisible(visibleSeals[i], i == activeIndex, true);
+        }
+
+        if (visibleSeals[activeIndex] != null)
+        {
+            currentDisplaySealData = visibleSeals[activeIndex].Data;
+            currentDisplaySealIndex = activeIndex;
+        }
+    }
+
+    public void PauseDuplicateSealCycle()
+    {
+        StopDuplicateSealCycle();
+    }
+
+    public void ResumeDuplicateSealCycle()
+    {
+        if (duplicateSealCycleCoroutine != null || equippedSeals == null || equippedSeals.Count <= 1)
+        {
+            return;
+        }
+
+        List<SealBase> visibleSeals = new List<SealBase>();
+        foreach (var seal in equippedSeals)
+        {
+            if (seal != null && seal.Data != null)
+            {
+                visibleSeals.Add(seal);
+            }
+        }
+
+        if (visibleSeals.Count > 1)
+        {
+            duplicateSealCycleCoroutine = StartCoroutine(CycleDuplicateSealVisuals(visibleSeals, currentDisplaySealIndex));
         }
     }
 
@@ -2635,7 +2992,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         RectTransform rt = sealObj.GetComponent<RectTransform>();
         rt.sizeDelta = new Vector2(sealIconSize, sealIconSize);
-        rt.anchoredPosition = new Vector2(sealIconSize, -sealIconSize + ((equippedSeals.Count - 1) * sealIconSpacing));
+        Vector2 baseOffset = GetSealIconOffset();
+        rt.anchoredPosition = new Vector2(baseOffset.x, baseOffset.y + ((equippedSeals.Count - 1) * sealIconSpacing));
 
         if (sealData != null)
         {
@@ -2727,11 +3085,12 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     }
 
     // 📌 Case C Hook: 이동 후 알림
-    public void OnMoveFinished(Vector2Int prevPos, Vector2Int newPos)
+    public void OnMoveFinished(Vector2Int prevPos, Vector2Int newPos, bool captured = false)
     {
-        foreach (var seal in equippedSeals)
+        foreach (var seal in new List<SealBase>(equippedSeals))
         {
-            seal.OnAfterMove(prevPos, newPos);
+            if (seal == null) continue;
+            seal.OnAfterMove(prevPos, newPos, captured);
         }
     }
 
@@ -2782,6 +3141,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceBuffType.Evasion => evasionStacks,
             PieceBuffType.Counterattack => counterattackStacks,
             PieceBuffType.Invincibility => invincibilityTurns,
+            PieceBuffType.Blindness => blindnessTurns,
+            PieceBuffType.Confusion => confusionTurns,
             _ => 0
         };
     }
@@ -2810,9 +3171,16 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             case PieceBuffType.Invincibility:
                 invincibilityTurns = stacks;
                 break;
+            case PieceBuffType.Blindness:
+                blindnessTurns = Mathf.Max(blindnessTurns, stacks);
+                break;
+            case PieceBuffType.Confusion:
+                confusionTurns = Mathf.Max(confusionTurns, stacks);
+                break;
         }
 
         RefreshBuffAuraVisuals();
+        PieceManager.Instance?.RefreshSelectedPieceMoves(this);
     }
 
     public bool ConsumeBuff(PieceBuffType buffType)
@@ -2840,11 +3208,18 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
                     return false;
                 }
                 break;
+            case PieceBuffType.Blindness:
+                blindnessTurns--;
+                break;
+            case PieceBuffType.Confusion:
+                confusionTurns--;
+                break;
             default:
                 return false;
         }
 
         RefreshBuffAuraVisuals();
+        PieceManager.Instance?.RefreshSelectedPieceMoves(this);
         return true;
     }
 
@@ -2873,6 +3248,30 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
     }
 
+    public void AdvanceStatusTurn(TurnOwner endedTurn)
+    {
+        TurnOwner ownerTurn = isEnemy ? TurnOwner.Opponent : TurnOwner.Player;
+        if (currentLocation != PieceLocation.Board || ownerTurn != endedTurn) return;
+
+        bool changed = false;
+        if (blindnessTurns > 0)
+        {
+            blindnessTurns--;
+            changed = true;
+        }
+        if (confusionTurns > 0)
+        {
+            confusionTurns--;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            RefreshBuffAuraVisuals();
+            PieceManager.Instance?.RefreshSelectedPieceMoves(this);
+        }
+    }
+
     public void PlayBuffActivationEffect(PieceBuffType buffType)
     {
         if (pieceImage == null)
@@ -2888,6 +3287,8 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             PieceBuffType.Evasion => new Color(0.75f, 0.45f, 1f),
             PieceBuffType.Counterattack => new Color(1f, 0.35f, 0.2f),
             PieceBuffType.Invincibility => new Color(0.35f, 1f, 0.45f),
+            PieceBuffType.Blindness => new Color(0.25f, 0.25f, 0.3f),
+            PieceBuffType.Confusion => new Color(0.85f, 0.25f, 1f),
             _ => Color.white
         };
 
@@ -2915,9 +3316,32 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             case PieceBuffType.Invincibility:
                 invincibilityTurns = stacks < 0 ? -1 : stacks;
                 break;
+            case PieceBuffType.Blindness:
+                blindnessTurns = stacks;
+                break;
+            case PieceBuffType.Confusion:
+                confusionTurns = stacks;
+                break;
         }
 
         RefreshBuffAuraVisuals();
+        PieceManager.Instance?.RefreshSelectedPieceMoves(this);
+    }
+
+    /// <summary>
+    /// 기물에 부여된 모든 버프와 상태를 초기화하고 오라 연출을 갱신합니다.
+    /// 스테이지 종료 시 호출됩니다.
+    /// </summary>
+    public void ClearAllBuffs()
+    {
+        protectionStacks = 0;
+        evasionStacks = 0;
+        counterattackStacks = 0;
+        invincibilityTurns = 0;
+        blindnessTurns = 0;
+        confusionTurns = 0;
+        RefreshBuffAuraVisuals();
+        PieceManager.Instance?.RefreshSelectedPieceMoves(this);
     }
 
     private void CreateBuffAuraVisuals()
@@ -2927,69 +3351,41 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             return;
         }
 
-        if (buffAuraSprite == null)
-        {
-            // 모든 기물이 공유하는 링 텍스처입니다.
-            // outerRadius/innerRadius 차이로 링 두께를 조절할 수 있습니다.
-            const int textureSize = 64;
-            const float outerRadius = 30f;
-            const float innerRadius = 24f;
-            Texture2D texture = new Texture2D(textureSize, textureSize, TextureFormat.RGBA32, false);
-            texture.name = "BuffAuraRingTexture";
-            texture.filterMode = FilterMode.Bilinear;
+        Vector2 iconSize = buffIconCustomSize != Vector2.zero
+            ? buffIconCustomSize
+            : (pieceImage != null ? pieceImage.rectTransform.sizeDelta : new Vector2(32f, 32f));
+        Vector2 iconPos = pieceImage != null ? pieceImage.rectTransform.anchoredPosition : Vector2.zero;
 
-            Color[] pixels = new Color[textureSize * textureSize];
-            Vector2 center = new Vector2((textureSize - 1) * 0.5f, (textureSize - 1) * 0.5f);
-            for (int y = 0; y < textureSize; y++)
-            {
-                for (int x = 0; x < textureSize; x++)
-                {
-                    float distance = Vector2.Distance(new Vector2(x, y), center);
-                    pixels[y * textureSize + x] = distance >= innerRadius && distance <= outerRadius
-                        ? Color.white
-                        : Color.clear;
-                }
-            }
-
-            texture.SetPixels(pixels);
-            texture.Apply();
-            buffAuraSprite = Sprite.Create(
-                texture,
-                new Rect(0f, 0f, textureSize, textureSize),
-                new Vector2(0.5f, 0.5f),
-                textureSize);
-        }
-
-        // 배열 순서와 PieceBuffType 순서가 일치합니다.
-        // 보호=노랑, 회피=파랑, 역공=빨강, 무적=초록입니다.
-        Color[] auraColors =
-        {
-            new Color(1f, 0.85f, 0.1f, 0.9f),
-            new Color(0.2f, 0.55f, 1f, 0.9f),
-            new Color(1f, 0.2f, 0.15f, 0.9f),
-            new Color(0.3f, 1f, 0.4f, 0.9f)
-        };
+        // 기물 이미지 바로 위, 우상단 인장(Seal) 오브젝트보다는 뒤에 배치되도록 sibling 인덱스를 설정합니다.
+        int targetSiblingIndex = pieceImage != null ? pieceImage.transform.GetSiblingIndex() + 1 : 1;
 
         for (int i = 0; i < buffAuraImages.Length; i++)
         {
-            GameObject auraObject = new GameObject($"BuffAura_{(PieceBuffType)i}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            auraObject.transform.SetParent(transform, false);
-            auraObject.transform.SetAsFirstSibling();
+            PieceBuffType buffType = (PieceBuffType)i;
+            GameObject iconObject = new GameObject($"BuffIcon_{buffType}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconObject.transform.SetParent(transform, false);
+            iconObject.transform.SetSiblingIndex(targetSiblingIndex + i);
 
-            Image auraImage = auraObject.GetComponent<Image>();
-            auraImage.sprite = buffAuraSprite;
-            auraImage.color = auraColors[i];
-            auraImage.raycastTarget = false;
-            auraImage.preserveAspect = true;
+            Image iconImage = iconObject.GetComponent<Image>();
+            Sprite sprite = PieceSpriteData.Instance != null ? PieceSpriteData.Instance.GetBuffSprite(buffType) : null;
+            if (sprite == null)
+            {
+                sprite = Resources.Load<Sprite>($"BuffIcon/Buff_{buffType}");
+            }
+            iconImage.sprite = sprite;
+            iconImage.color = new Color(1f, 1f, 1f, buffIconAlpha);
+            iconImage.raycastTarget = false;
+            iconImage.preserveAspect = true;
 
-            RectTransform auraRect = auraImage.rectTransform;
-            auraRect.anchorMin = new Vector2(0.5f, 0.5f);
-            auraRect.anchorMax = new Vector2(0.5f, 0.5f);
-            auraRect.pivot = new Vector2(0.5f, 0.5f);
-            auraRect.anchoredPosition = Vector2.zero;
-            // 여러 버프가 동시에 있을 때 링이 겹치지 않도록 버프별 크기를 다르게 합니다.
-            auraRect.sizeDelta = new Vector2(92f + (i * 12f), 92f + (i * 12f));
-            buffAuraImages[i] = auraImage;
+            RectTransform iconRect = iconImage.rectTransform;
+            iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+            iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+            iconRect.pivot = new Vector2(0.5f, 0.5f);
+            iconRect.anchoredPosition = iconPos;
+            iconRect.sizeDelta = iconSize;
+
+            iconObject.SetActive(false);
+            buffAuraImages[i] = iconImage;
         }
     }
 
@@ -3000,10 +3396,44 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
             return;
         }
 
-        buffAuraImages[0].gameObject.SetActive(protectionStacks > 0);
-        buffAuraImages[1].gameObject.SetActive(evasionStacks > 0);
-        buffAuraImages[2].gameObject.SetActive(counterattackStacks > 0);
-        buffAuraImages[3].gameObject.SetActive(IsInvincible);
+        for (int i = 0; i < buffAuraImages.Length; i++)
+        {
+            if (buffAuraImages[i] != null && buffAuraImages[i].sprite == null)
+            {
+                buffAuraImages[i].sprite = PieceSpriteData.Instance != null
+                    ? PieceSpriteData.Instance.GetBuffSprite((PieceBuffType)i)
+                    : null;
+            }
+        }
+
+        bool[] activeStates =
+        {
+            protectionStacks > 0,
+            evasionStacks > 0,
+            counterattackStacks > 0,
+            IsInvincible,
+            IsBlind,
+            IsConfused
+        };
+
+        for (int i = 0; i < buffAuraImages.Length; i++)
+        {
+            if (buffAuraImages[i] == null) continue;
+            bool wasActive = buffAuraImages[i].gameObject.activeSelf;
+            bool shouldBeActive = activeStates[i];
+
+            if (!wasActive && shouldBeActive)
+            {
+                buffAuraImages[i].gameObject.SetActive(true);
+                buffAuraImages[i].rectTransform.localScale = Vector3.one * 0.75f;
+                buffAuraImages[i].rectTransform.DOKill();
+                buffAuraImages[i].rectTransform.DOScale(Vector3.one, 0.25f).SetEase(Ease.OutBack);
+            }
+            else if (wasActive && !shouldBeActive)
+            {
+                buffAuraImages[i].gameObject.SetActive(false);
+            }
+        }
     }
 
     // -------------------
@@ -3141,7 +3571,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         if (pieceType == PieceType.Pawn)
         {
-            sb.Append("\n<size=85%><color=#88FF88>□:전진(초기2칸) / </color><color=#FF5555>×:대각선 포획</color></size>");
+            sb.Append("\n<size=85%><color=#88FF88>□:전진 / </color><color=#FF5555>×:대각선 포획</color></size>");
         }
         else if (pieceType == PieceType.Knight)
         {
@@ -3334,16 +3764,14 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
             case PieceType.Pawn:
             default:
-                // 폰: 전진 1칸 (및 초기 2칸)
+                // 폰: 전진 1칸
                 if (isEnemy)
                 {
                     offsets.Add(Vector2Int.down);
-                    offsets.Add(new Vector2Int(0, -2));
                 }
                 else
                 {
                     offsets.Add(Vector2Int.up);
-                    offsets.Add(new Vector2Int(0, 2));
                 }
                 break;
         }
@@ -3457,7 +3885,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         if (pieceType == PieceType.Pawn)
         {
-            sb.Append("\n<size=85%><color=#88FF88>□:전진(초기2칸) / </color><color=#FF5555>×:대각선 포획</color></size>");
+            sb.Append("\n<size=85%><color=#88FF88>□:전진 / </color><color=#FF5555>×:대각선 포획</color></size>");
         }
         else if (pieceType == PieceType.Knight)
         {
@@ -3550,32 +3978,32 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     {
         return type switch
         {
-            PieceType.King => "킹 (King)",
-            PieceType.Queen => "퀸 (Queen)",
-            PieceType.Rook => "룩 (Rook)",
-            PieceType.Bishop => "비숍 (Bishop)",
-            PieceType.Knight => "나이트 (Knight)",
-            PieceType.Pawn => "폰 (Pawn)",
-            PieceType.Amazon => "아마존 (Amazon)",
-            PieceType.Chancellor => "챈슬러 (Chancellor)",
-            PieceType.Archbishop => "아치비숍 (Archbishop)",
-            PieceType.Centaur => "켄타우로스 (Centaur)",
-            PieceType.Cannon => "캐논 (Cannon)",
-            PieceType.Grasshopper => "그래스호퍼 (Grasshopper)",
-            _ => "기물"
+            PieceType.King => "King",
+            PieceType.Queen => "Queen",
+            PieceType.Rook => "Rook",
+            PieceType.Bishop => "Bishop",
+            PieceType.Knight => "Knight",
+            PieceType.Pawn => "Pawn",
+            PieceType.Amazon => "Amazon",
+            PieceType.Chancellor => "Chancellor",
+            PieceType.Archbishop => "Archbishop",
+            PieceType.Centaur => "Centaur",
+            PieceType.Cannon => "Cannon",
+            PieceType.Grasshopper => "Grasshopper",
+            _ => type.ToString()
         };
     }
 
     /// <summary>
-    /// 기물의 레어도를 반환합니다 (폰, 킹, 마이너 피스: 1 / 메이저 피스(룩, 퀸), 켄타우로스, 캐논: 2 / 챈슬러, 아치비숍, 그래스호퍼: 3 / 변형 체스 전설 기물(아마존 등): 5).
+    /// 기물의 레어도를 반환합니다 (폰, 킹, 마이너 피스: 1 / 메이저 피스(퀸), 켄타우로스, 캐논, 그래스호퍼: 2 / 에픽(룩, 챈슬러, 아치비숍): 3 / 변형 체스 전설 기물(아마존 등): 5).
     /// </summary>
     public static int GetRarityForType(PieceType type)
     {
         return type switch
         {
             PieceType.Amazon => 5,
-            PieceType.Chancellor or PieceType.Archbishop or PieceType.Grasshopper => 3,
-            PieceType.Queen or PieceType.Rook or PieceType.Centaur or PieceType.Cannon => 2,
+            PieceType.Chancellor or PieceType.Archbishop or PieceType.Rook => 3,
+            PieceType.Queen or PieceType.Centaur or PieceType.Cannon or PieceType.Grasshopper => 2,
             _ => 1
         };
     }
@@ -3595,12 +4023,12 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
     {
         return type switch
         {
-            PieceType.Pawn => "※ 전방 1칸 이동(첫 이동 시 2칸) / 대각선 1칸 적 포획",
+            PieceType.Pawn => "※ 전방 1칸 이동 / 대각선 1칸 적 포획",
             PieceType.Knight => "※ 장애물 무시 L자 도약 (8방향 점프)",
             PieceType.Bishop => "※ 대각선 4방향 원거리 슬라이딩",
             PieceType.Rook => "※ 상하좌우 4방향 직선 원거리 슬라이딩",
             PieceType.Queen => "※ 가로·세로·대각선 8방향 전방위 슬라이딩",
-            PieceType.King => "※ 모든 방향 1칸 이동 (체크메이트 보호 대상)",
+            PieceType.King => "※ 가로·세로·대각선 모든 방향 1칸 이동",
             PieceType.Amazon => "※ 퀸의 전방위 슬라이딩 + 나이트의 L자 도약",
             PieceType.Chancellor => "※ 룩의 직선 슬라이딩 + 나이트의 L자 도약",
             PieceType.Archbishop => "※ 비숍의 대각선 슬라이딩 + 나이트의 L자 도약",
@@ -3660,7 +4088,96 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         rotationTween?.Kill();
         positionTween?.Kill();
         scaleTween?.Kill();
+        activeMoveSequence?.Kill();
         threatenedTween?.Kill();
-
     }
+    // Returns active status keywords for tooltip display.
+    public System.Collections.Generic.List<string> GetActiveKeywords()
+    {
+        var keywords = new System.Collections.Generic.List<string>();
+        if (IsInvincible) keywords.Add("무적");
+        if (ProtectionStacks > 0) keywords.Add("보호");
+        if (EvasionStacks > 0) keywords.Add("회피");
+        if (CounterattackStacks > 0) keywords.Add("역습");
+        if (IsBlind) keywords.Add("실명");
+        if (IsConfused) keywords.Add("혼란");
+        return keywords;
+    }
+
+    /// <summary>
+    /// 기물에 활성화된 키워드와 상태 효과의 상세 정보를 반환합니다.
+    /// </summary>
+    public System.Collections.Generic.List<KeywordInfo> GetActiveKeywordInfos()
+    {
+        var list = new System.Collections.Generic.List<KeywordInfo>();
+
+        if (IsInvincible)
+        {
+            string countText = invincibilityTurns == -1
+                ? "상시 지속"
+                : (invincibilityTurns > 0 ? $"{invincibilityTurns}턴 지속" : "인장 지속");
+            list.Add(new KeywordInfo(
+                "무적 (Invincible)",
+                countText,
+                "지속 시간 동안 모든 공격과 파괴 효과로부터 피해를 받지 않습니다.",
+                new Color(0.35f, 1f, 0.45f) // 라임그린
+            ));
+        }
+
+        if (protectionStacks > 0)
+        {
+            list.Add(new KeywordInfo(
+                "보호 (Shield)",
+                $"×{protectionStacks}",
+                "다음 1회의 적 공격을 완전히 무효화하고 보호 1개를 소모합니다.",
+                new Color(1f, 0.85f, 0.1f) // 황금색
+            ));
+        }
+
+        if (evasionStacks > 0)
+        {
+            list.Add(new KeywordInfo(
+                "회피 (Evasion)",
+                $"×{evasionStacks}",
+                "적의 공격을 받을 때 피해를 입지 않고 인접한 빈 칸으로 도약합니다.",
+                new Color(0.2f, 0.65f, 1f) // 스카이블루
+            ));
+        }
+
+        if (counterattackStacks > 0)
+        {
+            list.Add(new KeywordInfo(
+                "역습 (Counter)",
+                $"×{counterattackStacks}",
+                "적에게 공격을 받을 때 반격하여 공격한 적 기물을 즉시 처치합니다.",
+                new Color(1f, 0.35f, 0.25f) // 선홍색
+            ));
+        }
+
+        if (blindnessTurns > 0)
+        {
+            list.Add(new KeywordInfo(
+                "실명 (Blindness)",
+                $"{blindnessTurns}턴 지속",
+                "지속 시간 동안 적 기물을 포획할 수 없습니다.",
+                new Color(0.35f, 0.35f, 0.42f)
+            ));
+        }
+
+        if (confusionTurns > 0)
+        {
+            list.Add(new KeywordInfo(
+                "혼란 (Confusion)",
+                $"{confusionTurns}턴 지속",
+                "지속 시간 동안 폰의 행마법으로만 이동할 수 있습니다.",
+                new Color(0.85f, 0.25f, 1f)
+            ));
+        }
+
+        return list;
+    }
+
+
 }
+
+

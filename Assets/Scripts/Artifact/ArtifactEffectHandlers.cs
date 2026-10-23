@@ -55,6 +55,7 @@ public static class ArtifactEffectHandlers
         {
             "A004" => ArtifactManager.Instance.HasArtifact("A004", out _) ? GetGourdRecoveryCount() : 0,
             "A005" => ArtifactManager.Instance.HasArtifact("A005", out _) ? GetTombstoneDestroyCount() : 0,
+            TyrantsBarrageArtifactEffect.Id => TyrantsBarrageArtifactEffect.GetAmmo(),
             _ => 0
         };
     }
@@ -70,6 +71,7 @@ public static class ArtifactEffectHandlers
         {
             "A004" => ArtifactManager.Instance.HasArtifact("A004", out _) ? GetGourdRecoveryMax() : 0,
             "A005" => ArtifactManager.Instance.HasArtifact("A005", out _) ? GetTombstoneDestroyThreshold() : 0,
+            TyrantsBarrageArtifactEffect.Id => TyrantsBarrageArtifactEffect.GetMaxAmmo(),
             _ => 0
         };
     }

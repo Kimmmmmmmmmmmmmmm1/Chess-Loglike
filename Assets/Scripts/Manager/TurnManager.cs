@@ -44,6 +44,18 @@ public class TurnManager : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// 시간의 모래 등 턴 되돌리기 시 완료된 턴 수를 1 감소시키고 3수동형(동형반복) 기록을 리셋합니다.
+    /// </summary>
+    public void RollbackCompletedTurn()
+    {
+        if (completedBattleTurns > 0)
+        {
+            completedBattleTurns--;
+        }
+        ClearPositionHistory();
+    }
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -57,6 +69,8 @@ public class TurnManager : MonoBehaviour
 
     private void Start()
     {
+        TurnIndicatorUI.EnsureInstance();
+
         if (GameStateManager.Instance != null)
         {
             GameStateManager.Instance.OnStateChanged += OnGameStateChanged;
@@ -103,7 +117,10 @@ public class TurnManager : MonoBehaviour
 
     private System.Collections.Generic.Dictionary<string, int> positionHistory = new System.Collections.Generic.Dictionary<string, int>();
 
-    private void ClearPositionHistory()
+    /// <summary>
+    /// 3수동형(동형반복) 기록을 초기화합니다.
+    /// </summary>
+    public void ClearPositionHistory()
     {
         positionHistory.Clear();
     }
@@ -221,6 +238,7 @@ public class TurnManager : MonoBehaviour
 
         currentTurn = currentTurn == TurnOwner.Player ? TurnOwner.Opponent : TurnOwner.Player;
         OnTurnAdvanced?.Invoke(currentTurn);
+        ArtifactEffectRegistry.OnTurnAdvanced(currentTurn);
 
         if (currentTurn == TurnOwner.Opponent)
         {
@@ -244,6 +262,8 @@ public class TurnManager : MonoBehaviour
     /// </summary>
     private IEnumerator SkipOpponentTurnByEffect()
     {
+        TurnLogUIManager.Instance?.AddLog("시간의 모래: 상대의 턴을 건너뛰었습니다!", false);
+
         yield return new WaitForSeconds(waitTime);
 
         if (GameManager.Instance != null && GameManager.Instance.CurrentFlowState != GameFlowState.Battle)
@@ -253,6 +273,8 @@ public class TurnManager : MonoBehaviour
             yield break;
 
         currentTurn = TurnOwner.Player;
+        OnTurnAdvanced?.Invoke(currentTurn);
+        ArtifactEffectRegistry.OnTurnAdvanced(currentTurn);
         CheckPlayerTurn();
     }
 
@@ -275,6 +297,14 @@ public class TurnManager : MonoBehaviour
             yield break;
         }
 
+        // 보드 위에 아군 기물이 0개라면 무조건 탈락 (GameOver)
+        if (PieceManager.Instance != null && PieceManager.Instance.GetPlayerPieceCountOnBoard() <= 0)
+        {
+            Debug.LogWarning("[TurnManager] 플레이어 턴 검증: 보드에 아군 기물이 없음 -> GameOver");
+            GameStateManager.Instance?.ChangeState(GameStateManager.GameState.GameOver);
+            yield break;
+        }
+
         // 알까기 유물 보유 시에는 체스 행마법상 이동 가능한 칸이 없어도 알까기로 튕길 수 있으므로 턴을 자동 스킵하지 않음
         if (PieceManager.Instance != null && !PieceFlickLauncher.HasAlkkagiArtifact && !PieceManager.Instance.HasAnyPlayerMoves())
         {
@@ -284,20 +314,8 @@ public class TurnManager : MonoBehaviour
                 yield break;
             }
 
-            int playerPieceCount = 0;
-            foreach (var p in PieceManager.Instance.PlayerPieces)
-            {
-                if (p != null && p.CurrentLocation == PieceLocation.Board && p.GridPosition.HasValue) 
-                {
-                    playerPieceCount++;
-                }
-            }
-
-            if (playerPieceCount > 0)
-            {
-                Debug.LogWarning("[TurnManager] Player has pieces but no legal moves (플레이어 둘 수 있는 수 없음 - 턴 스킵)");
-                TurnLogUIManager.Instance?.AddLog("이동 가능한 수가 없어 턴을 넘깁니다.", false);
-            }
+            Debug.LogWarning("[TurnManager] Player has pieces but no legal moves (플레이어 둘 수 있는 수 없음 - 턴 스킵)");
+            TurnLogUIManager.Instance?.AddLog("이동 가능한 수가 없어 턴을 넘깁니다.", false);
 
             yield return new WaitForSeconds(0.6f);
             AdvanceTurn(false);
@@ -306,6 +324,37 @@ public class TurnManager : MonoBehaviour
 
     private IEnumerator StartOpponentTurn()
     {
+        // 1. 파괴 연출(폭발, 파편 비산, 슬로우모션, 자폭 등)이 발생한 경우 연출이 끝날 때까지 대기
+        bool hasDestructionEffect = (PieceManager.Instance != null && PieceManager.Instance.HasDestructionEffectInProgress())
+                                 || (EffectManager.Instance != null && EffectManager.Instance.IsPlayingAnyDestructionEffect());
+
+        if (hasDestructionEffect)
+        {
+            float maxWaitTime = 1.8f;
+            float elapsedWait = 0f;
+            while (elapsedWait < maxWaitTime)
+            {
+                bool isBusy = (PieceManager.Instance != null && PieceManager.Instance.HasDestructionEffectInProgress())
+                           || (EffectManager.Instance != null && EffectManager.Instance.IsPlayingAnyDestructionEffect());
+
+                if (!isBusy)
+                {
+                    break;
+                }
+
+                elapsedWait += Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            // 연출이 이미 진행되었으므로 추가 딜레이를 최소화(0.1초)하여 즉시 반응
+            yield return new WaitForSeconds(0.1f);
+        }
+        else
+        {
+            // 연출이 없을 때만 자연스러운 착수 딜레이
+            yield return new WaitForSeconds(0.35f);
+        }
+
         // 상대 턴 시작 시 (AI 이동 전): 보드 상태이나 타일 좌표가 없는 비정상 기물 일괄 제거
         if (PieceManager.Instance != null)
         {
@@ -313,21 +362,12 @@ public class TurnManager : MonoBehaviour
             PieceManager.Instance.EnsurePositionCacheReady();
         }
 
-        yield return new WaitForSeconds(waitTime);
-
         if (GameManager.Instance != null && GameManager.Instance.CurrentFlowState != GameFlowState.Battle)
             yield break;
 
         if (GameStateManager.Instance != null && GameStateManager.Instance.CurrentState != GameStateManager.GameState.GamePlay)
             yield break;
 
-        // 대기 시간 후 AI 기물 평가 및 이동 직전 재검증/정리
-        if (PieceManager.Instance != null)
-        {
-            PieceManager.Instance.CleanupInvalidBoardPieces();
-            PieceManager.Instance.EnsurePositionCacheReady();
-        }
-        
         OnOpponentTurnStarted?.Invoke();
 
         bool moved = false;

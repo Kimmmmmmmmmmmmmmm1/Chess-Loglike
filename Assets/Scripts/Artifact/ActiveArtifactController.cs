@@ -15,11 +15,16 @@ public class ActiveArtifactController : MonoBehaviour
 
     public static bool IsTargeting => Instance != null && Instance.pendingArtifact != null;
 
+    public static event System.Action<ArtifactData> OnTargetingBegan;
+    public static event System.Action OnTargetingEnded;
+
     private ArtifactData pendingArtifact;
     private ActiveArtifactEffectBase pendingEffect;
     private ArtifactSlot pendingSlot;
+    private PieceController draggingInventoryPiece;
 
     private readonly Dictionary<PieceController, Vector3> highlightedTargets = new Dictionary<PieceController, Vector3>();
+    private readonly List<GridCell> highlightedCells = new List<GridCell>();
     private const string HighlightTweenId = "ActiveArtifactTargetHighlight";
 
     public static ActiveArtifactController EnsureInstance()
@@ -143,11 +148,52 @@ public class ActiveArtifactController : MonoBehaviour
         return true;
     }
 
+    public static bool TryBeginInventoryPieceDrag(PieceController piece)
+    {
+        if (!IsTargeting || !CanUseNow() || Instance.pendingEffect.TargetType != ActiveArtifactTargetType.InventoryPiecePlacement)
+            return false;
+        if (!Instance.pendingEffect.TrySelectInventoryPiece(piece)) return false;
+
+        Instance.draggingInventoryPiece = piece;
+        Instance.HighlightValidTargets();
+        return true;
+    }
+
+    public static bool TryCompleteInventoryPieceDrag(PieceController piece, Vector2Int? position)
+    {
+        if (!IsTargeting || Instance.draggingInventoryPiece != piece) return false;
+        Instance.draggingInventoryPiece = null;
+
+        if (!CanUseNow() || !position.HasValue ||
+            Instance.pendingEffect.TargetType != ActiveArtifactTargetType.InventoryPiecePlacement ||
+            !Instance.pendingEffect.IsValidPlacementPosition(position.Value) ||
+            !Instance.pendingEffect.ExecuteAtPosition(position.Value))
+        {
+            if (position.HasValue)
+            {
+                PieceManager.Instance?.gridManager?.GetGridCell(position.Value)?.Shake(0.2f, 3f);
+            }
+            return false;
+        }
+
+        ArtifactData artifact = Instance.pendingArtifact;
+        ArtifactSlot slot = Instance.pendingSlot;
+        ActiveArtifactEffectBase effect = Instance.pendingEffect;
+        Instance.EndTargeting();
+        Instance.Consume(artifact, slot, effect);
+        return true;
+    }
+
     private void HandlePieceClick(PieceController piece)
     {
         if (!CanUseNow())
         {
             CancelTargeting();
+            return;
+        }
+
+        if (pendingEffect.TargetType == ActiveArtifactTargetType.InventoryPiecePlacement)
+        {
             return;
         }
 
@@ -192,6 +238,11 @@ public class ActiveArtifactController : MonoBehaviour
         PieceManager.Instance?.HideMoveMarkers();
         slot?.SetTargetingVisual(true);
         HighlightValidTargets();
+        OnTargetingBegan?.Invoke(artifact);
+        if (effect.TargetType == ActiveArtifactTargetType.InventoryPiecePlacement)
+        {
+            TurnLogUIManager.Instance?.AddLog("지원군의 훈장: 인벤토리의 아군 기물을 1~2랭크로 드래그하세요.", false);
+        }
     }
 
     public void CancelTargeting()
@@ -204,9 +255,11 @@ public class ActiveArtifactController : MonoBehaviour
         pendingEffect?.CancelSelection();
         pendingSlot?.SetTargetingVisual(false);
         ClearHighlights();
+        draggingInventoryPiece = null;
         pendingArtifact = null;
         pendingEffect = null;
         pendingSlot = null;
+        OnTargetingEnded?.Invoke();
     }
 
     private void Consume(ArtifactData artifact, ArtifactSlot slot, ActiveArtifactEffectBase effect)
@@ -218,7 +271,15 @@ public class ActiveArtifactController : MonoBehaviour
             slot.PlayUseFeedback();
         }
 
-        ArtifactManager.Instance?.ConsumeArtifact(artifact);
+        effect?.OnSuccessfulUse(artifact);
+        if (effect == null || (effect.ConsumesArtifact && artifact.ConsumesOnUse))
+        {
+            ArtifactManager.Instance?.ConsumeArtifact(artifact);
+        }
+        else
+        {
+            ArtifactManager.Instance?.UpdateInventoryUI();
+        }
 
         // 턴 소모 처리
         if (effect != null && effect.ConsumesTurn)
@@ -238,6 +299,21 @@ public class ActiveArtifactController : MonoBehaviour
         ClearHighlights();
         if (PieceManager.Instance == null || pendingEffect == null) return;
 
+        if (pendingEffect.TargetType == ActiveArtifactTargetType.InventoryPiecePlacement)
+        {
+            if (!pendingEffect.HasSelectedInventoryPiece || PieceManager.Instance.gridManager == null) return;
+
+            foreach (GridCell cell in PieceManager.Instance.gridManager.GetAllGridCells())
+            {
+                if (cell != null && pendingEffect.IsValidPlacementPosition(cell.gridPosition))
+                {
+                    cell.SetArtifactTargetHighlight(true);
+                    highlightedCells.Add(cell);
+                }
+            }
+            return;
+        }
+
         foreach (PieceController piece in PieceManager.Instance.Pieces)
         {
             if (piece == null || !pendingEffect.IsValidTarget(piece) || piece.PieceImage == null) continue;
@@ -254,6 +330,12 @@ public class ActiveArtifactController : MonoBehaviour
     private void ClearHighlights()
     {
         DOTween.Kill(HighlightTweenId);
+        foreach (GridCell cell in highlightedCells)
+        {
+            if (cell != null) cell.SetArtifactTargetHighlight(false);
+        }
+        highlightedCells.Clear();
+
         foreach (var pair in highlightedTargets)
         {
             if (pair.Key != null && pair.Key.PieceImage != null)

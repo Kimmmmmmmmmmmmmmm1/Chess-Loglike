@@ -131,6 +131,16 @@ public class OthelloArtifactSystem : MonoBehaviour
             : $"[오셀로의 성역] 적 기물 {piecesToConvert.Count}기 전향!";
         TurnLogUIManager.Instance?.AddLog(logMessage, toEnemy);
 
+        if (!toEnemy && piecesToConvert.Count > 0)
+        {
+            AchievementManager.Instance?.AddProgress("combat_othello_first_flip", 1);
+            AchievementManager.Instance?.AddProgress("combat_othello_flip_20", piecesToConvert.Count);
+            if (piecesToConvert.Count >= 3)
+            {
+                AchievementManager.Instance?.UnlockAchievement("combat_othello_multi_flip");
+            }
+        }
+
         // 전향이 발생하면 보드 국면이 비가역적으로 변경되므로 동형반복 기록 초기화
         TurnManager.Instance?.OnPieceCaptured();
 
@@ -191,8 +201,9 @@ public class OthelloArtifactSystem : MonoBehaviour
 
         PlayOthelloArtifactPopup();
 
-        if (allyCount > enemyCount)
+        if (allyCount > 0 && allyCount > enemyCount)
         {
+            AchievementManager.Instance?.UnlockAchievement("combat_othello_majority_win");
             TurnLogUIManager.Instance?.AddLog(
                 $"[오셀로의 성역] {reason} — 다수결 판정승! (아군 {allyCount} : 적군 {enemyCount})",
                 false);

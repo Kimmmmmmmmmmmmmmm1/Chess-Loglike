@@ -748,22 +748,7 @@ public class CollectionManager : PersistentManagerBase
                 piece.id = id;
                 piece.pieceType = type;
                 piece.rarity = PieceController.GetRarityForType(type);
-                piece.pieceName = type switch
-                {
-                    PieceType.King => "킹",
-                    PieceType.Queen => "퀸",
-                    PieceType.Rook => "룩",
-                    PieceType.Bishop => "비숍",
-                    PieceType.Knight => "나이트",
-                    PieceType.Pawn => "폰",
-                    PieceType.Amazon => "아마존",
-                    PieceType.Chancellor => "챈슬러",
-                    PieceType.Archbishop => "아치비숍",
-                    PieceType.Centaur => "켄타우로스",
-                    PieceType.Cannon => "캐논",
-                    PieceType.Grasshopper => "그래스호퍼",
-                    _ => type.ToString()
-                };
+                piece.pieceName = PieceController.GetPieceNameForType(type);
                 piece.description = type switch
                 {
                     PieceType.King => "모든 방향으로 1칸씩 이동할 수 있습니다.\n킹이 파괴되면 게임에서 패배합니다.",
@@ -771,7 +756,7 @@ public class CollectionManager : PersistentManagerBase
                     PieceType.Rook => "가로와 세로 방향으로 거리 제한 없이 이동할 수 있습니다.",
                     PieceType.Bishop => "대각선 방향으로 거리 제한 없이 이동할 수 있습니다.",
                     PieceType.Knight => "L자 모양으로 이동합니다(2칸 직진 후 1칸 옆).\n경로상의 장애물을 무시하고 뛰어넘을 수 있습니다.",
-                    PieceType.Pawn => "앞으로 1칸 전진(첫 이동 시 2칸 가능)하며, 대각선 앞 1칸의 적을 포획합니다.\n적진 끝에 도달하면 승급합니다.",
+                    PieceType.Pawn => "앞으로 1칸 전진하며, 대각선 앞 1칸의 적을 포획합니다.\n적진 끝에 도달하면 승급합니다.",
                     PieceType.Amazon => "퀸의 행마(8방향 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다.",
                     PieceType.Chancellor => "룩의 행마(상하좌우 직선 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다.",
                     PieceType.Archbishop => "비숍의 행마(대각선 4방향 슬라이딩)와 나이트의 행마(L자 점프)를 동시에 가집니다.",
@@ -782,7 +767,7 @@ public class CollectionManager : PersistentManagerBase
                 };
                 piece.flavorText = type switch
                 {
-                    PieceType.King => "체스 진영의 심장이자 최우선 보호 대상인 왕.",
+                    PieceType.King => "왕관의 무게를 견디며 전장을 지휘하는 왕.",
                     PieceType.Queen => "전 방향으로 이동할 수 있는 체스판 위 최강의 기물.",
                     PieceType.Rook => "직선 경로를 장악하는 웅장한 성채.",
                     PieceType.Bishop => "대각선을 가로지르는 성직자.",

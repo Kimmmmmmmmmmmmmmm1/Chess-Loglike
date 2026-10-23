@@ -74,18 +74,20 @@ public class ArtifactInhanceManager : MonoBehaviour
         selectedArtifact = null;
         UpdateSlotUI();
 
+        if (titleText != null)
+        {
+            titleText.text = "✨ 유물 강화";
+        }
+
         if (descriptionText != null)
         {
             if (string.IsNullOrEmpty(targetArtifactId))
             {
-                descriptionText.text = "유물 인벤토리에서 유물을 클릭해서\n" +
-                    "강화할 유물을 선택하세요.\n" +
-                    "골드를 소모하고 선택된 유물을 강화합니다.";
+                descriptionText.text = "인벤토리에서 강화할 유물을 클릭하세요.\n골드를 소모하여 유물 성능을 한 단계 상승시킵니다.";
             }
             else
             {
-                descriptionText.text = "선택된 유물을 자동 강화합니다.\n" +
-                    "강화 버튼을 누르세요.";
+                descriptionText.text = "선택된 유물을 강화합니다.\n강화 버튼을 누르세요.";
             }
         }
 
@@ -173,13 +175,17 @@ public class ArtifactInhanceManager : MonoBehaviour
 
             if (selectedArtifactLevel != null)
             {
-                selectedArtifactLevel.text = selectedArtifact.IsActive ? "액티브 유물" : $"Lv.{selectedArtifact.Level}/{selectedArtifact.MaxLevel}";
+                selectedArtifactLevel.text = selectedArtifact.IsActive
+                    ? (selectedArtifact.CanEnhanceWhenActive ? $"액티브 Lv.{selectedArtifact.Level}/{selectedArtifact.MaxLevel}" : "액티브 유물")
+                    : $"Lv.{selectedArtifact.Level}/{selectedArtifact.MaxLevel}";
             }
 
             int cost = selectedArtifact.CanEnhance ? enhanceCostPerLevel * selectedArtifact.Level : 0;
             if (enhanceCostText != null)
             {
-                enhanceCostText.text = selectedArtifact.IsActive ? "강화 불가" : (selectedArtifact.CanEnhance ? $"{cost} ₩" : "최대 레벨");
+                enhanceCostText.text = selectedArtifact.IsActive && !selectedArtifact.CanEnhanceWhenActive
+                    ? "강화 불가"
+                    : (selectedArtifact.CanEnhance ? $"{cost} ₩" : "최대 레벨");
             }
 
             // 강화 가능 여부 체크: 최대 레벨이 아니고 골드가 충분해야 함
@@ -262,14 +268,14 @@ public class ArtifactInhanceManager : MonoBehaviour
         TextMeshProUGUI buttonLabel = completeButton.GetComponentInChildren<TextMeshProUGUI>();
         if (buttonLabel != null)
         {
-            buttonLabel.text = "취소";
+            buttonLabel.text = "← 뒤로";
             return;
         }
 
         Text legacyText = completeButton.GetComponentInChildren<Text>();
         if (legacyText != null)
         {
-            legacyText.text = "취소";
+            legacyText.text = "← 뒤로";
         }
     }
 
@@ -279,7 +285,7 @@ public class ArtifactInhanceManager : MonoBehaviour
 
         if (WorkShopManager.Instance != null)
         {
-            WorkShopManager.Instance.OnWorkShopComplete();
+            WorkShopManager.Instance.ReturnToMain();
         }
     }
 }

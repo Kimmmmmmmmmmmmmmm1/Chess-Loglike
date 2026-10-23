@@ -36,3 +36,9 @@ MonoBehaviour:
   enemyCentaurSprite: {fileID: 3286163911610860551, guid: 4abd8c975b506491cb47ccefe2995799, type: 3}
   enemyCannonSprite: {fileID: 3286163911610860551, guid: f3c0824bc72d64d5289e819939e9eb42, type: 3}
   enemyGrasshopperSprite: {fileID: 3286163911610860551, guid: f30ca1fb9dc6448749768964b61b98cc, type: 3}
+  protectionBuffSprite: {fileID: 3286163911610860551, guid: a1b2c3d4e5f60718293a4b5c6d7e8f01, type: 3}
+  evasionBuffSprite: {fileID: 3286163911610860551, guid: a1b2c3d4e5f60718293a4b5c6d7e8f02, type: 3}
+  counterattackBuffSprite: {fileID: 3286163911610860551, guid: a1b2c3d4e5f60718293a4b5c6d7e8f03, type: 3}
+  invincibilityBuffSprite: {fileID: 3286163911610860551, guid: a1b2c3d4e5f60718293a4b5c6d7e8f04, type: 3}
+  blindnessBuffSprite: {fileID: 3286163911610860551, guid: a1b2c3d4e5f60718293a4b5c6d7e8f05, type: 3}
+  confusionBuffSprite: {fileID: 3286163911610860551, guid: a1b2c3d4e5f60718293a4b5c6d7e8f06, type: 3}

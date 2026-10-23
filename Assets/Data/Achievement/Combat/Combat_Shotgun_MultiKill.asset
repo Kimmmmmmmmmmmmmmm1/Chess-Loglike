@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddba3317ad88842559babe2d15b90561, type: 3}
+  m_Name: Combat_Shotgun_MultiKill
+  m_EditorClassIdentifier: 
+  id: combat_shotgun_multi_kill
+  achievementName: 산탄 폭격
+  icon: {fileID: 3286163911610860551, guid: 29eb8a141f0148d995217ea89d67e273, type: 3}
+  description: 단 한 번의 사격으로 적 기물 2기 이상을 동시에 처치하세요.
+  category: 0
+  targetCount: 1
+  difficulty: 2

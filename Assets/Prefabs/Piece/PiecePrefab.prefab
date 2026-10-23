@@ -125,8 +125,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 4}
-  m_SizeDelta: {x: 40, y: 42}
+  m_AnchoredPosition: {x: 0, y: 6}
+  m_SizeDelta: {x: 40, y: 48}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2864601727162521425
 CanvasRenderer:
@@ -158,8 +158,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: KING
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 3e43b2ba74a264d2fb5ae78c9b83fc70, type: 2}
-  m_sharedMaterial: {fileID: -3373462786711460312, guid: 3e43b2ba74a264d2fb5ae78c9b83fc70, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: ca31929754b83450085b75dc9367ebaf, type: 2}
+  m_sharedMaterial: {fileID: 3930558596809801116, guid: ca31929754b83450085b75dc9367ebaf, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -286,6 +286,7 @@ MonoBehaviour:
   isEnemy: 0
   currentLocation: 0
   promotedByMedalThisStage: 0
+  convertedByOthelloThisBattle: 0
   protectionStacks: 0
   evasionStacks: 0
   counterattackStacks: 0
@@ -307,12 +308,13 @@ MonoBehaviour:
   startleDuration: 0.5
   threatenedShakeStrength: 0.3
   shakeFrameInterval: 8
-  allyColor: {r: 0.8867924, g: 0.8867924, b: 0.8867924, a: 1}
-  enemyColor: {r: 0.1792453, g: 0.1792453, b: 0.1792453, a: 1}
+  allyColor: {r: 0.16981131, g: 0.16981131, b: 0.16981131, a: 1}
+  enemyColor: {r: 0.16981131, g: 0.16981131, b: 0.16981131, a: 1}
   invalidZoneTint: {r: 1, g: 0.3, b: 0.3, a: 0.7}
   sealIconSize: 20
   sealIconPrefab: {fileID: 8140036974945737951, guid: b4f1d5478d9f6426ebe83144669620ca, type: 3}
   sealIconSpacing: 10
+  sealIconOffset: {x: 20, y: 20}
   duplicateSealCycleInterval: 1.2
   duplicateSealSwitchDuration: 0.18
   equippedSeals: []

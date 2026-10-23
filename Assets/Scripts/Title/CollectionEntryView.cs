@@ -240,7 +240,7 @@ public class CollectionEntryView : MonoBehaviour, IPointerEnterHandler, IPointer
         Color? entryColor = iconImage != null ? iconImage.color : null;
         string categoryLabel = currentPieceData != null ? "기물" : (currentArtifactData != null ? "유물" : "인장");
         string stateLabel = currentState == CollectionDiscoveryState.Seen ? "발견됨" : "미발견";
-        string subtitle = $"<color=#FFFFFF>★</color>  <size=85%>도감 · {categoryLabel} ({stateLabel})</size>";
+        string subtitle = $"<color=#D97706>★</color>  <size=85%>도감 · {categoryLabel} ({stateLabel})</size>";
         string badge = currentState == CollectionDiscoveryState.Seen ? "★" : "?";
 
         TooltipManager.Instance.ShowTooltip(

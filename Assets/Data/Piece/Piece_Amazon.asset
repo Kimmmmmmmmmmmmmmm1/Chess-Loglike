@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PieceData
   id: Amazon
   pieceType: 6
-  pieceName: "\uC544\uB9C8\uC874"
+  pieceName: Amazon
   icon: {fileID: 6609155630932180064, guid: 92d4c73ece06a42999dc862a876b5cfe, type: 3}
   rarity: 5
   score: 13

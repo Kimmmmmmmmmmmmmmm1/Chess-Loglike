@@ -164,6 +164,12 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     {
         if (isSoldOut) return;
 
+        if (ShotgunKingSystem.IsActive && !isArtifact && !isStandaloneSeal)
+        {
+            SetSoldOut();
+            return;
+        }
+
         if (GameManager.Instance == null) return;
 
         if (GameManager.Instance.Coin < cost)
@@ -495,66 +501,7 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void PlaySealEffect(SealRarity rarity)
     {
-        Image targetIcon = isStandaloneSeal ? pieceIconImage : sealIconImage;
-        if (targetIcon == null) return;
-
-        // 초기화
-        targetIcon.transform.DOKill();
-        targetIcon.transform.localScale = Vector3.one;
-        targetIcon.color = Color.white;
-
-        switch (rarity)
-        {
-            case SealRarity.Common:
-                targetIcon.transform.DOPunchScale(Vector3.one * 0.3f, 0.5f, 10, 1);
-                break;
-            case SealRarity.Rare:
-                targetIcon.transform.DOPunchScale(Vector3.one * 0.4f, 0.6f, 10, 1);
-                SpawnParticles(targetIcon, 6, new Color(0f, 0.5f, 1f), 60f, 0.6f);
-                break;
-            case SealRarity.Epic:
-                targetIcon.transform.DOPunchScale(Vector3.one * 0.5f, 0.8f, 10, 1);
-                targetIcon.transform.DOShakeRotation(0.8f, 30f, 10, 90);
-                SpawnParticles(targetIcon, 12, new Color(0.8f, 0f, 1f), 90f, 0.8f);
-                break;
-            case SealRarity.Legendary:
-                Sequence seq = DOTween.Sequence();
-                seq.Append(targetIcon.transform.DOPunchScale(Vector3.one * 0.7f, 1.0f, 10, 1));
-                seq.Join(targetIcon.transform.DOShakeRotation(1.0f, 45f, 10, 90));
-                seq.Join(targetIcon.DOColor(new Color(1f, 0.8f, 0f), 0.2f).SetLoops(6, LoopType.Yoyo));
-                seq.OnComplete(() => targetIcon.color = Color.white);
-                SpawnParticles(targetIcon, 20, new Color(1f, 0.9f, 0.2f), 130f, 1.2f);
-                break;
-        }
-    }
-
-    private void SpawnParticles(Image sourceIcon, int count, Color color, float distance, float duration)
-    {
-        if (sourceIcon == null) return;
-
-        for (int i = 0; i < count; i++)
-        {
-            GameObject p = new GameObject("SealParticle");
-            p.transform.SetParent(transform, true); // 슬롯을 부모로 설정
-            p.transform.position = sourceIcon.transform.position;
-            
-            Image img = p.AddComponent<Image>();
-            if (sourceIcon.sprite != null) img.sprite = sourceIcon.sprite;
-            img.preserveAspect = true;
-            img.color = color;
-            img.raycastTarget = false;
-
-            float scale = UnityEngine.Random.Range(0.3f, 0.6f);
-            p.transform.localScale = Vector3.one * scale;
-
-            float angle = UnityEngine.Random.Range(0f, 360f);
-            Vector3 dir = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad), 0);
-            
-            p.transform.DOMove(p.transform.position + dir * distance, duration).SetEase(Ease.OutQuad);
-            p.transform.DOScale(0f, duration).SetEase(Ease.InQuad);
-            p.transform.DORotate(new Vector3(0, 0, UnityEngine.Random.Range(-180f, 180f)), duration);
-            img.DOFade(0f, duration).OnComplete(() => Destroy(p));
-        }
+        // 희귀/고등급 아이템 등장 이펙트 비활성화
     }
 
     public void OnPointerEnter(PointerEventData eventData)

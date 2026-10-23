@@ -10,6 +10,7 @@ public static class ArtifactEffectRegistry
     // A004-A005: 스테이지 제한 유물
     public static readonly GourdArtifactEffect Gourd = new GourdArtifactEffect();
     public static readonly TombstoneArtifactEffect Tombstone = new TombstoneArtifactEffect();
+    public static readonly TyrantsBarrageArtifactEffect TyrantsBarrage = new TyrantsBarrageArtifactEffect();
 
     // AC01~: 액티브(소모형) 유물
     public static readonly HourglassArtifactEffect Hourglass = new HourglassArtifactEffect();
@@ -20,6 +21,9 @@ public static class ArtifactEffectRegistry
     public static readonly InvincibilityPotionArtifactEffect InvincibilityPotion = new InvincibilityPotionArtifactEffect();
     public static readonly PanicShotArtifactEffect PanicShot = new PanicShotArtifactEffect();
     public static readonly TacticalShiftArtifactEffect TacticalShift = new TacticalShiftArtifactEffect();
+    public static readonly BlindnessPotionArtifactEffect BlindnessPotion = new BlindnessPotionArtifactEffect();
+    public static readonly ConfusionPotionArtifactEffect ConfusionPotion = new ConfusionPotionArtifactEffect();
+    public static readonly SupportSealArtifactEffect SupportSeal = new SupportSealArtifactEffect();
 
     private static readonly Dictionary<string, ActiveArtifactEffectBase> activeEffects = BuildActiveEffects(
         Hourglass,
@@ -29,7 +33,10 @@ public static class ArtifactEffectRegistry
         CounterattackPotion,
         InvincibilityPotion,
         PanicShot,
-        TacticalShift
+        TacticalShift,
+        BlindnessPotion,
+        ConfusionPotion,
+        SupportSeal
     );
 
     private static Dictionary<string, ActiveArtifactEffectBase> BuildActiveEffects(params ActiveArtifactEffectBase[] effects)
@@ -61,5 +68,17 @@ public static class ArtifactEffectRegistry
     public static void OnBattleStarted()
     {
         HeraldsHornArtifactEffect.ApplyAtBattleStart();
+        TyrantsBarrage.OnBattleStarted();
+        Hourglass.OnBattleStarted();
+        if (SupportSeal.ResetForBattle()) ArtifactManager.Instance?.UpdateInventoryUI();
+    }
+
+    public static void OnTurnAdvanced(TurnOwner owner)
+    {
+        Hourglass.OnTurnAdvanced(owner);
+        if (owner == TurnOwner.Player && SupportSeal.OnPlayerTurnStarted())
+        {
+            ArtifactManager.Instance?.UpdateInventoryUI();
+        }
     }
 }

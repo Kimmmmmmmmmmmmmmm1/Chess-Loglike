@@ -17,6 +17,8 @@ public class AudioSettingsView : MonoBehaviour
 
     private void OnEnable()
     {
+        PopulateLabels();
+        ApplyToUI();
         UpdateSelectionVisuals();
     }
 
@@ -24,6 +26,7 @@ public class AudioSettingsView : MonoBehaviour
     {
         SettingsManager.EnsureInstance();
         PopulateLabels();
+        ApplyToUI();
     }
 
     private void Update()
@@ -41,6 +44,7 @@ public class AudioSettingsView : MonoBehaviour
     public void SetTarget(SettingsData target)
     {
         staged = target;
+        PopulateLabels();
         ApplyToUI();
         BindUI();
         UpdateSelectionVisuals();

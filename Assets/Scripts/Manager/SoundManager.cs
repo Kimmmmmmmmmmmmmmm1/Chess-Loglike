@@ -35,6 +35,12 @@ public class SoundManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         InitializeAudioSources();
+
+        SettingsManager.EnsureInstance();
+        if (SettingsManager.Instance != null)
+        {
+            OnSettingsChanged();
+        }
     }
 
     private Dictionary<BGMType, AudioClip> bgmCache = new Dictionary<BGMType, AudioClip>();
@@ -45,10 +51,12 @@ public class SoundManager : MonoBehaviour
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
 
+        SettingsManager.EnsureInstance();
         if (SettingsManager.Instance != null)
         {
+            SettingsManager.Instance.OnSettingsChanged -= OnSettingsChanged;
             SettingsManager.Instance.OnSettingsChanged += OnSettingsChanged;
-                OnSettingsChanged();
+            OnSettingsChanged();
         }
 
         RefreshContextBinding();
@@ -113,6 +121,8 @@ public class SoundManager : MonoBehaviour
             uiSource.loop = false;
             uiSource.priority = 64;
         }
+
+        UpdateVolumes();
     }
 
     private void OnSettingsChanged()
@@ -297,15 +307,18 @@ public class SoundManager : MonoBehaviour
         AudioListener.pause = isMutedByBackground;
 
         float effectiveMultiplier = isMutedByBackground ? 0f : 1f;
+        float masterNormalized = Mathf.Clamp01(masterVolume / 10f);
+
+        AudioListener.volume = masterVolume <= 0.001f ? 0f : 1f;
 
         if (bgmSource != null) // 볼륨 값을 0-1 범위로 정규화 (기존 값은 0-10)
-            bgmSource.volume = (bgmVolume / 10f) * (masterVolume / 10f) * effectiveMultiplier;
+            bgmSource.volume = Mathf.Clamp01(bgmVolume / 10f) * masterNormalized * effectiveMultiplier;
 
         if (sfxSource != null) // 볼륨 값을 0-1 범위로 정규화
-            sfxSource.volume = (sfxVolume / 10f) * (masterVolume / 10f) * effectiveMultiplier;
+            sfxSource.volume = Mathf.Clamp01(sfxVolume / 10f) * masterNormalized * effectiveMultiplier;
 
         if (uiSource != null) // 볼륨 값을 0-1 범위로 정규화
-            uiSource.volume = (uiVolume / 10f) * (masterVolume / 10f) * effectiveMultiplier;
+            uiSource.volume = Mathf.Clamp01(uiVolume / 10f) * masterNormalized * effectiveMultiplier;
     }
 
     public void PlayBGM(BGMType bgmType)
@@ -361,6 +374,7 @@ public class SoundManager : MonoBehaviour
     public void PlaySFX(AudioClip clip, float volumeScale = 1f)
     {
         if (sfxSource == null || clip == null) return;
+        if (masterVolume <= 0.001f || sfxVolume <= 0.001f || sfxSource.volume <= 0.0001f) return;
         sfxSource.PlayOneShot(clip, volumeScale);
     }
 
@@ -373,6 +387,7 @@ public class SoundManager : MonoBehaviour
     public void PlayUI(AudioClip clip, float volumeScale = 1f)
     {
         if (uiSource == null || clip == null) return;
+        if (masterVolume <= 0.001f || uiVolume <= 0.001f || uiSource.volume <= 0.0001f) return;
         uiSource.PlayOneShot(clip, volumeScale);
     }
 

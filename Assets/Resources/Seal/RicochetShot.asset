@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28f3894bb627142d1874b2f889a23841, type: 3}
+  m_Name: RicochetShot
+  m_EditorClassIdentifier: Assembly-CSharp::SealData
+  sealName: "\uB3C4\uD0C4 \uC0B0\uD0C4"
+  rarity: 3
+  description: "\uD0B9\uC758 \uC9C1\uC120 \uC0AC\uACA9\uC774 \uBCF4\uB4DC \uAC00\uC7A5\uC790\uB9AC\uC5D0 \uB2FF\uC73C\uBA74 1\uD68C \uBC18\uC0AC\uB418\uC5B4 \uCD94\uAC00 \uC801\uC744 \uD0C0\uACA9\uD569\uB2C8\uB2E4."
+  flavorText: ""
+  icon: {fileID: 3286163911610860551, guid: f8863ad663b34256bf593a068c4ac1ee, type: 3}
+  isSoldInShop: 0
+  sealPrefab: {fileID: 100000, guid: 5f39a0eab5d141c5af499e71d452c290, type: 3}
+  compatiblePieces:
+  - 0
+  effectType: 3
+  effectValue: 0

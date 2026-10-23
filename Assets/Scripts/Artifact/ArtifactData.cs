@@ -10,7 +10,7 @@ public enum ArtifactRarity
 
 /// <summary>
 /// Passive: 보유하는 동안 영구적으로 효과를 발휘합니다.
-/// Active: 전투 중 내 턴에 클릭하여 사용하면 소모됩니다. (중복 보유 가능, 강화 불가)
+/// Active: 전투 중 내 턴에 클릭하여 사용합니다. (중복 보유 가능)
 /// </summary>
 public enum ArtifactType
 {
@@ -37,21 +37,30 @@ public class ArtifactData : ScriptableObject
     [Header("Enhancement")]
     [Min(1)] public int maxLevel = 1;
     [SerializeField, Min(1)] private int level = 1;
+    [SerializeField] private bool canEnhanceWhenActive;
+    [SerializeField] private bool consumesOnUse = true;
 
     // 런타임 전용: 액티브 유물 중복 보유 개수
     [System.NonSerialized] private int stackCount = 1;
 
     public bool IsActive => artifactType == ArtifactType.Active;
     public bool IsPassive => artifactType == ArtifactType.Passive;
+    public bool CanEnhanceWhenActive => canEnhanceWhenActive;
+    public bool ConsumesOnUse => consumesOnUse;
     public int StackCount => Mathf.Max(1, stackCount);
 
     public int Level => Mathf.Clamp(level, 1, MaxLevel);
     public int MaxLevel => Mathf.Max(1, maxLevel);
-    public bool CanEnhance => IsPassive && Level < MaxLevel;
+    public bool CanEnhance => (IsPassive || canEnhanceWhenActive) && Level < MaxLevel;
 
     public void ResetStack()
     {
         stackCount = 1;
+    }
+
+    public void SetStack(int count)
+    {
+        stackCount = Mathf.Max(0, count);
     }
 
     public void AddStack(int amount = 1)
@@ -90,11 +99,18 @@ public class ArtifactData : ScriptableObject
         level = 1;
     }
 
+    public void SetLevel(int targetLevel)
+    {
+        level = Mathf.Clamp(targetLevel, 1, MaxLevel);
+    }
+
     public string GetTooltipTitle()
     {
         if (IsActive)
         {
-            return StackCount > 1 ? $"{artifactName} ({StackCount}) [액티브]" : $"{artifactName} [액티브]";
+            string stackText = StackCount > 1 ? $" ({StackCount})" : string.Empty;
+            string levelText = canEnhanceWhenActive ? $" Lv.{Level}/{MaxLevel}" : string.Empty;
+            return $"{artifactName}{stackText}{levelText} [액티브]";
         }
 
         if (MaxLevel <= 1 || Level <= 1)
@@ -110,7 +126,9 @@ public class ArtifactData : ScriptableObject
         string desc = GetDescription(Level);
         if (IsActive)
         {
-            desc += "\n\n<color=#AAAAAA>전투 중 내 턴에 클릭하여 사용 (1회용, 턴 소모)</color>";
+            desc += consumesOnUse
+                ? "\n\n<color=#AAAAAA>전투 중 내 턴에 클릭하여 사용 (1회용, 턴 소모)</color>"
+                : "\n\n<color=#AAAAAA>전투 중 내 턴에 클릭하여 사용 (재사용 가능, 턴 소모)</color>";
         }
         return desc;
     }
@@ -156,6 +174,7 @@ public class ArtifactData : ScriptableObject
             "A003" => placeholderIndex == 0 ? (int)ArtifactEffectHandlers.GetSealChanceBonusForLevel(level) : -1,
             "A004" => placeholderIndex == 0 ? ArtifactEffectHandlers.GetGourdRecoveryMaxForLevel(level) : -1,
             "A005" => placeholderIndex == 0 ? ArtifactEffectHandlers.GetTombstoneThresholdForLevel(level) : -1,
+            SupportSealArtifactEffect.Id => placeholderIndex == 0 ? SupportSealArtifactEffect.GetCooldownForLevel(level) : -1,
             _ => -1
         };
     }

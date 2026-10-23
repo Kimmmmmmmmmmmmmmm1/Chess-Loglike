@@ -12,7 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d1ab8a8aaec4c7c9d76f74084b3e3da, type: 3}
   m_Name: NewInitialSealData
   m_EditorClassIdentifier: Assembly-CSharp::InitialSealData
-  initialSeals:
-  - {fileID: 11400000, guid: 7b2b5aa92b5649e7a42a4f07c5d4a234, type: 2}
-  - {fileID: 11400000, guid: 8f1bde4f4d394e0ab6d10e5d3e4de002, type: 2}
-  - {fileID: 11400000, guid: e5a6b7c8d9e04f1a92b3c4d5e6f70812, type: 2}
+  initialSeals: []

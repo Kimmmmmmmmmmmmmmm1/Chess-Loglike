@@ -14,14 +14,16 @@ public enum GameFlowState
     Shop,
     Battle,
     Event,
-    WorkShop
+    WorkShop,
+    StageSelect,
+    Treasure
 }
 
 public class GameManager : MonoBehaviour
 {
     private const string DefaultOpenSettingsKey = "F1";
 
-    private static class AchievementIds
+    public static class AchievementIds
     {
         public const string OtherFirstRun = "other_first_run";
         public const string OtherFirstEvent = "other_first_event";
@@ -49,6 +51,26 @@ public class GameManager : MonoBehaviour
         public const string CombatCaptureChariot = "combat_capture_chariot";
         public const string TestFirstCapture = "test_first_capture";
 
+        // 알까기 (Alkkagi)
+        public const string CombatAlkkagiFlick = "combat_alkkagi_flick";
+        public const string CombatAlkkagiRingout = "combat_alkkagi_ringout";
+        public const string CombatAlkkagiRingout10 = "combat_alkkagi_ringout_10";
+        public const string CombatAlkkagiDoubleRingout = "combat_alkkagi_double_ringout";
+
+        // 오셀로 (Othello)
+        public const string CombatOthelloFirstFlip = "combat_othello_first_flip";
+        public const string CombatOthelloMultiFlip = "combat_othello_multi_flip";
+        public const string CombatOthelloFlip20 = "combat_othello_flip_20";
+        public const string CombatOthelloMajorityWin = "combat_othello_majority_win";
+
+        // 샷건킹 (Shotgun King)
+        public const string CombatShotgunAwaken = "combat_shotgun_awaken";
+        public const string CombatShotgunKill = "combat_shotgun_kill";
+        public const string CombatShotgunKill20 = "combat_shotgun_kill_20";
+        public const string CombatShotgunDagger = "combat_shotgun_dagger";
+        public const string CombatShotgunFullMod = "combat_shotgun_full_mod";
+        public const string CombatShotgunMultiKill = "combat_shotgun_multi_kill";
+
         public const string CollectFirstPurchase = "collect_first_purchase";
         public const string CollectPurchase5 = "collect_purchase_5";
         public const string CollectPurchase20 = "collect_purchase_20";
@@ -65,6 +87,9 @@ public class GameManager : MonoBehaviour
 
     [SerializeField] private GameFlowState currentFlowState = GameFlowState.None;
     public GameFlowState CurrentFlowState => currentFlowState;
+
+    [SerializeField] private BattleType currentBattleType = BattleType.Normal;
+    public BattleType CurrentBattleType => currentBattleType;
 
     public event Action<GameFlowState> OnFlowStateChanged;
 
@@ -91,11 +116,21 @@ public class GameManager : MonoBehaviour
         currentBattlePlayerCaptures.Clear();
     }
 
+    [Header("Game Over Settings")]
+    [Tooltip("게임 오버까지의 총 스테이지 수 (기본 30)")]
+    [SerializeField] private int maxStage = 30;
+    public int MaxStage => maxStage;
+    public int RemainingStagesUntilGameOver => Mathf.Max(0, maxStage - clearedStage);
+
+    public event Action<int, int> OnStageProgressUpdated; // (clearedStage, remainingStages)
+
     [Header("UI")]
     public TextMeshProUGUI coinText;
     public TextMeshProUGUI stageText;
+    [SerializeField] private TextMeshProUGUI remainingStageText;
     [SerializeField] private Button openSettingsButton;
     private Coroutine cleanupFlowCoroutine;
+    private bool hasInitiatedContinue = false;
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -114,11 +149,23 @@ public class GameManager : MonoBehaviour
         {
             gameObject.AddComponent<CheatManager>();
         }
+
+        if (GetComponent<StageSelectUI>() == null)
+        {
+            gameObject.AddComponent<StageSelectUI>();
+        }
+
+        if (GetComponent<TreasureManager>() == null)
+        {
+            gameObject.AddComponent<TreasureManager>();
+        }
     }
 
     public void ResetRunData()
     {
+        hasInitiatedContinue = false;
         currentFlowState = GameFlowState.None;
+        currentBattleType = BattleType.Normal;
         clearedStage = 0;
         clearedBosses = 0;
         BossJustCleared = false;
@@ -139,19 +186,75 @@ public class GameManager : MonoBehaviour
         RewardService.Instance?.ResetForNewRun();
         AchievementManager.Instance?.ResetForNewRun();
         TooltipManager.Instance?.ResetForNewRun();
+        StageSelectUI.Instance?.ResetSelectionState();
+    }
+
+    public void RestoreRunState(int clearedStageValue, int coinValue, int enemyCaptured, int playerCaptured, int bossesCleared)
+    {
+        clearedStage = clearedStageValue;
+        Coin = coinValue;
+        EnemyPiecesCaptured = enemyCaptured;
+        PlayerPiecesCaptured = playerCaptured;
+        clearedBosses = bossesCleared;
+        UpdateCoinUI();
+        UpdateStageUI();
     }
 
     private void Start()
     {
-        TryAddAchievementProgress(AchievementIds.OtherFirstRun);
+        AchievementManager.EnsureInstance();
 
         currentFlowState = GameFlowState.None;
+
+        if ((StageSaveManager.IsContinuePending || StageSaveManager.IsRestoring || StageSaveManager.HasRestoredThisSession) && !hasInitiatedContinue)
+        {
+            hasInitiatedContinue = true;
+            StartCoroutine(StageSaveManager.EnsureInstance().RestoreRunRoutine());
+            BindShortcutButtons();
+            SubscribeToGameStateManager();
+            TurnIndicatorUI.EnsureInstance();
+            return;
+        }
+
+        if (StageSaveManager.IsRestoring || StageSaveManager.HasRestoredThisSession || hasInitiatedContinue)
+        {
+            BindShortcutButtons();
+            SubscribeToGameStateManager();
+            TurnIndicatorUI.EnsureInstance();
+            return;
+        }
+
         StartCoroutine(DelayedBattleStart());
 
         BindShortcutButtons();
         SubscribeToGameStateManager();
         AddCoin(100);
         UpdateStageUI();
+        TurnIndicatorUI.EnsureInstance();
+
+        CheckAndStartTutorial();
+    }
+
+    private void CheckAndStartTutorial()
+    {
+        if (clearedStage != 0)
+        {
+            TryAddAchievementProgress(AchievementIds.OtherFirstRun);
+            return;
+        }
+
+        TutorialManager tm = TutorialManager.EnsureInstance();
+        if (tm != null && tm.ShouldShowTutorial())
+        {
+            tm.StartTutorialFlow(() =>
+            {
+                TryAddAchievementProgress(AchievementIds.OtherFirstRun);
+            });
+        }
+        else
+        {
+            TryAddAchievementProgress(AchievementIds.OtherFirstRun);
+        }
     }
 
     private void OnEnable()
@@ -171,6 +274,40 @@ public class GameManager : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        if (scene.name == SceneName.TitleScene.ToString())
+        {
+            StopAllCoroutines();
+            currentFlowState = GameFlowState.None;
+            hasInitiatedContinue = false;
+
+            if (StageSelectUI.Instance != null)
+            {
+                StageSelectUI.Instance.Close(true);
+                StageSelectUI.Instance.ResetSelectionState();
+            }
+
+            if (ShopManager.Instance != null) ShopManager.Instance.Close();
+            if (WorkShopManager.Instance != null) WorkShopManager.Instance.Close();
+            if (TreasureManager.Instance != null) TreasureManager.Instance.Close();
+            if (TutorialManager.Instance != null)
+            {
+                TutorialManager.Instance.AbortTutorial();
+            }
+
+            if (TurnIndicatorUI.Instance != null)
+            {
+                Destroy(TurnIndicatorUI.Instance.gameObject);
+            }
+            TurnIndicatorUI[] turnUIs = FindObjectsByType<TurnIndicatorUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            foreach (var ui in turnUIs)
+            {
+                if (ui != null) Destroy(ui.gameObject);
+            }
+
+            ResetRunData();
+            return;
+        }
+
         SubscribeToGameStateManager();
         Time.timeScale = 1f;
         SettingsManager.Instance?.ApplyRuntimeSettings();
@@ -187,21 +324,42 @@ public class GameManager : MonoBehaviour
 
         if (stageText == null)
         {
-            GameObject stageTextObj = GameObject.Find("StageText");
-            if (stageTextObj != null)
+            GameObject displayTextObj = GameObject.Find("DisplayText");
+            if (displayTextObj != null)
             {
-                stageText = stageTextObj.GetComponent<TextMeshProUGUI>();
-                UpdateStageUI();
+                Transform stageChild = displayTextObj.transform.Find("StageText");
+                if (stageChild != null)
+                {
+                    stageText = stageChild.GetComponent<TextMeshProUGUI>();
+                }
             }
+
+            if (stageText == null)
+            {
+                GameObject stageTextObj = GameObject.Find("StageText");
+                if (stageTextObj != null)
+                {
+                    stageText = stageTextObj.GetComponent<TextMeshProUGUI>();
+                }
+            }
+            UpdateStageUI();
         }
+
+        TurnIndicatorUI.EnsureInstance();
 
         openSettingsButton = null;
 
         BindShortcutButtons();
 
-        if (currentFlowState == GameFlowState.None)
+        if (StageSaveManager.IsContinuePending && !hasInitiatedContinue)
+        {
+            hasInitiatedContinue = true;
+            StartCoroutine(StageSaveManager.EnsureInstance().RestoreRunRoutine());
+        }
+        else if (!StageSaveManager.IsRestoring && !StageSaveManager.HasRestoredThisSession && !hasInitiatedContinue)
         {
             StartCoroutine(DelayedBattleStart());
+            CheckAndStartTutorial();
         }
     }
 
@@ -240,12 +398,91 @@ public class GameManager : MonoBehaviour
     private IEnumerator DelayedBattleStart()
     {
         yield return null;
-        StartNextStage();
+        if (clearedStage == 0)
+        {
+            StartBattle(BattleType.Normal);
+        }
+        else
+        {
+            AdvanceToStageSelect();
+        }
     }
 
     public void StartNextStage()
     {
+        if (clearedStage == 0)
+        {
+            StartBattle(BattleType.Normal);
+        }
+        else
+        {
+            AdvanceToStageSelect();
+        }
+    }
+
+    public void StartBattle(BattleType battleType = BattleType.Normal)
+    {
+        currentBattleType = battleType;
         ChangeFlowState(GameFlowState.Battle);
+
+        if (!StageSaveManager.IsRestoring)
+        {
+            StageSaveManager.EnsureInstance()?.SaveCurrentRun();
+        }
+    }
+
+    public void OpenShop()
+    {
+        ChangeFlowState(GameFlowState.Shop);
+
+        if (!StageSaveManager.IsRestoring)
+        {
+            StageSaveManager.EnsureInstance()?.SaveCurrentRun();
+        }
+    }
+
+    public void OpenWorkShop()
+    {
+        ChangeFlowState(GameFlowState.WorkShop);
+
+        if (!StageSaveManager.IsRestoring)
+        {
+            StageSaveManager.EnsureInstance()?.SaveCurrentRun();
+        }
+    }
+
+    public void OpenTreasure()
+    {
+        ChangeFlowState(GameFlowState.Treasure);
+
+        if (!StageSaveManager.IsRestoring)
+        {
+            StageSaveManager.EnsureInstance()?.SaveCurrentRun();
+        }
+    }
+
+    public void AdvanceToStageSelect()
+    {
+        ClearAllFieldMarkers();
+        ChangeFlowState(GameFlowState.StageSelect);
+        StageSaveManager.EnsureInstance()?.SaveCurrentRun();
+    }
+
+    public void OnNonBattleStageCompleted()
+    {
+        ClearAllFieldMarkers();
+        clearedStage++;
+        UpdateStageUI();
+
+        if (clearedStage >= maxStage)
+        {
+            Debug.Log($"[GameManager] 최대 스테이지 한도({maxStage}) 도달 -> 게임 오버(완료)");
+            StageSaveManager.ClearActiveRun();
+            GameStateManager.Instance.ChangeState(GameStateManager.GameState.GameOver);
+            return;
+        }
+
+        AdvanceToStageSelect();
     }
 
     private void Update()
@@ -325,11 +562,35 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 스테이지 종료(승리/정리/보상/선택/패배) 시 필드에 남아있는 모든 이동 마커, 조준 마커, 선택 상태, 하이라이트를 제거합니다.
+    /// </summary>
+    public void ClearAllFieldMarkers()
+    {
+        if (PieceManager.Instance != null)
+        {
+            PieceManager.Instance.ClearSelection();
+            PieceManager.Instance.ClearMarkers();
+            PieceManager.Instance.ClearAllPieceBuffs();
+            if (PieceManager.Instance.gridManager != null)
+            {
+                PieceManager.Instance.gridManager.ClearLastMoveHighlight();
+                PieceManager.Instance.gridManager.ResetZoneHighlights();
+            }
+        }
+
+        if (PieceFlickLauncher.Instance != null)
+        {
+            PieceFlickLauncher.Instance.Cancel();
+        }
+    }
+
     private void OnGameStateChanged(GameStateManager.GameState newState)
     {
         switch (newState)
         {
             case GameStateManager.GameState.Win:
+                ClearAllFieldMarkers();
                 clearedStage++;
                 UpdateStageUI();
                 TryAddAchievementProgress(AchievementIds.CombatFirstStage);
@@ -338,9 +599,22 @@ public class GameManager : MonoBehaviour
                 TryAddAchievementProgress(AchievementIds.CombatStage20);
                 TryAddAchievementProgress(AchievementIds.CombatStage30);
                 TryAddAchievementProgress(AchievementIds.StageClearChain);
+
+                if (clearedStage >= maxStage)
+                {
+                    Debug.Log($"[GameManager] 최대 스테이지 한도({maxStage}) 도달 -> 게임 오버(완료)");
+                    StageSaveManager.ClearActiveRun();
+                    GameStateManager.Instance.ChangeState(GameStateManager.GameState.GameOver);
+                    break;
+                }
+
+                // WIN 발생 즉시 세이브 (보상 선택 전 상태로 저장)
+                StageSaveManager.EnsureInstance()?.SaveCurrentRun(pendingReward: true);
+
                 GameStateManager.Instance.ChangeState(GameStateManager.GameState.Cleanup);
                 break;
             case GameStateManager.GameState.Cleanup:
+                ClearAllFieldMarkers();
                 if (cleanupFlowCoroutine != null)
                 {
                     StopCoroutine(cleanupFlowCoroutine);
@@ -348,6 +622,7 @@ public class GameManager : MonoBehaviour
                 cleanupFlowCoroutine = StartCoroutine(HandleCleanupFlow());
                 break;
             case GameStateManager.GameState.Reward:
+                ClearAllFieldMarkers();
                 if (PresentationManager.Instance != null && PresentationManager.Instance.HasPersistentBossSprite)
                 {
                     PresentationManager.Instance.RemovePersistentBossSprite();
@@ -363,10 +638,21 @@ public class GameManager : MonoBehaviour
                 {
                     PieceInventory.Instance.SavePiecesForNextStage();
                 }
+
+                // 보상 UI 오픈 직전, 기물 정리 및 보드 복원 완료 상태로 저장 (보상 선택 전)
+                StageSaveManager.EnsureInstance()?.SaveCurrentRun(pendingReward: true);
                 break;
             case GameStateManager.GameState.GameOver:
+                ClearAllFieldMarkers();
                 TryAddAchievementProgress(AchievementIds.OtherGameOver);
                 TryAddAchievementProgress(AchievementIds.OtherGameOver5);
+                StageSaveManager.ClearActiveRun();
+                currentFlowState = GameFlowState.None;
+                if (StageSelectUI.Instance != null)
+                {
+                    StageSelectUI.Instance.Close(true);
+                    StageSelectUI.Instance.ResetSelectionState();
+                }
                 break;
         }
     }
@@ -403,6 +689,9 @@ public class GameManager : MonoBehaviour
 
         if (pieceManager != null)
         {
+            pieceManager.ClearSelection();
+            pieceManager.ClearMarkers();
+            pieceManager.ClearAllPieceBuffs();
             pieceManager.RemoveConversionSealedPieces();
             pieceManager.RestorePlacementPositions();
         }
@@ -418,6 +707,11 @@ public class GameManager : MonoBehaviour
     public void ChangeFlowState(GameFlowState newState)
     {
         if (currentFlowState == newState) return;
+
+        if (newState != GameFlowState.Battle)
+        {
+            ClearAllFieldMarkers();
+        }
 
         GameFlowState previousFlowState = currentFlowState;
 
@@ -456,6 +750,24 @@ public class GameManager : MonoBehaviour
             if (WorkShopManager.Instance != null) WorkShopManager.Instance.Close();
         }
 
+        if (currentFlowState == GameFlowState.StageSelect)
+        {
+            if (StageSelectUI.Instance != null) StageSelectUI.Instance.Open();
+        }
+        else
+        {
+            if (StageSelectUI.Instance != null) StageSelectUI.Instance.Close();
+        }
+
+        if (currentFlowState == GameFlowState.Treasure)
+        {
+            if (TreasureManager.Instance != null) TreasureManager.Instance.Open();
+        }
+        else
+        {
+            if (TreasureManager.Instance != null) TreasureManager.Instance.Close();
+        }
+
         bool shouldDimBoard = currentFlowState != GameFlowState.Battle;
 
         if (PieceManager.Instance != null && PieceManager.Instance.gridManager != null)
@@ -475,6 +787,7 @@ public class GameManager : MonoBehaviour
         {
             case GameFlowState.Battle:
                 ResetBattleCaptures();
+                UpdateStageUI();
                 if (GameStateManager.Instance != null)
                 {
                             if (PieceManager.Instance != null && PieceManager.Instance.gridManager != null)
@@ -571,18 +884,30 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void UpdateStageUI()
+    public void UpdateStageUI()
     {
+        int act = (clearedStage / 10) + 1;
+        int subStage = (clearedStage % 10) + 1;
+        int remaining = RemainingStagesUntilGameOver;
+
         if (stageText != null)
         {
-            int act = (clearedStage / 5) + 1;
-            int subStage = (clearedStage % 5) + 1;
-            
             stageText.text = $"{act}-{subStage}";
 
             stageText.transform.DOKill();
             stageText.transform.localScale = Vector3.one;
             stageText.transform.DOPunchScale(Vector3.one * 0.3f, 0.3f, 10, 1);
+        }
+
+        if (remainingStageText != null)
+        {
+            remainingStageText.text = $"남은 스테이지: {remaining}";
+        }
+
+        OnStageProgressUpdated?.Invoke(clearedStage, remaining);
+        if (TurnIndicatorUI.Instance != null)
+        {
+            TurnIndicatorUI.Instance.UpdateRemainingStages();
         }
     }
 
@@ -706,9 +1031,20 @@ public class GameManager : MonoBehaviour
         // 적 기물 포획: 기물점수당 5씩
         // 내 기물 포획당함: 기물점수당 3씩
         // 모든 개별 보상을 10의 배수로 올림
-        int baseReward = CeilToMultipleOfTen(10);
-        int enemyReward = CeilToMultipleOfTen(enemyScore * 5);
-        int playerLossReward = CeilToMultipleOfTen(playerLossScore * 3);
+        // 엘리트 전투는 2배 골드, 보스는 3배(대량) 골드
+        int multiplier = 1;
+        if (currentBattleType == BattleType.Elite)
+        {
+            multiplier = 2;
+        }
+        else if (currentBattleType == BattleType.Boss || BossJustCleared)
+        {
+            multiplier = 3;
+        }
+
+        int baseReward = CeilToMultipleOfTen(15 * multiplier);
+        int enemyReward = CeilToMultipleOfTen(enemyScore * 6 * multiplier);
+        int playerLossReward = CeilToMultipleOfTen(playerLossScore * 3 * multiplier);
         int totalReward = baseReward + enemyReward + playerLossReward;
 
         return new BattleRewardResult

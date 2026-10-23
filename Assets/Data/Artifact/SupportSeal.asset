@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a81c7032dbb2493eaa5c8e1cdc35369, type: 3}
+  m_Name: SupportSeal
+  m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
+  id: AC11
+  artifactName: "지원군의 훈장"
+  description: "인벤토리의 아군 기물 1개를 아군 진영 1~2랭크의 빈 칸에 배치합니다. 쿨타임 {0}턴."
+  flavorText: "부름에 응한 지원군이 전열을 채운다."
+  rarity: 2
+  icon: {fileID: 3286163911610860551, guid: a811c9e2b5d340bba449f6d880e27c41, type: 3}
+  price: 220
+  isSoldInShop: 1
+  isGaugeRequired: 0
+  artifactType: 1
+  maxLevel: 3
+  level: 1
+  canEnhanceWhenActive: 1
+  consumesOnUse: 0

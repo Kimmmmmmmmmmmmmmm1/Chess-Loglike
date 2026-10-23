@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a81c7032dbb2493eaa5c8e1cdc35369, type: 3}
+  m_Name: ConfusionPotion
+  m_EditorClassIdentifier: Assembly-CSharp::ArtifactData
+  id: AC10
+  artifactName: "\uD63C\uB780\uC758 \uBB3C\uC57D"
+  description: "\uC120\uD0DD\uD55C \uC801 \uAE30\uBB3C 1\uAC1C\uC5D0\uAC8C 2\uD134 \uB3D9\uC548 \uD63C\uB780\uC744 \uBD80\uC5EC\uD569\uB2C8\uB2E4.\n<color=#E879F9>[\uD63C\uB780]</color> \uC774\uB3D9 \uBC0F \uACF5\uACA9 \uBC84\uC704\uAC00 \uD3F0\uC73C\uB85C \uC81C\uD55C\uB418\uBA70, \uC778\uC7A5\uC758 \uC774\uB3D9 \uACBD\uB85C \uBCC0\uACBD\uC774 \uBB34\uD6A8\uD654\uB429\uB2C8\uB2E4."
+  flavorText: "\uBA38\uB9BF\uC18D\uC744 \uC5B4\uC9C0\uB7FD\uD788\uB294 \uC548\uAC1C\uB97C \uBF9C\uC544 \uC5B4\uB514\uB85C \uAC78\uC544\uAC00\uC57C \uD560\uC9C0 \uC78A\uAC8C \uB9CC\uB4ED\uB2C8\uB2E4."
+  rarity: 1
+  icon: {fileID: 3286163911610860551, guid: 307b1e906a56345c5a33b2a1a6ceeac6, type: 3}
+  price: 160
+  isSoldInShop: 1
+  isGaugeRequired: 0
+  artifactType: 1
+  maxLevel: 1
+  level: 1
+

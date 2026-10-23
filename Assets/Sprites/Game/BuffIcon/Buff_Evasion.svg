@@ -1,0 +1,27 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Left Wing Shadow -->
+  <path d="M15 15C13 10 9 7 3 8C4.5 11 6 13 8 14C5 14.5 3 16.5 2 18.5C5 18.5 7 18 9.5 17C7 18.5 5.5 21 5 23C7.5 22.5 11 20.5 14 17L15 15Z" stroke="#2E1065" stroke-width="3" stroke-linejoin="round"/>
+  <!-- Right Wing Shadow -->
+  <path d="M17 15C19 10 23 7 29 8C27.5 11 26 13 24 14C27 14.5 29 16.5 30 18.5C27 18.5 25 18 22.5 17C25 18.5 26.5 21 27 23C24.5 22.5 21 20.5 18 17L17 15Z" stroke="#2E1065" stroke-width="3" stroke-linejoin="round"/>
+
+  <!-- Left Wing Fill & Strokes -->
+  <path d="M15 15C13 10 9 7 3 8C4.5 11 6 13 8 14C5 14.5 3 16.5 2 18.5C5 18.5 7 18 9.5 17C7 18.5 5.5 21 5 23C7.5 22.5 11 20.5 14 17L15 15Z" fill="#A855F7" fill-opacity="0.3" stroke="#C084FC" stroke-width="1.6" stroke-linejoin="round"/>
+  
+  <!-- Right Wing Fill & Strokes -->
+  <path d="M17 15C19 10 23 7 29 8C27.5 11 26 13 24 14C27 14.5 29 16.5 30 18.5C27 18.5 25 18 22.5 17C25 18.5 26.5 21 27 23C24.5 22.5 21 20.5 18 17L17 15Z" fill="#A855F7" fill-opacity="0.3" stroke="#C084FC" stroke-width="1.6" stroke-linejoin="round"/>
+
+  <!-- Center Swift Agility Streaks -->
+  <path d="M12 26L16 23L20 26" stroke="#2E1065" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12 26L16 23L20 26" stroke="#E9D5FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M13 7L16 4L19 7" stroke="#2E1065" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M13 7L16 4L19 7" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Inner Feathers Highlights -->
+  <path d="M6 10C8.5 11 11.5 12.5 14 15" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M26 10C23.5 11 20.5 12.5 18 15" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round"/>
+  
+  <!-- Center Core Star Spark -->
+  <circle cx="16" cy="15" r="1.5" fill="#FFFFFF"/>
+</svg>
+

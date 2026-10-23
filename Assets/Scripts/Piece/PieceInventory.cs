@@ -55,6 +55,12 @@ public class PieceInventory : MonoBehaviour
 
     private void Start()
     {
+        // 이어하기로 복원 중인 경우 초기 기물 지급을 건너뜁니다.
+        if (StageSaveManager.IsContinuePending || StageSaveManager.IsRestoring || StageSaveManager.HasRestoredThisSession)
+        {
+            return;
+        }
+
         // 씬의 모든 오브젝트가 초기화된 후, 초기 기물과 인장을 지급합니다.
         // 이 시점에서 호출해야 다른 매니저(EventManager 등)가 준비되어 있습니다.
         SupplyInitialPieces();
@@ -74,6 +80,7 @@ public class PieceInventory : MonoBehaviour
 
         foreach (var pieceInfo in initialPieceData.initialPieces)
         {
+            if (ShotgunKingSystem.IsActive && pieceInfo.pieceType != PieceType.King) continue;
             AddPiece(pieceInfo.pieceType);
         }
 
@@ -110,23 +117,16 @@ public class PieceInventory : MonoBehaviour
                     }
                 }
             }
-            else
-            {
-                // ResolveSeal(null, null, 2)는 '항상 랜덤 인장 지급'을 의미합니다.
-                SealData randomSeal = EventManager.Instance.ResolveSeal(null, null, 2);
-                if (randomSeal != null)
-                {
-                    SealInventory.Instance.AddSeal(randomSeal);
-                }
-            }
-        }
-        else
-        {
         }
     }
 
     public void AddPiece(PieceType pieceType)
     {
+        if (ShotgunKingSystem.IsActive && pieceType != PieceType.King)
+        {
+            GameManager.Instance?.AddCoin(ShotgunKingSystem.GetSellPrice(pieceType));
+            return;
+        }
         ownedPieces.Add(new PieceInfo { pieceType = pieceType });
         CollectionManager.EnsureInstance()?.RecordPiece(pieceType);
     }

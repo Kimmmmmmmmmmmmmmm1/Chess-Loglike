@@ -17,7 +17,7 @@ MonoBehaviour:
   description: "\uC801 \uAE30\uBB3C\uC744 \uC7A1\uC73C\uBA74 \uC7A1\uC740 \uAE30\uBB3C\uB85C \uBCC0\uC2E0\uD569\uB2C8\uB2E4. \uC778\uC7A5\uC740 \uC720\uC9C0\uB418\uC5B4 \uB2E4\uB978 \uAE30\uBB3C\uC744 \uC7A1\uC744 \uB54C\uB9C8\uB2E4 \uB2E4\uC2DC \uBCC0\uC2E0\uD569\uB2C8\uB2E4."
   flavorText: "\uBA39\uC774\uB97C \uB2EE\uC544\uAC00\uB294 \uC790."
   icon: {fileID: 3286163911610860551, guid: 00e61b830ed7040ce890c5c1b08bfcde, type: 3}
-  isSoldInShop: 1
+  isSoldInShop: 0
   sealPrefab: {fileID: 7311002200000000001, guid: d1f2a3b4c5d64e7f8091a2b3c4d5e6f7, type: 3}
   compatiblePieces: 
   effectType: 2

@@ -22,7 +22,8 @@ public class SealManager : MonoBehaviour
     public void TryAttachSealToPiece(PieceController piece, SealData seal)
     {
         // 1. 호환성 체크
-        if (seal.compatiblePieces != null && seal.compatiblePieces.Count > 0)
+        bool shotgunKingConversion = !piece.IsEnemy && piece.Type == PieceType.King && ShotgunKingSystem.IsActive;
+        if (!shotgunKingConversion && seal.compatiblePieces != null && seal.compatiblePieces.Count > 0)
         {
             if (!seal.compatiblePieces.Contains(piece.Type))
             {

@@ -48,6 +48,6 @@ ScriptedImporter:
       x: 0
       y: 0
       width: 256
-      height: 208
+      height: 256
     SpriteID: f9b97c5ce01e54f76ad9cdb295317a75
     PhysicsOutlines: []

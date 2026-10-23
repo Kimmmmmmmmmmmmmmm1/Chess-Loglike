@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ddba3317ad88842559babe2d15b90561, type: 3}
+  m_Name: Combat_Alkkagi_Ringout10
+  m_EditorClassIdentifier: 
+  id: combat_alkkagi_ringout_10
+  achievementName: 알까기의 제왕
+  icon: {fileID: 3286163911610860551, guid: c81a4e52b91d47f3a60e2194b85d3c7a, type: 3}
+  description: 알까기로 적 기물을 체스판 밖으로 누적 10회 낙사시키세요.
+  category: 0
+  targetCount: 10
+  difficulty: 2

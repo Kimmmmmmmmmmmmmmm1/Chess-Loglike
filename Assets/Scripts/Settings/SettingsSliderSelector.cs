@@ -21,27 +21,75 @@ public class SettingsSliderSelector : MonoBehaviour, ISelectHandler, IDeselectHa
     private bool isEditing;
     private int editFrame;
     private float valueBeforeMute = -1f;
+    private float currentValue;
+    private bool hasExplicitValue;
 
     public event Action<float> OnValueChanged;
 
-    public Slider SliderControl => slider;
-    public Selectable SelectableControl => slider;
-    public float Value => slider != null ? slider.value : 0f;
-    public bool IsMuted => slider != null && Mathf.Approximately(slider.value, slider.minValue);
+    public Slider SliderControl
+    {
+        get
+        {
+            EnsureSlider();
+            return slider;
+        }
+    }
+
+    public Selectable SelectableControl
+    {
+        get
+        {
+            EnsureSlider();
+            return slider;
+        }
+    }
+
+    public float Value => slider != null ? slider.value : (hasExplicitValue ? currentValue : 0f);
+    public bool IsMuted
+    {
+        get
+        {
+            EnsureSlider();
+            if (slider != null)
+            {
+                return Mathf.Approximately(slider.value, slider.minValue);
+            }
+            return hasExplicitValue && Mathf.Approximately(currentValue, 0f);
+        }
+    }
 
     public bool IsEditing => isEditing;
 
-    private void Awake()
+    private void EnsureSlider()
     {
-        slider = GetComponent<Slider>();
+        if (slider == null)
+        {
+            slider = GetComponent<Slider>();
+            if (slider != null)
+            {
+                slider.onValueChanged.RemoveListener(HandleSliderChanged);
+                slider.onValueChanged.AddListener(HandleSliderChanged);
+
+                if (hasExplicitValue)
+                {
+                    slider.SetValueWithoutNotify(currentValue);
+                }
+                else
+                {
+                    currentValue = slider.value;
+                }
+            }
+        }
 
         if (labelText != null && string.IsNullOrEmpty(labelBaseText))
-            labelBaseText = labelText.text.Trim();
-
-        if (slider != null)
         {
-            slider.onValueChanged.AddListener(HandleSliderChanged);
+            labelBaseText = labelText.text.Trim();
         }
+    }
+
+    private void Awake()
+    {
+        EnsureSlider();
 
         // 라벨에 버튼이 있으면 음소거 토글 기능을 onClick에 연결합니다.
         if (labelText != null)
@@ -49,6 +97,7 @@ public class SettingsSliderSelector : MonoBehaviour, ISelectHandler, IDeselectHa
             Button labelButton = labelText.GetComponent<Button>();
             if (labelButton != null)
             {
+                labelButton.onClick.RemoveListener(ToggleMute);
                 labelButton.onClick.AddListener(ToggleMute);
             }
         }
@@ -57,6 +106,7 @@ public class SettingsSliderSelector : MonoBehaviour, ISelectHandler, IDeselectHa
 
     private void OnEnable()
     {
+        EnsureSlider();
         RefreshVisuals();
     }
 
@@ -105,12 +155,15 @@ public class SettingsSliderSelector : MonoBehaviour, ISelectHandler, IDeselectHa
 
     public void SetValueWithoutNotify(float value)
     {
-        if (slider == null)
+        currentValue = value;
+        hasExplicitValue = true;
+        EnsureSlider();
+
+        if (slider != null)
         {
-            return;
+            slider.SetValueWithoutNotify(value);
         }
 
-        slider.SetValueWithoutNotify(value);
         RefreshVisuals();
     }
 
@@ -203,6 +256,7 @@ public class SettingsSliderSelector : MonoBehaviour, ISelectHandler, IDeselectHa
     
     private void ToggleMute()
     {
+        EnsureSlider();
         if (slider == null || !isInteractive)
         {
             return;
@@ -224,12 +278,15 @@ public class SettingsSliderSelector : MonoBehaviour, ISelectHandler, IDeselectHa
 
     private void HandleSliderChanged(float value)
     {
+        currentValue = value;
+        hasExplicitValue = true;
         RefreshVisuals();
         OnValueChanged?.Invoke(value);
     }
 
     private void Adjust(float direction)
     {
+        EnsureSlider();
         if (slider == null || !isInteractive)
         {
             return;
@@ -255,13 +312,15 @@ public class SettingsSliderSelector : MonoBehaviour, ISelectHandler, IDeselectHa
 
     private void RefreshVisuals()
     {
+        EnsureSlider();
         bool hideSelectionMarker = SettingPanelView.Instance != null && SettingPanelView.Instance.IsMouseInteractionMode;
         Color textColor = isInteractive ? Color.white : new Color(0.7f, 0.7f, 0.7f);
 
         if (labelText != null)
         {   
+            string baseText = !string.IsNullOrEmpty(labelBaseText) ? labelBaseText : labelText.text.Trim();
             // 선택 상태일 때 마커 추가
-            string text = (isSelected && !isEditing && !hideSelectionMarker) ? $">{labelBaseText}<" : labelBaseText;
+            string text = (isSelected && !isEditing && !hideSelectionMarker) ? $">{baseText}<" : baseText;
             
             // 음소거 시 취소선 추가
             if (IsMuted)
@@ -286,14 +345,13 @@ public class SettingsSliderSelector : MonoBehaviour, ISelectHandler, IDeselectHa
 
     private void UpdateValueText(Color textColor, bool hideSelectionMarker)
     {
-        if (valueText == null || slider == null)
+        if (valueText == null)
         {
             return;
         }
 
-        string text;
-        float displayValue = slider.value;
-        text = showAsInteger ? Mathf.RoundToInt(displayValue).ToString() : displayValue.ToString("0.##");
+        float displayValue = slider != null ? slider.value : (hasExplicitValue ? currentValue : 0f);
+        string text = showAsInteger ? Mathf.RoundToInt(displayValue).ToString() : displayValue.ToString("0.##");
 
         bool showMarker = isEditing || (isSelected && !isEditing && hideSelectionMarker);
         valueText.text = showMarker ? $">{text}<" : text;

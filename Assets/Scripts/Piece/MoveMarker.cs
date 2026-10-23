@@ -3,7 +3,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using DG.Tweening;
 
-public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
 {
     [Header("Sprites")]
     [Tooltip("일반 이동 위치에 표시할 스프라이트 (비어있으면 기본 스프라이트 유지)")]
@@ -24,6 +24,8 @@ public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     private Vector2Int gridPosition;
     private bool isHovered;
     private bool isCapture;
+    private bool isShotgunAimMarker;
+    private bool isShotgunAimHighlight;
     private Color baseColor;
 
     public Vector2Int GridPosition => gridPosition;
@@ -137,13 +139,53 @@ public class MoveMarker : MonoBehaviour, IPointerEnterHandler, IPointerExitHandl
     public void OnPointerEnter(PointerEventData eventData)
     {
         isHovered = true;
-        UpdateColor(1f); // 마우스 올리면 불투명
+        UpdateColor(isShotgunAimMarker ? (isShotgunAimHighlight ? 1f : 0.5f) : 1f);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
         isHovered = false;
-        UpdateColor(0.5f); // 마우스 떼면 반투명
+        UpdateColor(isShotgunAimHighlight ? 1f : 0.5f);
+    }
+
+    public void SetShotgunAimAppearance(bool highlighted)
+    {
+        isShotgunAimMarker = true;
+        isShotgunAimHighlight = highlighted;
+        UpdateColor(highlighted ? 1f : 0.5f);
+    }
+
+    public void SetSelfDestructRangeAppearance(Color color)
+    {
+        isCapture = true;
+        EnsureVisualSetup();
+        UpdateVisualAppearance();
+
+        baseColor = color;
+        UpdateColor(color.a);
+
+        if (TryGetComponent<Button>(out var button))
+        {
+            button.enabled = false;
+        }
+
+        // 자폭 범위 마커는 클릭이나 마우스 호버 이벤트를 가로채지 않도록 raycast 비활성화
+        if (TryGetComponent<Image>(out var rootImg))
+        {
+            rootImg.raycastTarget = false;
+        }
+        if (markerVisualImage != null)
+        {
+            markerVisualImage.raycastTarget = false;
+        }
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (ShotgunKingSystem.TryHandleShotAimClick(gridPosition, eventData.button))
+        {
+            eventData.Use();
+        }
     }
 
     private void UpdateColor(float alpha)

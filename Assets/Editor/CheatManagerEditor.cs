@@ -178,17 +178,6 @@ public class CheatManagerEditor : Editor
         {
             cheat.GivePiece();
         }
-
-        if (GUILayout.Button("🔍 현재 남은 기물 목록 콘솔 출력", GUILayout.Height(26)))
-        {
-            cheat.PrintRemainingPieces();
-        }
-
-        if (GUILayout.Button("🧹 좌표 없는 보드 기물 즉시 정리", GUILayout.Height(24)))
-        {
-            cheat.CleanupInvalidBoardPieces();
-        }
-
         EditorGUILayout.Space(10);
 
         // 4. Seal
