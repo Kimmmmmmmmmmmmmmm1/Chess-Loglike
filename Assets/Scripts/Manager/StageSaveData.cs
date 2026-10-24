@@ -67,7 +67,13 @@ public class SavedTutorialData
     public bool hasShownLightningIntro;
     public bool hasShownLightningTarget;
     public bool hasShownLightningComplete;
+    public bool hasShownRewardStage3;
+    public bool hasShownStageSelect4;
+    public bool hasShownProtectionPotionIntro;
+    public bool hasShownProtectionPotionTarget;
+    public bool hasShownProtectionPotionComplete;
     public bool hasShownPassiveArtifact;
+    public bool hasShownBuffStatus;
 }
 
 [Serializable]

@@ -19,6 +19,16 @@ public class ShopPieceData : ScriptableObject
 
     public List<PieceInfo> pieceList;
 
+    public static bool IsRarePiece(PieceType type)
+    {
+        return type == PieceType.Rook ||
+               type == PieceType.Queen ||
+               type == PieceType.Chancellor ||
+               type == PieceType.Archbishop ||
+               type == PieceType.Centaur ||
+               type == PieceType.Amazon;
+    }
+
     // 가중치 기반 랜덤 기물 뽑기
     public PieceInfo GetRandomPiece(bool excludeLegendary = false)
     {
@@ -30,20 +40,33 @@ public class ShopPieceData : ScriptableObject
 
         if (pool.Count == 0) return null;
 
-        int totalWeight = 0;
-        foreach (var piece in pool) totalWeight += piece.weight;
+        float rareBonus = ArtifactEffectHandlers.GetRareChanceBonus();
+        float rareMult = 1f + (rareBonus / 100f);
 
-        if (totalWeight <= 0) return pool[Random.Range(0, pool.Count)];
-
-        int randomValue = Random.Range(0, totalWeight);
-        int currentWeight = 0;
-
+        float totalWeight = 0f;
+        List<float> weights = new List<float>(pool.Count);
         foreach (var piece in pool)
         {
-            currentWeight += piece.weight;
+            float w = piece.weight;
+            if (IsRarePiece(piece.pieceType))
+            {
+                w *= rareMult;
+            }
+            weights.Add(w);
+            totalWeight += w;
+        }
+
+        if (totalWeight <= 0f) return pool[Random.Range(0, pool.Count)];
+
+        float randomValue = Random.Range(0f, totalWeight);
+        float currentWeight = 0f;
+
+        for (int i = 0; i < pool.Count; i++)
+        {
+            currentWeight += weights[i];
             if (randomValue < currentWeight)
             {
-                return piece;
+                return pool[i];
             }
         }
 

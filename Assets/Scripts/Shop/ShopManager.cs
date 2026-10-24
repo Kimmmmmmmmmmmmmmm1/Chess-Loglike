@@ -59,6 +59,9 @@ public class ShopManager : MonoBehaviour
     public float shopBoardViewAnchoredY = 216f;
     public float boardViewSlideDuration = 0.35f;
 
+    public bool AreItemsAppeared { get; private set; } = false;
+    public bool IsOpen => shopPanel != null && shopPanel.activeSelf;
+
     private Vector2 shopShownAnchoredPosition;
     private bool shopPositionCached = false;
     private bool isViewingBoard = false;
@@ -468,7 +471,11 @@ public class ShopManager : MonoBehaviour
                 SetupRandomShopSlot(newSlot);
                 
                 // 3. 새 슬롯 확대 등장
-                newSlotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack);
+                newSlotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack)
+                    .OnComplete(() =>
+                    {
+                        TutorialManager.Instance?.OnShopItemsAppeared();
+                    });
             }
         });
     }
@@ -525,6 +532,8 @@ public class ShopManager : MonoBehaviour
 
     public void Open(bool hideMerchant = true)
     {
+        AreItemsAppeared = false;
+
         if (hideMerchant)
         {
             HideMerchant();
@@ -589,6 +598,7 @@ public class ShopManager : MonoBehaviour
 
     public void Close(Action onComplete = null)
     {
+        AreItemsAppeared = false;
         HideMerchant(true);
 
         // 이미 닫혀있다면 즉시 종료 (불필요한 지연/대사 방지)
@@ -943,6 +953,7 @@ public class ShopManager : MonoBehaviour
 
     private void GenerateShopItems()
     {
+        AreItemsAppeared = false;
         if (shopPieceData == null || shopSlotPrefab == null || shopItemsContainer == null) return;
 
         // 기존 아이템 제거
@@ -966,6 +977,8 @@ public class ShopManager : MonoBehaviour
 
         HashSet<string> usedPassiveArtifactIds = new HashSet<string>();
 
+        Tween lastSlotTween = null;
+
         // 새 아이템 생성
         for (int i = 0; i < 3; i++)
         {
@@ -986,7 +999,21 @@ public class ShopManager : MonoBehaviour
             
             // 등장 애니메이션: 스케일 0에서 1로 커지며 순차적으로 등장
             slotObj.transform.localScale = Vector3.zero;
-            slotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack).SetDelay(i * 0.1f);
+            lastSlotTween = slotObj.transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack).SetDelay(i * 0.1f);
+        }
+
+        if (lastSlotTween != null)
+        {
+            lastSlotTween.OnComplete(() =>
+            {
+                AreItemsAppeared = true;
+                TutorialManager.Instance?.OnShopItemsAppeared();
+            });
+        }
+        else
+        {
+            AreItemsAppeared = true;
+            TutorialManager.Instance?.OnShopItemsAppeared();
         }
     }
 
@@ -1087,11 +1114,20 @@ public class ShopManager : MonoBehaviour
             return null;
         }
 
-        // Epic, Rare, Common 중 가중치 추첨 (2.5 : 4 : 8 -> 총합 14.5)
-        float roll = UnityEngine.Random.Range(0f, 14.5f);
+        // Epic, Rare, Common 중 가중치 추첨 (기본: 2.5 : 4 : 8 -> 총합 14.5)
+        // A003(상인의 가족사진) 보유 시 희귀/영웅 인장 가중치 증가
+        float rareBonus = ArtifactEffectHandlers.GetRareChanceBonus();
+        float rareMult = 1f + (rareBonus / 100f);
+
+        float epicWeight = 2.5f * rareMult;
+        float rareWeight = 4.0f * rareMult;
+        float commonWeight = 8.0f;
+        float totalWeight = epicWeight + rareWeight + commonWeight;
+
+        float roll = UnityEngine.Random.Range(0f, totalWeight);
         SealRarity rarity;
-        if (roll < 2.5f) rarity = SealRarity.Epic;
-        else if (roll < 6.5f) rarity = SealRarity.Rare;
+        if (roll < epicWeight) rarity = SealRarity.Epic;
+        else if (roll < epicWeight + rareWeight) rarity = SealRarity.Rare;
         else rarity = SealRarity.Common;
 
         var candidates = shopSeals.Where(s => s.rarity == rarity).ToList();
@@ -1166,22 +1202,20 @@ public class ShopManager : MonoBehaviour
         // 스테이지 진행도에 따른 확률 보정 (0 ~ 9 스테이지까지 선형 증가)
         int cleared = GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0;
         float progress = Mathf.Clamp01((cleared + 1) / 10f);
+        float currentChance = sealDropChance * progress;
 
-        float artifactBonus = 0f;
-        if (ArtifactManager.Instance != null)
-        {
-            ArtifactManager.Instance.ApplyArtifactWithLevel("A003", level =>
-            {
-                artifactBonus = artifactSealChanceBonus * level;
-            });
-        }
-        
-        // 현재 적용될 총 확률 (유물 등으로 sealDropChance가 바뀌어도 비율 유지)
-        float currentChance = (sealDropChance + artifactBonus) * progress;
-        
-        // 상점 기물 부착 인장은 전설 제외 (Epic, Rare, Common) - 총합 14.5 기준 비율
-        if (roll < currentChance * (2.5f / 14.5f)) return GetRandomSealByRarity(SealRarity.Epic, pieceType);
-        if (roll < currentChance * (6.5f / 14.5f)) return GetRandomSealByRarity(SealRarity.Rare, pieceType);
+        // A003(상인의 가족사진) 보유 시 희귀/영웅 인장 등장 확률 증가
+        float rareBonus = ArtifactEffectHandlers.GetRareChanceBonus();
+        float rareMult = 1f + (rareBonus / 100f);
+
+        float epicWeight = 2.5f * rareMult;
+        float rareWeight = 4.0f * rareMult;
+        float commonWeight = 8.0f;
+        float totalWeight = epicWeight + rareWeight + commonWeight;
+
+        // 상점 기물 부착 인장은 전설 제외 (Epic, Rare, Common)
+        if (roll < currentChance * (epicWeight / totalWeight)) return GetRandomSealByRarity(SealRarity.Epic, pieceType);
+        if (roll < currentChance * ((epicWeight + rareWeight) / totalWeight)) return GetRandomSealByRarity(SealRarity.Rare, pieceType);
         if (roll < currentChance) return GetRandomSealByRarity(SealRarity.Common, pieceType);
 
         return null;

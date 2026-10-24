@@ -143,6 +143,7 @@ public class CollectionManager : PersistentManagerBase
         TryAddCollectionAchievementProgress(AchievementIds.CollectAllArtifacts);
         Save();
         OnCollectionChanged?.Invoke();
+        TutorialManager.Instance?.CheckBuffDiscovered(artifact);
         return true;
     }
 
@@ -158,6 +159,7 @@ public class CollectionManager : PersistentManagerBase
         saveData.seenArtifactIDs.Add(artifactId);
         Save();
         OnCollectionChanged?.Invoke();
+        TutorialManager.Instance?.CheckBuffDiscovered(artifact);
         return true;
     }
 
@@ -182,6 +184,7 @@ public class CollectionManager : PersistentManagerBase
         TryAddCollectionAchievementProgress(AchievementIds.CollectSeal5);
         Save();
         OnCollectionChanged?.Invoke();
+        TutorialManager.Instance?.CheckBuffDiscovered(seal);
         return true;
     }
 
@@ -197,6 +200,7 @@ public class CollectionManager : PersistentManagerBase
         saveData.seenSealIDs.Add(sealId);
         Save();
         OnCollectionChanged?.Invoke();
+        TutorialManager.Instance?.CheckBuffDiscovered(seal);
         return true;
     }
 

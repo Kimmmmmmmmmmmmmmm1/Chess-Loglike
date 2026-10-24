@@ -37,6 +37,7 @@ public class ShopArtifactSlot : MonoBehaviour, IPointerEnterHandler, IPointerExi
         if (artifactData != null)
         {
             CollectionManager.EnsureInstance()?.RecordArtifactSeen(artifactData);
+            TutorialManager.Instance?.CheckBuffDiscovered(artifactData);
         }
         UpdateUI();
     }

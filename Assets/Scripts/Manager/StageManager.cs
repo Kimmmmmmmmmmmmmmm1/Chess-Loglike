@@ -150,6 +150,26 @@ public class StageManager : MonoBehaviour
                 Debug.LogError("[StageManager] Stages/Stage_Easy_1 에셋 로드 실패!");
             }
         }
+        else if (isTutorial && clearedStage == 3)
+        {
+            StageData baseStage = Resources.Load<StageData>("Stages/Stage_Easy_1");
+            if (baseStage != null)
+            {
+                selectedStage = Instantiate(baseStage);
+                // 튜토리얼 4스테이지: 보호의 물약으로 아군 기물 보호 실습 (적 킹: (0, 2), 적 폰: (-1, 1), 적 폰: (1, 1))
+                selectedStage.enemyPieces = new List<PieceSpawner.PieceSpawnInfo>
+                {
+                    new PieceSpawner.PieceSpawnInfo { pieceType = PieceType.King, gridCoordinate = new Vector2Int(0, 2), seals = new List<SealData>() },
+                    new PieceSpawner.PieceSpawnInfo { pieceType = PieceType.Pawn, gridCoordinate = new Vector2Int(-1, 1), seals = new List<SealData>() },
+                    new PieceSpawner.PieceSpawnInfo { pieceType = PieceType.Pawn, gridCoordinate = new Vector2Int(1, 1), seals = new List<SealData>() }
+                };
+                Debug.Log($"[StageManager] 튜토리얼 4스테이지(보호의 물약) 고정 로드 완료: {selectedStage.name}, 적 기물 수: {selectedStage.enemyPieces?.Count ?? 0}");
+            }
+            else
+            {
+                Debug.LogError("[StageManager] Stages/Stage_Easy_1 에셋 로드 실패!");
+            }
+        }
 
         if (selectedStage == null)
         {

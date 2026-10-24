@@ -155,6 +155,44 @@ public class ArtifactPopupEffect : MonoBehaviour
         EnsureInstance().PlayTotemEffect(iconSprite, null, onComplete);
     }
 
+    /// <summary>
+    /// 버프 스택(보호, 회피, 역습 등) 소모 시 해당 기물의 위치를 중심으로
+    /// 유물 토템 스타일의 소형 팝업 연출을 재생합니다.
+    /// </summary>
+    public static void PlayBuffPop(PieceBuffType buffType, Vector3 worldPosition, Action onComplete = null)
+    {
+        Sprite buffSprite = PieceSpriteData.Instance != null 
+            ? PieceSpriteData.Instance.GetBuffSprite(buffType) 
+            : null;
+
+        if (buffSprite == null)
+        {
+            buffSprite = Resources.Load<Sprite>($"BuffIcon/Buff_{buffType}");
+        }
+
+        if (buffSprite == null)
+        {
+            onComplete?.Invoke();
+            return;
+        }
+
+        EnsureInstance().PlayBuffPopInternal(buffSprite, worldPosition, onComplete);
+    }
+
+    /// <summary>
+    /// 지정한 위치(기물 등)를 중심으로 유물 토템 스타일의 소형 팝업 연출을 재생합니다.
+    /// </summary>
+    public static void PlayAtPosition(Sprite iconSprite, Vector3 worldPosition, Action onComplete = null)
+    {
+        if (iconSprite == null)
+        {
+            onComplete?.Invoke();
+            return;
+        }
+
+        EnsureInstance().PlayBuffPopInternal(iconSprite, worldPosition, onComplete);
+    }
+
     #endregion
 
     #region Instance API
@@ -249,6 +287,107 @@ public class ArtifactPopupEffect : MonoBehaviour
         cloneCanvasGroup.blocksRaycasts = false;
 
         Sequence seq = BuildTotemSequence(cloneRect, cloneCanvasGroup);
+        seq.OnComplete(() =>
+        {
+            if (cloneObj != null)
+            {
+                Destroy(cloneObj);
+            }
+            onComplete?.Invoke();
+        });
+    }
+
+    private void PlayBuffPopInternal(Sprite sprite, Vector3 worldPosition, Action onComplete)
+    {
+        Canvas targetCanvas = GetComponentInParent<Canvas>() ?? FindTargetCanvas();
+        if (targetCanvas == null)
+        {
+            onComplete?.Invoke();
+            return;
+        }
+
+        Transform parentTransform = (EffectManager.Instance != null && EffectManager.Instance.debrisParent != null)
+            ? EffectManager.Instance.debrisParent
+            : targetCanvas.transform;
+
+        GameObject cloneObj = new GameObject("BuffTotemPopup_Clone", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        cloneObj.transform.SetParent(parentTransform, false);
+        cloneObj.transform.position = new Vector3(worldPosition.x, worldPosition.y, parentTransform.position.z);
+        cloneObj.transform.SetAsLastSibling();
+
+        RectTransform cloneRect = cloneObj.GetComponent<RectTransform>();
+        cloneRect.anchorMin = new Vector2(0.5f, 0.5f);
+        cloneRect.anchorMax = new Vector2(0.5f, 0.5f);
+        cloneRect.pivot = new Vector2(0.5f, 0.5f);
+
+        // 기물 크기 대비 적당하고 조그마한 UI 크기 (48x48)
+        Vector2 buffPopBaseSize = new Vector2(48f, 48f);
+        cloneRect.sizeDelta = buffPopBaseSize;
+
+        Image cloneImage = cloneObj.GetComponent<Image>();
+        cloneImage.sprite = sprite;
+        cloneImage.preserveAspect = true;
+        cloneImage.raycastTarget = false;
+        cloneImage.color = Color.white;
+        cloneImage.enabled = true;
+
+        CanvasGroup cloneCanvasGroup = cloneObj.AddComponent<CanvasGroup>();
+        cloneCanvasGroup.interactable = false;
+        cloneCanvasGroup.blocksRaycasts = false;
+        cloneCanvasGroup.alpha = 0.95f;
+
+        Vector2 baseAnchoredPos = cloneRect.anchoredPosition;
+        Vector2 startPos = baseAnchoredPos + new Vector2(0f, -20f);
+        Vector2 peakPos = baseAnchoredPos + new Vector2(0f, 22f);
+        Vector2 fadePos = peakPos + new Vector2(0f, 24f);
+
+        cloneRect.anchoredPosition = startPos;
+        cloneRect.localScale = Vector3.one * 0.35f;
+        cloneRect.localEulerAngles = new Vector3(0f, 180f, -20f);
+
+        float buffPopDuration = 0.35f;
+        float buffHoldDuration = 0.18f;
+        float buffFadeDuration = 0.28f;
+
+        Sequence seq = DOTween.Sequence();
+
+        // 1. Pop-up: 아래에서 기물 상단으로 튀어오름 + 확대 + 3D 반바퀴 회전 복구
+        seq.Append(
+            cloneRect.DOAnchorPos(peakPos, buffPopDuration)
+                .SetEase(Ease.OutBack, 1.4f)
+        );
+        seq.Join(
+            cloneRect.DOScale(1.15f, buffPopDuration)
+                .SetEase(Ease.OutBack, 1.4f)
+        );
+        seq.Join(
+            cloneRect.DOLocalRotate(Vector3.zero, buffPopDuration, RotateMode.FastBeyond360)
+                .SetEase(Ease.OutCubic)
+        );
+
+        // 2. Hold: 정점에서 살짝 커지며 강조
+        seq.Append(
+            cloneRect.DOScale(1.22f, buffHoldDuration)
+                .SetEase(Ease.OutQuad)
+        );
+
+        // 3. Fade-out: 위로 살짝 더 떠오르며 투명해짐
+        seq.Append(
+            cloneCanvasGroup.DOFade(0f, buffFadeDuration)
+                .SetEase(Ease.InQuad)
+        );
+        seq.Join(
+            cloneRect.DOAnchorPosY(fadePos.y, buffFadeDuration)
+                .SetEase(Ease.InQuad)
+        );
+        seq.Join(
+            cloneRect.DOScale(0.85f, buffFadeDuration)
+                .SetEase(Ease.InQuad)
+        );
+
+        seq.SetUpdate(ignoreTimeScale);
+        seq.SetLink(cloneObj, LinkBehaviour.KillOnDestroy);
+
         seq.OnComplete(() =>
         {
             if (cloneObj != null)

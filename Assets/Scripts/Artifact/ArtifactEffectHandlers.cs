@@ -20,9 +20,11 @@ public static class ArtifactEffectHandlers
     public static int GetRerollDiscount() => ArtifactEffectRegistry.RerollDiscount.GetDiscount();
     public static int GetRerollDiscountForLevel(int level) => RerollDiscountArtifactEffect.GetDiscountForLevel(level);
 
-    // ========== A003: 인장 확률 보너스 ==========
-    public static float GetSealChanceBonus() => ArtifactEffectRegistry.SealChanceBonus.GetChanceBonus();
-    public static float GetSealChanceBonusForLevel(int level) => SealChanceBonusArtifactEffect.GetBonusForLevel(level);
+    // ========== A003: 희귀 기물/인장/유물 등장 확률 보너스 (상인의 가족사진) ==========
+    public static float GetRareChanceBonus() => ArtifactEffectRegistry.SealChanceBonus.GetChanceBonus();
+    public static float GetRareChanceBonusForLevel(int level) => SealChanceBonusArtifactEffect.GetBonusForLevel(level);
+    public static float GetSealChanceBonus() => GetRareChanceBonus();
+    public static float GetSealChanceBonusForLevel(int level) => GetRareChanceBonusForLevel(level);
 
     // ========== A004: 회복의 단지 ==========
     public static bool IsGourdRecoveryExhausted() => ArtifactEffectRegistry.Gourd.IsExhausted();

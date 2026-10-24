@@ -28,7 +28,12 @@ public enum TutorialPhase
     LightningArtifactIntro,
     LightningArtifactTarget,
     LightningArtifactComplete,
+    RewardStage3,
+    ProtectionPotionIntro,
+    ProtectionPotionTarget,
+    ProtectionPotionComplete,
     PassiveArtifact,
+    BuffStatus,
     Completed
 }
 
@@ -45,6 +50,7 @@ public class TutorialMessagesData
     public List<string> reward = new List<string>();
     public List<string> stageSelect = new List<string>();
     public List<string> stageSelectStage3 = new List<string>();
+    public List<string> stageSelectStage4 = new List<string>();
     public List<string> placementPawnStage2 = new List<string>();
     public List<string> sealIntro = new List<string>();
     public List<string> sealEquip = new List<string>();
@@ -58,7 +64,12 @@ public class TutorialMessagesData
     public List<string> lightningArtifactIntro = new List<string>();
     public List<string> lightningArtifactTarget = new List<string>();
     public List<string> lightningArtifactComplete = new List<string>();
+    public List<string> rewardStage3 = new List<string>();
+    public List<string> protectionPotionIntro = new List<string>();
+    public List<string> protectionPotionTarget = new List<string>();
+    public List<string> protectionPotionComplete = new List<string>();
     public List<string> passiveArtifact = new List<string>();
+    public List<string> buffStatus = new List<string>();
 }
 
 [System.Serializable]
@@ -99,6 +110,7 @@ public partial class TutorialManager : MonoBehaviour
 
     private const string PrefsKeyTutorialCompleted = "Tutorial_Completed";
     private const string PrefsKeyPassiveArtifactShown = "Tutorial_PassiveArtifact_Shown";
+    private const string PrefsKeyBuffStatusShown = "Tutorial_BuffStatus_Shown";
     private const string ResourcePrefabPath = "UI/TutorialDialog";
     private const string ResourceMessagesJsonPath = "TutorialMessages";
 
@@ -112,6 +124,21 @@ public partial class TutorialManager : MonoBehaviour
 
         Instance = this;
         LoadMessagesFromJson();
+
+        if (PlayerPrefs.GetInt(PrefsKeyPassiveArtifactShown, 0) == 1)
+        {
+            hasShownPassiveArtifact = true;
+        }
+        if (PlayerPrefs.GetInt(PrefsKeyBuffStatusShown, 0) == 1)
+        {
+            hasShownBuffStatus = true;
+        }
+        if (PlayerPrefs.GetInt(PrefsKeyTutorialCompleted, 0) == 1)
+        {
+            hasShownStageSelect = true;
+            hasShownStageSelect3 = true;
+            hasShownStageSelect4 = true;
+        }
     }
 
     private void Start()
@@ -253,6 +280,7 @@ public partial class TutorialManager : MonoBehaviour
         hasShownReward = false;
         hasShownStageSelect = false;
         hasShownStageSelect3 = false;
+        hasShownStageSelect4 = false;
         hasShownPlacementPawnStage2 = false;
         hasShownSealIntro = false;
         hasShownSealEquip = false;
@@ -266,7 +294,12 @@ public partial class TutorialManager : MonoBehaviour
         hasShownLightningIntro = false;
         hasShownLightningTarget = false;
         hasShownLightningComplete = false;
+        hasShownRewardStage3 = false;
+        hasShownProtectionPotionIntro = false;
+        hasShownProtectionPotionTarget = false;
+        hasShownProtectionPotionComplete = false;
         hasShownPassiveArtifact = false;
+        hasShownBuffStatus = false;
         isKingHighlightAllowed = false;
         isPawnHighlightAllowed = false;
         isStartButtonHighlightAllowed = false;
@@ -496,10 +529,13 @@ public partial class TutorialManager : MonoBehaviour
             case TutorialPhase.PromotionChoice:
             case TutorialPhase.RewardStage2:
             case TutorialPhase.LightningArtifactIntro:
+            case TutorialPhase.RewardStage3:
+            case TutorialPhase.ProtectionPotionIntro:
                 return isLastStep;
 
             case TutorialPhase.SealEquip:
             case TutorialPhase.LightningArtifactTarget:
+            case TutorialPhase.ProtectionPotionTarget:
                 return true;
 
             default:
@@ -510,6 +546,15 @@ public partial class TutorialManager : MonoBehaviour
     private void ShowPhase(TutorialPhase phase, List<string> messages)
     {
         if (messages == null || messages.Count == 0) return;
+
+        bool isStandaloneDiscovery = (phase == TutorialPhase.PassiveArtifact || phase == TutorialPhase.BuffStatus);
+        if (!isStandaloneDiscovery)
+        {
+            if (!IsTutorialActive || PlayerPrefs.GetInt(PrefsKeyTutorialCompleted, 0) == 1)
+            {
+                return;
+            }
+        }
 
         CurrentPhase = phase;
         currentActiveMessages = messages;
@@ -676,6 +721,14 @@ public partial class TutorialManager : MonoBehaviour
         {
             ClearArtifactSlotHighlight();
         }
+        else if (CurrentPhase == TutorialPhase.ProtectionPotionIntro && isActionStep)
+        {
+            HighlightArtifactSlot("AC03");
+        }
+        else if (CurrentPhase == TutorialPhase.ProtectionPotionTarget)
+        {
+            ClearArtifactSlotHighlight();
+        }
     }
 
     private void CloseCurrentPhaseDialog()
@@ -695,17 +748,47 @@ public partial class TutorialManager : MonoBehaviour
             });
         }
 
-        if (closedPhase == TutorialPhase.PassiveArtifact || closedPhase == TutorialPhase.LightningArtifactIntro)
+        if (closedPhase == TutorialPhase.PassiveArtifact || closedPhase == TutorialPhase.BuffStatus || closedPhase == TutorialPhase.LightningArtifactIntro || closedPhase == TutorialPhase.ProtectionPotionIntro)
         {
             ClearArtifactSlotHighlight();
+        }
 
-            if (closedPhase == TutorialPhase.PassiveArtifact)
+        if (pendingBuffStatusTutorial && !IsBuffTutorialRestricted() &&
+            PlayerPrefs.GetInt(PrefsKeyBuffStatusShown, 0) == 0 && !hasShownBuffStatus)
+        {
+            pendingBuffStatusTutorial = false;
+            ShowBuffStatusPhase();
+            return;
+        }
+        else
+        {
+            pendingBuffStatusTutorial = false;
+        }
+
+        if (pendingPassiveArtifactTutorial &&
+            PlayerPrefs.GetInt(PrefsKeyPassiveArtifactShown, 0) == 0 && !hasShownPassiveArtifact)
+        {
+            pendingPassiveArtifactTutorial = false;
+            ShowPassiveArtifactPhase(pendingPassiveArtifactData);
+            pendingPassiveArtifactData = null;
+            return;
+        }
+        else
+        {
+            pendingPassiveArtifactTutorial = false;
+            pendingPassiveArtifactData = null;
+        }
+
+        if (closedPhase == TutorialPhase.PassiveArtifact || closedPhase == TutorialPhase.BuffStatus)
+        {
+            // 패시브 유물 및 버프 튜토리얼 종료 후, 메인 튜토리얼이 진행 중이고(미완료) 스테이지 선택 화면이 이미 열려 있다면 스테이지 선택 튜토리얼을 순차 진행
+            if (IsTutorialActive && PlayerPrefs.GetInt(PrefsKeyTutorialCompleted, 0) == 0 &&
+                StageSelectUI.Instance != null &&
+                GameManager.Instance != null && GameManager.Instance.CurrentFlowState == GameFlowState.StageSelect)
             {
-                // 패시브 유물 튜토리얼 종료 후, 스테이지 선택 화면이 이미 열려 있다면 스테이지 선택 튜토리얼을 순차 진행
-                if (StageSelectUI.Instance != null &&
-                    GameManager.Instance != null && GameManager.Instance.CurrentFlowState == GameFlowState.StageSelect)
+                int nextStage = StageSelectUI.Instance.CurrentNextStage > 0 ? StageSelectUI.Instance.CurrentNextStage : (GameManager.Instance.ClearedStage + 1);
+                if (nextStage >= 2 && nextStage <= 4)
                 {
-                    int nextStage = StageSelectUI.Instance.CurrentNextStage > 0 ? StageSelectUI.Instance.CurrentNextStage : (GameManager.Instance.ClearedStage + 1);
                     ShowStageSelectPhase(nextStage);
                 }
             }
@@ -714,8 +797,11 @@ public partial class TutorialManager : MonoBehaviour
         {
             ShowSealEquipPhase();
         }
-        else if (closedPhase == TutorialPhase.LightningArtifactComplete)
+        else if (closedPhase == TutorialPhase.ProtectionPotionComplete)
         {
+            hasShownBuffStatus = true;
+            PlayerPrefs.SetInt(PrefsKeyBuffStatusShown, 1);
+            PlayerPrefs.Save();
             CompleteTutorial();
         }
     }
@@ -826,6 +912,7 @@ public partial class TutorialManager : MonoBehaviour
     {
         PlayerPrefs.DeleteKey(PrefsKeyTutorialCompleted);
         PlayerPrefs.DeleteKey(PrefsKeyPassiveArtifactShown);
+        PlayerPrefs.DeleteKey(PrefsKeyBuffStatusShown);
         PlayerPrefs.Save();
         if (AchievementManager.Instance != null)
         {

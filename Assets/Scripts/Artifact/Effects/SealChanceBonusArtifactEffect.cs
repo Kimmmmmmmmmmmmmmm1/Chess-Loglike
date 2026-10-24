@@ -1,14 +1,14 @@
 using UnityEngine;
 
 /// <summary>
-/// A003 "인장 확률 보너스" 효과 구현
-/// 상점에서 인장이 등장할 확률을 레벨당 +10% 증가시킵니다.
+/// A003 "상인의 가족사진" 효과 구현
+/// 희귀한 기물, 인장, 유물이 등장할 확률을 레벨당 +15% 증가시킵니다.
 /// </summary>
 public class SealChanceBonusArtifactEffect : ArtifactEffectBase
 {
     private const string ARTIFACT_ID = "A003";
     public override string ArtifactId => ARTIFACT_ID;
-    private const float BONUS_PER_LEVEL = 10f;
+    private const float BONUS_PER_LEVEL = 15f;
 
     public override void ResetStageLimitedEffects()
     {

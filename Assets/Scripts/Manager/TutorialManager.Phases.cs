@@ -26,7 +26,16 @@ public partial class TutorialManager
     private bool hasShownLightningIntro = false;
     private bool hasShownLightningTarget = false;
     private bool hasShownLightningComplete = false;
+    private bool hasShownRewardStage3 = false;
+    private bool hasShownStageSelect4 = false;
+    private bool hasShownProtectionPotionIntro = false;
+    private bool hasShownProtectionPotionTarget = false;
+    private bool hasShownProtectionPotionComplete = false;
     private bool hasShownPassiveArtifact = false;
+    private bool hasShownBuffStatus = false;
+    private bool pendingBuffStatusTutorial = false;
+    private bool pendingPassiveArtifactTutorial = false;
+    private ArtifactData pendingPassiveArtifactData = null;
 
     public bool IsPromotionComplete => hasShownPromotionComplete;
 
@@ -119,10 +128,27 @@ public partial class TutorialManager
         if (!IsTutorialActive) return;
 
         int cleared = GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0;
+        if (cleared >= 4)
+        {
+            CompleteTutorial();
+            return;
+        }
+
         Debug.Log($"[TutorialManager] {cleared}스테이지 보상 선택 완료 -> 스테이지 선택 튜토리얼 대기");
         if (isDialogShowing)
         {
             CloseCurrentPhaseDialog();
+        }
+
+        if (pendingPassiveArtifactTutorial || pendingBuffStatusTutorial)
+        {
+            return;
+        }
+
+        int nextStage = cleared + 1;
+        if (nextStage == 2 || nextStage == 3 || nextStage == 4)
+        {
+            ShowStageSelectPhase(nextStage);
         }
     }
 
@@ -130,15 +156,36 @@ public partial class TutorialManager
 
     /// <summary>
     /// [6. 스테이지 행선지 선택 튜토리얼]을 표시합니다.
+    /// (2, 3, 4스테이지 이동 시에만 안내하며, 5스테이지 이상에서는 표시하지 않습니다)
     /// </summary>
     public void ShowStageSelectPhase(int nextStage = 2)
     {
-        if (nextStage == 3)
+        if (!IsTutorialActive || PlayerPrefs.GetInt(PrefsKeyTutorialCompleted, 0) == 1) return;
+        if (nextStage < 2 || nextStage > 4) return;
+
+        if (nextStage == 4)
+        {
+            if (hasShownStageSelect4) return;
+
+            if (isDialogShowing && (CurrentPhase == TutorialPhase.PassiveArtifact || CurrentPhase == TutorialPhase.BuffStatus))
+            {
+                return;
+            }
+
+            hasShownStageSelect4 = true;
+            if (messagesData.stageSelectStage4 == null || messagesData.stageSelectStage4.Count == 0)
+            {
+                ShowPhase(TutorialPhase.StageSelect, messagesData.stageSelect);
+                return;
+            }
+            ShowPhase(TutorialPhase.StageSelect, messagesData.stageSelectStage4);
+        }
+        else if (nextStage == 3)
         {
             if (hasShownStageSelect3) return;
 
-            // 패시브 유물 튜토리얼 등 다른 안내가 진행 중이면, 해당 튜토리얼이 완료된 직후 순차적으로 표시되도록 대기
-            if (isDialogShowing && CurrentPhase == TutorialPhase.PassiveArtifact)
+            // 패시브 유물/버프 튜토리얼 등 다른 안내가 진행 중이면, 해당 튜토리얼이 완료된 직후 순차적으로 표시되도록 대기
+            if (isDialogShowing && (CurrentPhase == TutorialPhase.PassiveArtifact || CurrentPhase == TutorialPhase.BuffStatus))
             {
                 return;
             }
@@ -152,12 +199,12 @@ public partial class TutorialManager
             }
             ShowPhase(TutorialPhase.StageSelect, messagesData.stageSelectStage3);
         }
-        else
+        else if (nextStage == 2)
         {
             if (hasShownStageSelect) return;
 
-            // 패시브 유물 튜토리얼 등 다른 안내가 진행 중이면, 해당 튜토리얼이 완료된 직후 순차적으로 표시되도록 대기
-            if (isDialogShowing && CurrentPhase == TutorialPhase.PassiveArtifact)
+            // 패시브 유물/버프 튜토리얼 등 다른 안내가 진행 중이면, 해당 튜토리얼이 완료된 직후 순차적으로 표시되도록 대기
+            if (isDialogShowing && (CurrentPhase == TutorialPhase.PassiveArtifact || CurrentPhase == TutorialPhase.BuffStatus))
             {
                 return;
             }
@@ -382,6 +429,57 @@ public partial class TutorialManager
     }
 
     /// <summary>
+    /// [3스테이지 전투 승리 보상: 보호의 물약 선택 유도] 단계를 시작합니다.
+    /// </summary>
+    public void ShowRewardStage3Phase()
+    {
+        if (hasShownRewardStage3) return;
+        hasShownRewardStage3 = true;
+
+        ShowPhase(TutorialPhase.RewardStage3, messagesData.rewardStage3);
+    }
+
+    /// <summary>
+    /// [4스테이지 전투 진입 후 보호의 물약 사용 유도] 단계를 시작합니다.
+    /// </summary>
+    public void ShowProtectionPotionIntroPhase()
+    {
+        if (hasShownProtectionPotionIntro) return;
+        hasShownProtectionPotionIntro = true;
+
+        HighlightArtifactSlot("AC03");
+
+        ShowPhase(TutorialPhase.ProtectionPotionIntro, messagesData.protectionPotionIntro);
+    }
+
+    /// <summary>
+    /// [보호의 물약 타겟팅 단계: 아군 기물 클릭 유도] 단계를 시작합니다.
+    /// </summary>
+    public void ShowProtectionPotionTargetPhase()
+    {
+        if (hasShownProtectionPotionTarget) return;
+        hasShownProtectionPotionTarget = true;
+
+        ClearArtifactSlotHighlight();
+
+        ShowPhase(TutorialPhase.ProtectionPotionTarget, messagesData.protectionPotionTarget);
+    }
+
+    /// <summary>
+    /// [보호의 물약 발동 완료 및 버프 상태 설명, 튜토리얼 최종 완료] 단계를 시작합니다.
+    /// </summary>
+    public void ShowProtectionPotionCompletePhase()
+    {
+        if (hasShownProtectionPotionComplete) return;
+        hasShownProtectionPotionComplete = true;
+
+        ClearArtifactSlotHighlight();
+        ClearPieceHighlight();
+
+        ShowPhase(TutorialPhase.ProtectionPotionComplete, messagesData.protectionPotionComplete);
+    }
+
+    /// <summary>
     /// 패시브 유물 최초 획득 시 설명 튜토리얼을 표시합니다.
     /// </summary>
     public void ShowPassiveArtifactPhase(ArtifactData artifact)
@@ -393,6 +491,18 @@ public partial class TutorialManager
         HighlightArtifactSlot(artifact);
 
         ShowPhase(TutorialPhase.PassiveArtifact, messagesData.passiveArtifact);
+    }
+
+    /// <summary>
+    /// 기물의 버프 상태를 부여하는 유물/인장 최초 발견 시 안내 튜토리얼을 표시합니다.
+    /// </summary>
+    public void ShowBuffStatusPhase()
+    {
+        hasShownBuffStatus = true;
+        PlayerPrefs.SetInt(PrefsKeyBuffStatusShown, 1);
+        PlayerPrefs.Save();
+
+        ShowPhase(TutorialPhase.BuffStatus, messagesData.buffStatus);
     }
 
     /// <summary>
@@ -476,7 +586,13 @@ public partial class TutorialManager
             hasShownLightningIntro = hasShownLightningIntro,
             hasShownLightningTarget = hasShownLightningTarget,
             hasShownLightningComplete = hasShownLightningComplete,
-            hasShownPassiveArtifact = hasShownPassiveArtifact
+            hasShownRewardStage3 = hasShownRewardStage3,
+            hasShownStageSelect4 = hasShownStageSelect4,
+            hasShownProtectionPotionIntro = hasShownProtectionPotionIntro,
+            hasShownProtectionPotionTarget = hasShownProtectionPotionTarget,
+            hasShownProtectionPotionComplete = hasShownProtectionPotionComplete,
+            hasShownPassiveArtifact = hasShownPassiveArtifact,
+            hasShownBuffStatus = hasShownBuffStatus
         };
     }
 
@@ -486,6 +602,13 @@ public partial class TutorialManager
     public void PrepareTutorialRestore(SavedTutorialData data)
     {
         if (data == null || !data.isTutorialActive) return;
+
+        int cleared = GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0;
+        if (cleared >= 4 || PlayerPrefs.GetInt(PrefsKeyTutorialCompleted, 0) == 1)
+        {
+            CompleteTutorial();
+            return;
+        }
 
         IsTutorialActive = true;
         CurrentPhase = (TutorialPhase)data.currentPhase;
@@ -511,7 +634,13 @@ public partial class TutorialManager
         hasShownLightningIntro = data.hasShownLightningIntro;
         hasShownLightningTarget = data.hasShownLightningTarget;
         hasShownLightningComplete = data.hasShownLightningComplete;
+        hasShownRewardStage3 = data.hasShownRewardStage3;
+        hasShownStageSelect4 = data.hasShownStageSelect4;
+        hasShownProtectionPotionIntro = data.hasShownProtectionPotionIntro;
+        hasShownProtectionPotionTarget = data.hasShownProtectionPotionTarget;
+        hasShownProtectionPotionComplete = data.hasShownProtectionPotionComplete;
         hasShownPassiveArtifact = data.hasShownPassiveArtifact;
+        hasShownBuffStatus = data.hasShownBuffStatus;
 
         EnsureDialogUI();
         SubscribeEvents();
@@ -523,6 +652,13 @@ public partial class TutorialManager
     public void ResumeTutorialAfterRestore(SavedTutorialData data, StageSaveData stageSave)
     {
         if (data == null || !data.isTutorialActive) return;
+
+        int cleared = stageSave != null ? stageSave.clearedStage : (GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0);
+        if (cleared >= 4)
+        {
+            CompleteTutorial();
+            return;
+        }
 
         IsTutorialActive = true;
         EnsureDialogUI();
@@ -548,6 +684,13 @@ public partial class TutorialManager
 
     private void ExecuteResumeTutorial(SavedTutorialData data, StageSaveData stageSave)
     {
+        int cleared = stageSave != null ? stageSave.clearedStage : (GameManager.Instance != null ? GameManager.Instance.ClearedStage : 0);
+        if (cleared >= 4 || PlayerPrefs.GetInt(PrefsKeyTutorialCompleted, 0) == 1)
+        {
+            CompleteTutorial();
+            return;
+        }
+
         if (!IsTutorialActive) return;
 
         // 1. 첫 진입 질문 대기 상태 복원
@@ -562,15 +705,20 @@ public partial class TutorialManager
         // 2. 보상 획득 상태 복원
         if (stageSave != null && stageSave.pendingReward)
         {
-            if (stageSave.clearedStage == 0)
+            if (stageSave.clearedStage == 0 || stageSave.clearedStage == 1)
             {
                 hasShownReward = false;
                 ShowRewardPhase();
             }
-            else if (stageSave.clearedStage == 1)
+            else if (stageSave.clearedStage == 2)
             {
                 hasShownRewardStage2 = false;
                 ShowRewardStage2Phase();
+            }
+            else if (stageSave.clearedStage == 3)
+            {
+                hasShownRewardStage3 = false;
+                ShowRewardStage3Phase();
             }
             return;
         }
@@ -579,20 +727,25 @@ public partial class TutorialManager
         if (stageSave != null && stageSave.currentFlowState == (int)GameFlowState.StageSelect)
         {
             int nextStage = stageSave.clearedStage + 1;
-            if (nextStage == 3)
+            if (nextStage == 4)
+            {
+                hasShownStageSelect4 = false;
+                ShowStageSelectPhase(nextStage);
+            }
+            else if (nextStage == 3)
             {
                 hasShownStageSelect3 = false;
+                ShowStageSelectPhase(nextStage);
             }
-            else
+            else if (nextStage == 2)
             {
                 hasShownStageSelect = false;
+                ShowStageSelectPhase(nextStage);
             }
-            ShowStageSelectPhase(nextStage);
             return;
         }
 
         // 4. 전투 준비(Prepare) 및 전투 진행(GamePlay) 상태 복원
-        int cleared = stageSave != null ? stageSave.clearedStage : 0;
         bool isPrepare = GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.Prepare;
         bool isGamePlay = GameStateManager.Instance != null && GameStateManager.Instance.CurrentState == GameStateManager.GameState.GamePlay;
 
@@ -702,6 +855,24 @@ public partial class TutorialManager
                     {
                         hasShownLightningIntro = false;
                         StartCoroutine(DelayedShowLightningIntroRoutine());
+                    }
+                }
+            }
+        }
+        else if (cleared == 3)
+        {
+            if (isGamePlay)
+            {
+                if (!hasShownProtectionPotionComplete)
+                {
+                    if (hasShownProtectionPotionTarget)
+                    {
+                        ShowProtectionPotionTargetPhase();
+                    }
+                    else
+                    {
+                        hasShownProtectionPotionIntro = false;
+                        StartCoroutine(DelayedShowProtectionPotionIntroRoutine());
                     }
                 }
             }

@@ -32,6 +32,7 @@ public class StageSelectUI : MonoBehaviour
     private readonly List<StageNodeType> currentPendingNodeTypes = new List<StageNodeType>();
     public IReadOnlyList<StageNodeType> CurrentPendingNodeTypes => currentPendingNodeTypes;
     public int CurrentNextStage { get; private set; }
+    public bool IsOpen => rootPanel != null && rootPanel.activeSelf;
 
     public void SetPendingStageNodes(List<StageNodeType> nodes)
     {
@@ -192,7 +193,7 @@ public class StageSelectUI : MonoBehaviour
         int subStage = ((nextStage - 1) % 10) + 1;
 
         List<StageChoiceOption> options;
-        if (nextStage == 2 || (nextStage == 3 && TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive))
+        if (nextStage == 2 || ((nextStage == 3 || nextStage == 4) && TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive))
         {
             currentPendingNodeTypes.Clear();
             options = GenerateStageOptions(nextStage);
@@ -227,7 +228,7 @@ public class StageSelectUI : MonoBehaviour
 
         ShowChoices(options, $"NEXT STAGE : {act}-{subStage}", "다음 행선지를 선택하세요");
 
-        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive && (nextStage == 2 || nextStage == 3))
+        if (TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive && (nextStage == 2 || nextStage == 3 || nextStage == 4))
         {
             TutorialManager.Instance.ShowStageSelectPhase(nextStage);
         }
@@ -287,8 +288,8 @@ public class StageSelectUI : MonoBehaviour
     {
         var options = new List<StageChoiceOption>();
 
-        // 튜토리얼 2, 3스테이지 선택지는 둘 다 일반 전투 제시
-        if (nextStage == 2 || (nextStage == 3 && TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive))
+        // 튜토리얼 2, 3, 4스테이지 선택지는 둘 다 일반 전투 제시
+        if (nextStage == 2 || ((nextStage == 3 || nextStage == 4) && TutorialManager.Instance != null && TutorialManager.Instance.IsTutorialActive))
         {
             options.Add(StageChoiceOption.FromNodeType(StageNodeType.NormalBattle));
             options.Add(StageChoiceOption.FromNodeType(StageNodeType.NormalBattle));

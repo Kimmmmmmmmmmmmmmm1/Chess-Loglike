@@ -178,11 +178,18 @@ public class StageSaveManager : MonoBehaviour
             saveData.currentFlowState = GameManager.Instance != null ? (int)GameManager.Instance.CurrentFlowState : (int)GameFlowState.Battle;
             saveData.currentBattleType = GameManager.Instance != null ? (int)GameManager.Instance.CurrentBattleType : (int)BattleType.Normal;
 
-            // 튜토리얼 진행 상태 저장
+            // 튜토리얼 진행 상태 저장 (4스테이지 이하에서만 활성 상태 유지)
             TutorialManager tm = TutorialManager.EnsureInstance();
             if (tm != null && tm.IsTutorialActive)
             {
-                saveData.tutorialData = tm.ExportTutorialSaveData();
+                if (saveData.clearedStage < 4)
+                {
+                    saveData.tutorialData = tm.ExportTutorialSaveData();
+                }
+                else
+                {
+                    tm.CompleteTutorial();
+                }
             }
 
             // 그리드 및 보드 크기 저장
@@ -418,10 +425,19 @@ public class StageSaveManager : MonoBehaviour
         TutorialManager tm = TutorialManager.EnsureInstance();
         if (saveData.tutorialData != null && saveData.tutorialData.isTutorialActive)
         {
-            if (tm != null)
+            if (saveData.clearedStage >= 4 || PlayerPrefs.GetInt("Tutorial_Completed", 0) == 1)
+            {
+                saveData.tutorialData.isTutorialActive = false;
+                tm?.CompleteTutorial();
+            }
+            else if (tm != null)
             {
                 tm.PrepareTutorialRestore(saveData.tutorialData);
             }
+        }
+        else
+        {
+            tm?.AbortTutorial();
         }
 
         // 1. 게임 매니저 상태 복원
@@ -723,12 +739,16 @@ public class StageSaveManager : MonoBehaviour
 
         isRestoring = false;
 
-        if (saveData.tutorialData != null && saveData.tutorialData.isTutorialActive)
+        if (saveData.tutorialData != null && saveData.tutorialData.isTutorialActive && saveData.clearedStage < 4 && PlayerPrefs.GetInt("Tutorial_Completed", 0) == 0)
         {
             if (tm != null)
             {
                 tm.ResumeTutorialAfterRestore(saveData.tutorialData, saveData);
             }
+        }
+        else
+        {
+            tm?.AbortTutorial();
         }
     }
 

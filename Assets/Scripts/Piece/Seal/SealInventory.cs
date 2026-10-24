@@ -7,6 +7,7 @@ using UnityEngine;
 public class SealInventory : MonoBehaviour
 {
     public static SealInventory Instance { get; private set; }
+    public static event System.Action<SealData> OnSealAddedToInventory;
 
     [Header("Owned Seals")]
     [SerializeField] private List<SealData> ownedSeals = new List<SealData>();
@@ -62,6 +63,7 @@ public class SealInventory : MonoBehaviour
             ownedSeals.Add(seal);
         }
         CollectionManager.EnsureInstance().RecordSeal(seal);
+        OnSealAddedToInventory?.Invoke(seal);
     }
 
     /// <summary>
@@ -85,6 +87,7 @@ public class SealInventory : MonoBehaviour
         EnsureSlot(clampedIndex);
         ownedSeals[clampedIndex] = seal;
         CollectionManager.EnsureInstance().RecordSeal(seal);
+        OnSealAddedToInventory?.Invoke(seal);
     }
 
     public bool MoveSeal(SealData seal, int targetIndex)
@@ -129,6 +132,7 @@ public class SealInventory : MonoBehaviour
         EnsureSlot(index);
         ownedSeals[index] = seal;
         CollectionManager.EnsureInstance().RecordSeal(seal);
+        OnSealAddedToInventory?.Invoke(seal);
         return true;
     }
 

@@ -457,6 +457,7 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         if (seal != null)
         {
             CollectionManager.EnsureInstance()?.RecordSealSeen(seal);
+            TutorialManager.Instance?.CheckBuffDiscovered(seal);
         }
         UpdateUI();
     }
@@ -473,6 +474,7 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         if (seal != null)
         {
             CollectionManager.EnsureInstance()?.RecordSealSeen(seal);
+            TutorialManager.Instance?.CheckBuffDiscovered(seal);
         }
         UpdateUI();
     }
@@ -489,6 +491,7 @@ public class ShopPieceSlot : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
         if (artifact != null)
         {
             CollectionManager.EnsureInstance()?.RecordArtifactSeen(artifact);
+            TutorialManager.Instance?.CheckBuffDiscovered(artifact);
         }
         UpdateUI();
     }

@@ -362,7 +362,10 @@ public class ArtifactManager : MonoBehaviour
             return null; // 모든 아티팩트 획득함
         }
 
-        // minRarity가 Rare 이상일 경우: Epic(60%)과 Rare(40%) 가중치 추첨
+        // minRarity가 Rare 이상일 경우: Epic과 Rare 가중치 추첨
+        float rareBonus = ArtifactEffectHandlers.GetRareChanceBonus();
+        float rareMult = 1f + (rareBonus / 100f);
+
         if (minRarity >= ArtifactRarity.Rare)
         {
             var epicPool = availableArtifacts.Where(a => a.rarity == ArtifactRarity.Epic).ToList();
@@ -370,12 +373,44 @@ public class ArtifactManager : MonoBehaviour
 
             if (epicPool.Count > 0 && rarePool.Count > 0)
             {
-                return UnityEngine.Random.value < 0.6f 
+                // 기본 Epic 확률 60%, rareMult 보정 (최대 95%)
+                float epicChance = Mathf.Clamp(0.6f * rareMult, 0.6f, 0.95f);
+                return UnityEngine.Random.value < epicChance 
                     ? epicPool[UnityEngine.Random.Range(0, epicPool.Count)] 
                     : rarePool[UnityEngine.Random.Range(0, rarePool.Count)];
             }
             if (epicPool.Count > 0) return epicPool[UnityEngine.Random.Range(0, epicPool.Count)];
             if (rarePool.Count > 0) return rarePool[UnityEngine.Random.Range(0, rarePool.Count)];
+        }
+
+        // 전체 풀에서 가중치 추첨 (희귀 이상 등급은 rareMult 가중치 적용)
+        float totalWeight = 0f;
+        List<float> weights = new List<float>(availableArtifacts.Count);
+        foreach (var art in availableArtifacts)
+        {
+            float w = art.rarity switch
+            {
+                ArtifactRarity.Legendary => 5f * rareMult,
+                ArtifactRarity.Epic => 15f * rareMult,
+                ArtifactRarity.Rare => 35f * rareMult,
+                _ => 50f
+            };
+            weights.Add(w);
+            totalWeight += w;
+        }
+
+        if (totalWeight > 0f)
+        {
+            float roll = UnityEngine.Random.Range(0f, totalWeight);
+            float current = 0f;
+            for (int i = 0; i < availableArtifacts.Count; i++)
+            {
+                current += weights[i];
+                if (roll <= current)
+                {
+                    return availableArtifacts[i];
+                }
+            }
         }
 
         return availableArtifacts[UnityEngine.Random.Range(0, availableArtifacts.Count)];
@@ -404,6 +439,38 @@ public class ArtifactManager : MonoBehaviour
         
         if (shopAvailableArtifacts.Count == 0) return null;
 
+        float rareBonus = ArtifactEffectHandlers.GetRareChanceBonus();
+        float rareMult = 1f + (rareBonus / 100f);
+
+        float totalWeight = 0f;
+        List<float> weights = new List<float>(shopAvailableArtifacts.Count);
+        foreach (var art in shopAvailableArtifacts)
+        {
+            float w = art.rarity switch
+            {
+                ArtifactRarity.Legendary => 5f * rareMult,
+                ArtifactRarity.Epic => 15f * rareMult,
+                ArtifactRarity.Rare => 35f * rareMult,
+                _ => 50f
+            };
+            weights.Add(w);
+            totalWeight += w;
+        }
+
+        if (totalWeight > 0f)
+        {
+            float roll = UnityEngine.Random.Range(0f, totalWeight);
+            float current = 0f;
+            for (int i = 0; i < shopAvailableArtifacts.Count; i++)
+            {
+                current += weights[i];
+                if (roll <= current)
+                {
+                    return shopAvailableArtifacts[i];
+                }
+            }
+        }
+
         return shopAvailableArtifacts[UnityEngine.Random.Range(0, shopAvailableArtifacts.Count)];
     }
 
@@ -423,10 +490,17 @@ public class ArtifactManager : MonoBehaviour
         if (available.Count == 0) return null;
 
         // 보물상자 높은 등급 가중치: 전설 35%, 영웅 45%, 희귀 20%
-        float roll = UnityEngine.Random.Range(0f, 100f);
+        float rareBonus = ArtifactEffectHandlers.GetRareChanceBonus();
+        float rareMult = 1f + (rareBonus / 100f);
+        float legWeight = 35f * rareMult;
+        float epicWeight = 45f * rareMult;
+        float rareWeight = 20f;
+        float totalWeight = legWeight + epicWeight + rareWeight;
+
+        float roll = UnityEngine.Random.Range(0f, totalWeight);
         ArtifactRarity targetRarity;
-        if (roll < 35f) targetRarity = ArtifactRarity.Legendary;
-        else if (roll < 80f) targetRarity = ArtifactRarity.Epic;
+        if (roll < legWeight) targetRarity = ArtifactRarity.Legendary;
+        else if (roll < legWeight + epicWeight) targetRarity = ArtifactRarity.Epic;
         else targetRarity = ArtifactRarity.Rare;
 
         var targetPool = available.Where(a => a.rarity == targetRarity).ToList();

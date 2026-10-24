@@ -1636,6 +1636,7 @@ public class PieceManager : MonoBehaviour
     {
         // 공통 발동 연출은 PieceController에서 관리하고, 이곳에서는 로그만 조합합니다.
         defender.PlayBuffActivationEffect(buffType);
+        defender.PlayBuffConsumePopupEffect(buffType);
 
         string buffName = buffType switch
         {

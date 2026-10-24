@@ -3181,6 +3181,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         RefreshBuffAuraVisuals();
         PieceManager.Instance?.RefreshSelectedPieceMoves(this);
+        TutorialManager.Instance?.NotifyPieceBuffApplied();
     }
 
     public bool ConsumeBuff(PieceBuffType buffType)
@@ -3237,6 +3238,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         }
 
         RefreshBuffAuraVisuals();
+        TutorialManager.Instance?.NotifyPieceBuffApplied();
     }
 
     public void AdvanceBuffTurn()
@@ -3299,6 +3301,20 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         pieceImage.DOColor(returnColor, 0.35f).SetEase(Ease.OutQuad);
     }
 
+    /// <summary>
+    /// 보호, 회피, 역습 등 버프 스택 소모 시 해당 기물의 위치를 중심으로
+    /// 유물 토템 스타일의 소형 팝업 연출을 재생합니다.
+    /// </summary>
+    public void PlayBuffConsumePopupEffect(PieceBuffType buffType)
+    {
+        if (buffType == PieceBuffType.Protection ||
+            buffType == PieceBuffType.Evasion ||
+            buffType == PieceBuffType.Counterattack)
+        {
+            ArtifactPopupEffect.PlayBuffPop(buffType, transform.position);
+        }
+    }
+
     public void SetBuffStacks(PieceBuffType buffType, int stacks)
     {
         stacks = Mathf.Max(0, stacks);
@@ -3326,6 +3342,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
 
         RefreshBuffAuraVisuals();
         PieceManager.Instance?.RefreshSelectedPieceMoves(this);
+        TutorialManager.Instance?.NotifyPieceBuffApplied();
     }
 
     /// <summary>
@@ -3342,6 +3359,7 @@ public class PieceController : MonoBehaviour, IBeginDragHandler, IDragHandler, I
         confusionTurns = 0;
         RefreshBuffAuraVisuals();
         PieceManager.Instance?.RefreshSelectedPieceMoves(this);
+        TutorialManager.Instance?.NotifyPieceBuffApplied();
     }
 
     private void CreateBuffAuraVisuals()
